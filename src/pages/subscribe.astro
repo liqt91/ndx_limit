@@ -13,7 +13,9 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     <a href="/">今日 →</a>
   </div>
   <h1 class="section-title">订阅日报</h1>
-  <p class="my-hint">每天早上 8 点，把当天纳指基金的开门与限购变化发到你的邮箱。只填邮箱，不用注册。</p>
+  <p class="my-hint">
+    每天早上 8 点，把当天纳指基金的开门与限购变化发到你的邮箱。只填邮箱，提交后去收件箱点一下确认链接就完成了。
+  </p>
 
   <form class="form" id="sub-form" novalidate>
     <label for="email">邮箱地址</label>
@@ -37,6 +39,10 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
     <p class="form-status" id="sub-status" role="status" aria-live="polite"></p>
 
+    <p class="note">
+      提交后会收到一封确认信，点信里的链接才正式入名单（3 天内有效，未确认不会收到日报）。
+      这样别人就没法拿你的邮箱替你订阅。
+    </p>
     <p class="note">
       只收集邮箱这一个字段，仅用于每天早上发送日报，不做其它用途、不共享给第三方。
       每封邮件底部都有退订链接，点一下就退订。本站不存姓名、手机号等任何其它信息。
@@ -87,8 +93,14 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
           if (res.ok && data.ok) {
             emailInput.disabled = true;
-            btn.textContent = '已订阅 ✓';
-            setStatus('已订阅。每天早上 8 点，日报会发到 ' + email + '。', 'ok');
+            if (data.pending) {
+              // 双重确认：还没入名单，得去邮箱点一下链接
+              btn.textContent = '待确认';
+              setStatus('确认邮件已发到 ' + email + '，点信里的链接才完成订阅（3 天内有效）。', 'ok');
+            } else {
+              btn.textContent = '已订阅 ✓';
+              setStatus('已订阅。每天早上 8 点，日报会发到 ' + email + '。', 'ok');
+            }
             return;
           }
 

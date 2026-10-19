@@ -14,7 +14,9 @@
 //   SUBSCRIBERS_TOKEN                若 SUBSCRIBERS_URL 需要鉴权，会以 Bearer 头发送
 //   SUBSCRIBERS_FILE                 本地 JSON / CSV / 换行分隔 文件（手动测试用）
 //   RATE_DELAY_MS                    每封间隔毫秒（默认 200，避免触发频率限制）
-//   UNSUBSCRIBE_MAILTO               退订地址，写入 List-Unsubscribe 头（可选）
+//   UNSUBSCRIBE_URL                  退订接口，如 https://ndx.liqt91.top/api/unsubscribe
+//   UNSUB_SECRET                     与 EdgeOne 环境变量同名同值，用于签退订链接
+//   UNSUBSCRIBE_MAILTO               退订邮箱（可选），会一起写进 List-Unsubscribe 头
 //
 // 用法：
 //   node scripts/send.mjs --dry-run   只打印，不发送
@@ -23,6 +25,7 @@
 import fs from 'node:fs';
 import nodemailer from 'nodemailer';
 import { buildDailyDigest } from './digest.mjs';
+import { unsubLink } from './unsub.mjs';
 
 const DRY = process.argv.includes('--dry-run');
 const HOST = process.env.SMTP_HOST || '';
@@ -39,8 +42,12 @@ const SUB_TOKEN = process.env.SUBSCRIBERS_TOKEN || '';
 const SUB_FILE = process.env.SUBSCRIBERS_FILE || '';
 const DELAY = Number(process.env.RATE_DELAY_MS ?? 200);
 const UNSUB = process.env.UNSUBSCRIBE_MAILTO || '';
+const UNSUB_URL = (process.env.UNSUBSCRIBE_URL || '').replace(/\/+$/, '');
+const UNSUB_SECRET = process.env.UNSUB_SECRET || '';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const linkFor = (email) => unsubLink(email, UNSUB_URL, UNSUB_SECRET);
 
 function toEmailList(data) {
   const out = [];
@@ -115,6 +122,10 @@ async function main() {
   const subs = await loadSubscribers();
   console.log(`subject: ${d.subject}`);
   console.log(`订阅者: ${subs.length} 人${subs.length ? `（示例 ${subs.slice(0, 3).join(', ')}…）` : ''}`);
+  if (!UNSUB_URL || !UNSUB_SECRET) {
+    // 静默缺失最麻烦：日报发出去了、却没有退订口，收件人只能点「举报垃圾邮件」
+    console.log('⚠ 未配置 UNSUBSCRIBE_URL / UNSUB_SECRET：日报里将不带退订链接。');
+  }
   console.log('---');
   console.log(d.text);
   console.log('---');
@@ -139,15 +150,17 @@ async function main() {
     auth: USER ? { user: USER, pass: PASS } : undefined,
   });
 
-  const headers = {};
-  if (UNSUB) headers['List-Unsubscribe'] = `<mailto:${UNSUB}>`;
-
   let ok = 0;
   let fail = 0;
   for (let i = 0; i < subs.length; i++) {
     const to = subs[i];
+    const link = linkFor(to);
+    const body = link ? `${d.text}\n\n——\n退订：${link}\n（点一下就把这个地址从名单里删掉，之后不再收到日报。）` : d.text;
+    const headers = {};
+    if (link) headers['List-Unsubscribe'] = `<${link}>${UNSUB ? `, <mailto:${UNSUB}>` : ''}`;
+    else if (UNSUB) headers['List-Unsubscribe'] = `<mailto:${UNSUB}>`;
     try {
-      await transport.sendMail({ from: FROM, to, subject: d.subject, text: d.text, headers });
+      await transport.sendMail({ from: FROM, to, subject: d.subject, text: body, headers });
       ok++;
       process.stdout.write(`\r发送中 ${i + 1}/${subs.length}  成功 ${ok}  失败 ${fail}`);
     } catch (e) {

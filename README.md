@@ -119,20 +119,42 @@ npm run ci:build                  # 本地：抓取 + 构建一步到位（= scr
 
 1. **收邮箱（同域边缘函数）**：`/subscribe` 是本站原生表单，`fetch POST /api/subscribe`
    → `edge-functions/api/subscribe.js`，跑在 EdgeOne 边缘节点，写入 KV。
-   - 邮箱归一化为小写、SHA-256 后做 key（`sub_<hex>`），重复订阅幂等；
+   - 邮箱归一化为小写、SHA-256 后做 key，重复订阅幂等；
    - 蜜罐字段 + Origin 校验防刷，另建议在控制台对 `/api/subscribe` 加限频规则；
    - 只收集邮箱一个字段，页面已写明用途与退订方式。
-2. **取名单（带鉴权的只读接口）**：`GET /api/subscribers`，需 `Authorization: Bearer <SUBSCRIBERS_TOKEN>`，
-   分页遍历 KV 返回 `{count, emails}`。名单放在自己的腾讯云账号里，换发信服务商不用迁移。
-3. **每日群发**：`broadcast.yml` 每天 08:20 拉名单 → `scripts/send.mjs` 用 SMTP 逐封发送。
-   **无变化也发**（正文含「今日无变化」）。
-4. **管理员自通知（可选）**：`refresh.yml` 里跑 `scripts/notify.mjs`，把变化推给站长自己（飞书/微信）。
+2. **双重确认（默认开启）**：提交后不直接入名单，而是写 `pend_<sha>` 并调 Brevo 事务邮件 API
+   发一封确认信，链接指到本站 `GET /api/confirm?t=<token>`。
+   - 点了链接才把记录转成 `sub_<sha>`（真正入名单），确认链接 3 天有效；
+   - 优势：别人无法拿你的邮箱「代填」让你收日报；打错的地址进不了名单——硬退信会毁掉新域名的发信信誉；
+   - 同一邮箱 10 分钟内重复提交不重发（防被用来轰炸某人邮箱）；
+   - 发信失败会回滚 `pend_`/`tok_` 并返回 502，不留「有记录、无链接」的死状态；
+   - 需要退回「填了即入名单」时，把环境变量 `REQUIRE_CONFIRM` 设成 `false` 即可，不用改代码。
+3. **取名单（带鉴权的只读接口）**：`GET /api/subscribers`，需 `Authorization: Bearer <SUBSCRIBERS_TOKEN>`，
+   分页遍历 KV 返回 `{count, emails}`。
+   **只返回已确认的 `sub_`**，`pend_`/`tok_` 一律不出现。名单放在自己的腾讯云账号里，换发信服务商不用迁移。
+4. **每日群发**：`broadcast.yml` 每天 08:20 拉名单 → `scripts/send.mjs` 用 SMTP 逐封发送。
+   **无变化也发**（正文含「今日无变化」）。每封底部带签名退订链接。
+5. **退订**：`GET /api/unsubscribe?e=<email>&t=<sha256(email + ':' + UNSUB_SECRET)>`，
+   校验通过就真删 `sub_<sha>`。签名算法只存在于 `scripts/unsub.mjs`（发送侧）与
+   `edge-functions/api/unsubscribe.js`（校验侧），测试直接 import 前者去敲后者，任一端改口径立刻红。
+6. **管理员自通知（可选）**：`refresh.yml` 里跑 `scripts/notify.mjs`，把变化推给站长自己（飞书/微信）。
 
 ### 一次性配置
 
 **EdgeOne 侧**
 - 存储 → KV → 开通账户并创建命名空间 → 绑定到本项目，运行时变量名填 `SUBS_KV`；
-- 项目 → 环境变量：`SUBSCRIBERS_TOKEN`（≥32 位随机串），可选 `ALLOWED_ORIGIN`（默认 `https://ndx.liqt91.top`）；
+- 项目 → 环境变量：
+
+| 变量 | 说明 |
+|---|---|
+| `SUBSCRIBERS_TOKEN` | ≥32 位随机串，`/api/subscribers` 的 Bearer 口令 |
+| `BREVO_API_KEY` | Brevo → SMTP & API → API Keys，用于发确认信 |
+| `MAIL_FROM` | 确认信发件人，如 `纳指开门日报 <digest@liqt91.top>`（域名须在 Brevo 验证过） |
+| `UNSUB_SECRET` | 退订链接签名密钥，与 GitHub Secrets 同名同值 |
+| `REQUIRE_CONFIRM` | 默认 `true`（双重确认）；填 `false` 退回单确认 |
+| `SITE_URL` | 默认 `https://ndx.liqt91.top`，确认/退订链接的域名前缀 |
+| `ALLOWED_ORIGIN` | 默认 `https://ndx.liqt91.top`，跨站提交会被 403 |
+
 - 安全防护 → 给 `/api/subscribe` 加精确限频（免费版含 1 条该规则，优先给它）。
 
 **GitHub 侧（Settings → Secrets → Actions）**
@@ -143,7 +165,9 @@ npm run ci:build                  # 本地：抓取 + 构建一步到位（= scr
 | `MAIL_FROM` | 发件人，如 `纳指开门日报 <digest@liqt91.top>` |
 | `SUBSCRIBERS_URL` | `https://ndx.liqt91.top/api/subscribers` |
 | `SUBSCRIBERS_TOKEN` | 与 EdgeOne 环境变量同名同值 |
-| `UNSUBSCRIBE_MAILTO`（可选） | 写入 `List-Unsubscribe` 头 |
+| `UNSUBSCRIBE_URL` | `https://ndx.liqt91.top/api/unsubscribe`；不配则日报不带退订链接（日志会警告） |
+| `UNSUB_SECRET` | 与 EdgeOne 环境变量同名同值 |
+| `UNSUBSCRIBE_MAILTO`（可选） | 追加 `<mailto:>` 到 `List-Unsubscribe` 头 |
 | `NOTIFY_WEBHOOK` + `NOTIFY_CHANNEL`（可选） | 站长自通知：`feishu`（默认）/`wechat`（Server酱） |
 
 ### 免费额度与已知限制
@@ -151,7 +175,9 @@ npm run ci:build                  # 本地：抓取 + 构建一步到位（= scr
 - 免费额度：EdgeOne Edge Functions 300 万次/月 + KV 1 GB；GitHub Actions（公开仓库）免费；Brevo 300 封/天永久免费。几百人规模全部在额度内。
 - **送达率才是最大变量**：Brevo 往 QQ/163 发信，**必须**在 `liqt91.top` 的 DNS 配好它给的 SPF/DKIM（TXT 记录），
   否则大概率进垃圾箱。这一步不做，前面所有体验优化都白费。
-- Brevo 自带退订页在境外域名，国内可能打不开；已用 `List-Unsubscribe: mailto:` 兜底。
+- Brevo 自带退订页在境外域名，国内可能打不开；日报里的退订链接指向本站 `/api/unsubscribe`，不依赖它。
+- 双重确认的确认信本身也要过 QQ/163 的垃圾箱。域名没养起来前若确认信大面积进垃圾箱，订阅转化会归零——
+  此时把 `REQUIRE_CONFIRM` 设为 `false` 可临时退回单确认，先拿到人、再慢慢养域名。
 - 早期方案已弃用：Formspree 只收不发；Buttondown 国内打不开（`buttondown.com` 不可达 → 订阅按钮必然失败）。
 
 ## 目录结构

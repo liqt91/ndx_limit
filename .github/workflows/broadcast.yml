@@ -57,6 +57,8 @@ jobs:
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           MAIL_FROM: ${{ secrets.MAIL_FROM }}
           UNSUBSCRIBE_MAILTO: ${{ secrets.UNSUBSCRIBE_MAILTO }}
+          UNSUBSCRIBE_URL: ${{ secrets.UNSUBSCRIBE_URL }}
+          UNSUB_SECRET: ${{ secrets.UNSUB_SECRET }}
           SUBSCRIBERS_URL: ${{ secrets.SUBSCRIBERS_URL }}
           SUBSCRIBERS_TOKEN: ${{ secrets.SUBSCRIBERS_TOKEN }}
           RATE_DELAY_MS: '200'
