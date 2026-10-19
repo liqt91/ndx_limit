@@ -1,0 +1,60 @@
+name: Daily Data Refresh
+
+# 调度：GitHub Actions cron（公开仓库永久免费）每天北京时间 08:00 抓取最新数据并回写仓库。
+# 回写那次 push 会触发 EdgeOne Pages（已连本仓库、push 即重建）自动重新部署 ——
+# 因此本仓库**不依赖任何腾讯云密钥或对象存储同步工具**，部署完全托管在 EdgeOne 一侧。
+on:
+  schedule:
+    - cron: '0 0 * * *' # UTC 00:00 = 北京 08:00
+  workflow_dispatch: # 手动触发（Actions 页面 Run workflow），用于首次或排障
+
+permissions:
+  contents: write # 仅用于把 data/ 回写仓库；默认 GITHUB_TOKEN 只有读，不开会 403
+
+concurrency:
+  group: daily-refresh
+  cancel-in-progress: false # 允许上一轮跑完，避免回写冲突
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 需要完整历史才能在其上 commit + push
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # 抓取今日数据。健康门禁：人民币覆盖率 < 阈值（默认 90%）→ 退出码 2，
+      # 本步失败会中止 job → 不回写、EdgeOne 保留上次好构建，绝不会发出「今日全暂停」假象。
+      - name: Scrape today's data
+        run: node scripts/scrape.mjs
+
+      # 把当天抓取结果回写仓库：history.json 是 30 天柱状图的数据源，CI checkout 的是已提交版，
+      # 不回写图表会逐天丢数据。这次 push 同时保住 GitHub 对公开仓库「60 天无活动停用定时任务」规则，
+      # 并触发 EdgeOne Pages 重建。无数据变化时跳过提交（避免空跑）。
+      - name: Commit data back
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/history.json data/fund-meta.json
+          if git diff --cached --quiet; then
+            echo "no data changes, skip commit"
+          else
+            git commit -m "data: daily scrape $(date -u +%Y-%m-%d)"
+            git push origin "HEAD:${{ github.ref_name }}"
+          fi
+
+      # 变化通知（可选）：仅当仓库配置了 NOTIFY_WEBHOOK 密钥时执行。
+      # 门禁联动：若 scrape 健康未通过，job 已中止，本步不会运行，不会发误导性通知。
+      - name: Notify changes (optional)
+        if: ${{ env.NOTIFY_WEBHOOK != '' }}
+        env:
+          NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK }}
+        run: node scripts/notify.mjs
