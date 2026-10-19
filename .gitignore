@@ -12,3 +12,9 @@ dist/
 .DS_Store
 *.log
 npm-debug.log*
+
+# 订阅者名单（含个人邮箱，绝不入库；通过国内表单/私有地址提供）
+data/subscribers*.json
+data/subscribers*.csv
+data/*.subscribers.*
+subscribers*.csv

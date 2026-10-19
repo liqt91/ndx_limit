@@ -9,9 +9,12 @@
     "scrape": "node scripts/scrape.mjs",
     "build": "astro build",
     "ci:build": "node scripts/scrape.mjs && astro build",
-    "preview": "astro preview"
+    "preview": "astro preview",
+    "send": "node scripts/send.mjs",
+    "send:dry": "node scripts/send.mjs --dry-run"
   },
   "dependencies": {
-    "astro": "^5.0.0"
+    "astro": "^5.0.0",
+    "nodemailer": "^10.1.7"
   }
 }
