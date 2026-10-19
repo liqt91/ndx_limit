@@ -1,9 +1,9 @@
 # 纳指开门日报（静态复刻版）
 
 一个**纯静态**的「纳斯达克 QDII 基金每日申购额度追踪」站。技术栈 **Astro（SSG）**，
-通过 **GitHub Actions 每天定时重新构建** 实现「每日更新」——构建在哪天跑，页面数据就体现哪天，
-全程**不需要服务器、数据库或运行时**。产物是纯 HTML/CSS/JS，可直接托管到任意静态服务
-（本方案默认部署到**腾讯云 COS 静态网站**）。
+全程**不需要服务器、数据库或运行时**。产物是纯 HTML/CSS/JS，托管在 **EdgeOne Pages**（腾讯云免费的
+静态网站服务，自带全球 CDN + HTTPS + DDoS 防护）；**每日更新**由 **GitHub Actions cron**（永久免费）
+每天抓取数据并回写仓库、自动触发 EdgeOne 重建实现——构建在哪天跑，页面数据就体现哪天。
 
 ## 功能
 
@@ -12,6 +12,9 @@
 - **历史** `/daily`：最近 15 天每日快照摘要
 - **我的基金** `/my`：在浏览器 localStorage 里存基金代码，纯前端过滤展示（不上传）
 - **订阅** `/subscribe`：纯静态表单（依赖第三方表单服务，见下）
+
+> 注：只展示**人民币份额**。美元份额仍在 `funds.json` 目录与抓取范围内（历史数据继续累积），
+> 只是不在站内渲染——过滤点在 `src/data/loader.ts` 的 `loadTodaySnapshot()`，日后想展示删掉那两行即可。
 
 ## 本地开发
 
@@ -22,18 +25,33 @@ npm run build      # 产出 dist/ 静态文件
 npm run preview    # 预览构建产物
 ```
 
-## 部署到腾讯云 COS（静态网站）
+## 部署（EdgeOne Pages + GitHub Actions）
 
-1. 在腾讯云创建一个**公有读**存储桶，开启 **静态网站托管**（得到 `*.cos-website.*` 域名）。
-2. 在 GitHub 仓库 `Settings → Secrets and variables → Actions` 添加：
-   - `COS_BUCKET`：存储桶名称
-   - `COS_REGION`：地域，如 `ap-guangzhou`
-   - `COS_SECRET_ID` / `COS_SECRET_KEY`：具有该桶读写权限的 API 密钥
-3. 把代码推到 GitHub，Actions 会**每天北京时间 08:00** 自动 `build + 部署`；也可以在
-   Actions 页面手动 `Run workflow` 立即触发。
-4. （可选）在 COS / DNS 控制台绑自定义域名并开启 CDN，加速国内访问。
+整合方案：**发布托管在 EdgeOne Pages（免费、push 触发、自带 CDN），每日调度在 GitHub Actions cron（永久免费）**。
+两条免费链路叠加，整站零成本、零腾讯密钥。
 
-> 部署脚本见 `scripts/deploy-cos.sh`，使用腾讯云官方 `coscli` 做增量同步（`--delete` 会清理已删除文件）。
+### 1. EdgeOne Pages（一次性）
+
+1. 登录 [EdgeOne Pages 控制台](https://console.cloud.tencent.com/edgeone/pages)，「新建项目 → 导入 Git 仓库」连到本 GitHub 仓库。
+2. 框架预设选 **Astro**；构建命令 `astro build`、输出目录 `dist`（连仓库后通常自动识别）。
+3. 首次部署即用当前代码 + 已提交的 `data/` 构建出一个线上站点，分配 `*.edgeone.app` 默认域名。
+   - 国内版：国内 CDN 快，绑自定义域名需 **ICP 备案**；国际版：免备案、全球快但国内慢。
+4. **绑定自定义子域名 `ndx.liqt91.top`（推荐）**：在 EdgeOne 项目「自定义域名」里添加 `ndx.liqt91.top`，
+   按控制台提示在 DNS 给 `ndx` 加一条 **CNAME**（指向 EdgeOne 提供的地址，或把 `liqt91.top` 整体 NS 托管给 EdgeOne），
+   等证书下发后该子域名即生效。同时把 `astro.config.mjs` 的 `site` 改成 `https://ndx.liqt91.top`（已填好），
+   这样 sitemap / canonical / 绝对链接都用正式域名，搜索引擎与分享卡片不会指向 `*.edgeone.app`。
+
+### 2. GitHub Actions（每日调度，已内置）
+
+`deploy.yml` 每天北京时间 08:00 触发：跑 `scrape.mjs` 抓今日数据 → 把 `history.json` / `fund-meta.json`
+**回写并 push 仓库**。这次 push 自动触发 EdgeOne 重新构建部署。不需要 COS / coscli / 任何腾讯密钥。
+
+- **健康门禁联动**：覆盖率 < 90% 时 `scrape.mjs` 以非零码退出，job 中止、不回写、EdgeOne 保留上次好构建。
+- **可选通知**：仓库 `Settings → Secrets` 加 `NOTIFY_WEBHOOK`（飞书机器人）即开启「今日变化」推送。
+- **手动触发**：Actions 页面 `Run workflow` 可立即跑一轮（首次验证用）。
+- 回写那次 commit 同时保住了 GitHub 对公开仓库「60 天无活动停用定时任务」的规则，日程不会被静默停。
+
+> 历史部署用的 `scripts/deploy-cos.sh`（coscli + COS）已弃用；如需改回 COS 见 git 历史。
 
 ## 数据从哪来（真实抓取）
 
@@ -45,13 +63,13 @@ npm run preview    # 预览构建产物
 - `data/fund-meta.json`：每只基金的官方简称。
 
 `src/data/loader.ts` 读取 `funds.json`(目录) + 上面两个文件（+ 可选的 `direct-overrides.json`），
-装配成 `DailySnapshot`，页面直接用。**静态站「每日更新」靠 CI 每天重建**
-(见 deploy.yml)：重建日 = 数据日，无需服务器/数据库。
+装配成 `DailySnapshot`，页面直接用。**静态站「每日更新」靠 GitHub Actions 每天抓取并回写仓库**
+(见 deploy.yml)，那次 push 触发 EdgeOne Pages 重建：重建日 = 数据日，无需服务器/数据库。
 
 ```bash
 node scripts/scrape.mjs            # 抓全部基金
 node scripts/scrape.mjs 019736     # 只抓某只（调试）
-npm run ci:build                  # 抓取 + 构建一步到位
+npm run ci:build                  # 本地：抓取 + 构建一步到位（= scrape.mjs && astro build）
 ```
 
 > 本地没跑 scrape 时，`loader` 会自动回退到 `src/data/mock.ts` 的兜底数据，保证能 build。
@@ -61,6 +79,18 @@ npm run ci:build                  # 抓取 + 构建一步到位
 本版本**仅使用代销渠道（天天基金自动抓取）的数据**，直销渠道限额与基金公司公告暂不涉及。
 若日后需要补充某只基金的直销额度/公告，可在 `data/direct-overrides.json` 按代码手工填写
 （`directLimitText` / `directAnnTitle` / `directAnnUrl`），缺省留空即可，不影响任何页面。
+
+### 抓取健康门禁与数据质量
+
+- **健康门禁**：`scrape.mjs` 跑完会统计人民币份额覆盖率（成功解析数 / 目标数），低于阈值（默认 90%，
+  可用 `SCRAPE_MIN_COVERAGE` 环境变量覆盖）即以退出码 2 结束，使 `npm run ci:build` 失败、**不部署**——
+  防止天天基金改版或网络抖动时把「今日全暂停 / 全未知」当真事发出来。抓取本身也做了
+  指数退避 + 抖动重试、响应大小上限、HTTPS 主机白名单、原子写（`tmp → rename`）。
+- **每日变化**：构建时 `loader.loadDailyChanges()` 对比每只人民币份额最近两天，产出「开门 / 暂停 /
+  额度变动」清单，首页「今日变化」区块展示；`scripts/notify.mjs` 在 CI 构建后把同一份变化推送至
+  `NOTIFY_WEBHOOK`（飞书机器人 text 格式），无变化或数据不完整时静默跳过。
+- **额度待核验**：个别份额页面显示「限大额」却未公布具体上限，`loader` 会打 `limitMissing` 标记，
+  前端显示「限额待核验 / 含待核验额度（≈）」，**不臆造金额**——宁可未知、不赌错。
 
 ### 数据字段对照（`src/data/types.ts`）
 
@@ -92,6 +122,6 @@ src/
   components/  SiteHeader、Bars（30天柱状图）、FundCard（基金卡片）
   pages/       index（今日）、f/[code]（详情）、daily（历史）、my（我的基金）、subscribe（订阅）
 public/       logo / favicon / hero 等静态资源
-scripts/      deploy-cos.sh 部署脚本
-.github/      workflows/deploy.yml 定时构建+部署
+scripts/      scrape.mjs 抓取脚本、notify.mjs 变化通知脚本（deploy-cos.sh 已弃用）
+.github/      workflows/deploy.yml 每日抓取+回写（触发 EdgeOne Pages 重建）
 ```

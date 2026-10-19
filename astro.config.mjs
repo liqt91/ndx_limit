@@ -1,12 +1,13 @@
 import { defineConfig } from 'astro/config';
 
 // 静态站默认就是 output: 'static'，无需额外配置。
-// 部署到腾讯云 COS 静态网站时：
-//   - 若用「自定义域名」直接绑到 bucket 根，site 填该域名即可，base 留空。
-//   - 若挂在子路径（例如 https://xxx.cos-website.../nasdaq/），把 base 改成 '/nasdaq'。
+// 部署到 EdgeOne Pages 时：
+//   - site 填自定义域名，仅影响 sitemap 和绝对链接（canonical），不填也能跑。
+//   - 输出目录为 dist/，构建命令 astro build；在 EdgeOne 控制台连仓库后自动接管。
+//   - 自定义子域名 ndx.liqt91.top 在 EdgeOne 控制台「自定义域名」绑定后，DNS 给 ndx 加 CNAME 即可。
 export default defineConfig({
-  // TODO: 替换成你的 COS 静态网站域名（或自定义域名），用于生成绝对链接/sitemap。
-  site: 'https://YOUR-BUCKET.cos-website.ap-guangzhou.myqcloud.com',
+  // 已绑定自定义子域名，用于生成绝对链接 / sitemap。
+  site: 'https://ndx.liqt91.top',
   // base: '/',
   trailingSlash: 'ignore',
 });
