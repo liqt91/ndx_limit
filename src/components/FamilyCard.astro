@@ -68,9 +68,7 @@ const familyHistory: DayPoint[] = allDates.map((date) => {
         <div class="fam-big tnum">{famHasMissing ? '≈' : ''}{famKnownTotal}<span class="u">元</span></div>
       ) : famHasMissing ? (
         <div class="fam-big is-unknown">待核验</div>
-      ) : (
-        <div class="fam-big is-stop">—</div>
-      )}
+      ) : null}
       {famHasMissing && <span class="fam-note">含待核验额度</span>}
       <span class={`tag ${famCls}`}>{STATUS_LABEL[famStatus]}</span>
     </div>
@@ -82,7 +80,7 @@ const familyHistory: DayPoint[] = allDates.map((date) => {
     {
       shares.map((s) => (
         <li class="fam-row">
-          <div>
+          <div class="fr-main">
             <a class="nm" href={`/f/${s.code}`}>{s.shortName}</a>
             <span class="cd">{s.code} · {s.shareClass} 类</span>
           </div>

@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import FamilyCard from '../components/FamilyCard.astro';
+import SectionHead from '../components/SectionHead.astro';
 import { loadTodaySnapshot, loadDailyChanges } from '../data/loader';
 import { STATUS_SHORT } from '../lib/status';
 import type { FundShare } from '../data/types';
@@ -32,13 +33,17 @@ const totalAgency = snap.shares
   )
   .reduce((a, s) => a + (s.dailyLimit as number), 0);
 
-// banner 等级：全开门=open，部分暂停=warn，全暂停=stop
-const bannerLevel = stoppedCny === 0 ? 'open' : stoppedCny < cny.length ? 'warn' : 'stop';
-const bannerIcon = bannerLevel === 'open' ? '✓' : bannerLevel === 'warn' ? '!' : '×';
-const bannerText =
-  bannerLevel === 'open'
-    ? `${openedCny} 家开门，今日可正常申购`
-    : `${openedCny} 家开门 · ${stoppedCny} 家暂停申购`;
+// 开篇陈述：全开门 / 部分 / 全暂停
+const level = stoppedCny === 0 ? 'open' : stoppedCny < cny.length ? 'warn' : 'stop';
+
+const changeParts = [
+  changes.opened ? `${changes.opened} 只开门` : '',
+  changes.stopped ? `${changes.stopped} 只暂停` : '',
+  changes.limitChanged ? `${changes.limitChanged} 只调额度` : '',
+].filter(Boolean);
+const changeAside = changes.hasData
+  ? `较 ${changes.prevDate} · ${changeParts.length ? changeParts.join(' / ') : '无变化'}`
+  : '';
 ---
 
 <BaseLayout title="纳指开门日报">
@@ -47,59 +52,71 @@ const bannerText =
     <a href="/daily">历史日报 →</a>
   </div>
 
-  <div class={`banner banner-${bannerLevel}`}>
-    <span class="banner-icon">{bannerIcon}</span>
-    <span class="banner-text">{bannerText}</span>
-    <span class="banner-date">{snap.snapDate}</span>
-  </div>
-
-  <div class="total">
-    <div>
-      <div class="total-label">今日代销总可投（人民币）</div>
-      <div class="total-note">按可买份额单日上限相加，A/C 类分别计算；美元份额不计入。实际以下单页面为准。</div>
+  <section class="masthead">
+    <div class="mast-kicker">
+      <span class={`dot dot-${level}`}></span>
+      <span>{snap.snapDate}</span>
+      <span>·</span>
+      <span>纳指 QDII 申购额度</span>
     </div>
-    <div class="total-value tnum">¥{totalAgency}<span class="unit">元</span></div>
-  </div>
+    <h1 class="mast-lead">
+      {
+        stoppedCny === 0 ? (
+          <>
+            今天 <span class="num">{openedCny}</span> 家全部开门。
+          </>
+        ) : stoppedCny === cny.length ? (
+          <>
+            今天 <span class="num">{cny.length}</span> 家全部暂停申购。
+          </>
+        ) : (
+          <>
+            今天 <span class="num">{openedCny}</span> 家开门，<span class="num">{stoppedCny}</span> 家暂停。
+          </>
+        )
+      }
+    </h1>
+    <div class="mast-num">
+      <span class="mast-num-k">今日代销总可投 · 人民币</span>
+      <span class="mast-num-v tnum">¥{totalAgency.toLocaleString('zh-CN')}<i>元</i></span>
+    </div>
+    <p class="mast-cap">按可买份额单日上限相加，A/C 类分别计算；美元份额不计入。实际以下单页面为准。</p>
+  </section>
 
   {
     changes.hasData && (
-      changes.changes.length > 0 ? (
-        <div class="changelog">
-          <div class="changelog-head">
-            <h2 class="grid-title">今日变化</h2>
-            <span class="changelog-sub">
-              较 {changes.prevDate}：{changes.opened} 家开门 · {changes.stopped} 家暂停 · {changes.limitChanged} 家额度变动
-            </span>
-          </div>
-          <ul class="changelog-list">
-            {changes.changes.map((c) => (
-              <li class={`cl-row cl-${c.kind}`}>
-                <span class="cl-name">{c.shortName}</span>
-                <span class="cl-transition">
-                  <span class="cl-from">{STATUS_SHORT[c.fromStatus]}</span>
-                  <span class="cl-arrow">→</span>
-                  <span class="cl-to">
-                    {STATUS_SHORT[c.toStatus]}
-                    {c.toLimit != null ? ` ${c.toLimit}元` : ''}
+      <>
+        <SectionHead index="01" title="今日变化" aside={changeAside} />
+        {changes.changes.length > 0 ? (
+          <div class="changelog">
+            <ul class="changelog-list">
+              {changes.changes.map((c) => (
+                <li class={`cl-row cl-${c.kind}`}>
+                  <span class="cl-name">{c.shortName}</span>
+                  <span class="cl-transition">
+                    <span class="cl-from">{STATUS_SHORT[c.fromStatus]}</span>
+                    <span class="cl-arrow">→</span>
+                    <span class="cl-to">
+                      {STATUS_SHORT[c.toStatus]}
+                      {c.toLimit != null ? ` ${c.toLimit}元` : ''}
+                    </span>
                   </span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : (
-        <div class="changelog-empty">今天和 {changes.prevDate} 一样，没有变化。</div>
-      )
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <div class="changelog-empty">今天和 {changes.prevDate} 一样，没有变化。</div>
+        )}
+      </>
     )
   }
 
-  <div class="grid-head">
-    <h2 class="grid-title">今天能买多少</h2>
-    <span class="grid-legend">
-      <span class="lg lg-open"></span>可投 / 限大额
-      <span class="lg lg-stop"></span>暂停
-      <span class="lg lg-changed"></span>当日变动
-    </span>
+  <SectionHead index={changes.hasData ? '02' : '01'} title="今天能买多少" />
+  <div class="grid-legend legend-under">
+    <span><i class="lg lg-open"></i>可投 / 限大额</span>
+    <span><i class="lg lg-stop"></i>暂停</span>
+    <span><i class="lg lg-changed"></i>当日变动</span>
   </div>
 
   <ul class="grid">

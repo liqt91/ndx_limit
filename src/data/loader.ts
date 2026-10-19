@@ -257,7 +257,8 @@ export function loadDailyChanges(): DailyChanges {
 
   return {
     date: today,
-    prevDate: changes.length ? arr_prevDate(history) : null,
+    // 无论今天有没有变化，都要给出对比基准日：否则无变化日页面会渲染成「较 null」
+    prevDate: arr_prevDate(history),
     changes,
     opened,
     stopped,

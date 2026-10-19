@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import SectionHead from '../../components/SectionHead.astro';
 import { loadAllShares } from '../../data/loader';
 import { STATUS_LABEL, statusClass } from '../../lib/status';
 import type { FundShare, PurchaseStatus } from '../../data/types';
@@ -16,8 +17,6 @@ const history = [...share.history].reverse();
 const last = history[history.length - 1];
 
 const currencyLabel = share.currency === 'USD' ? '美元' : '人民币';
-const heroValue =
-  share.dailyLimit != null ? `${share.dailyLimit} 元` : STATUS_LABEL[share.purchaseStatus];
 const heroLabel = share.dailyLimit != null ? '单日最多可投（代销）' : '当前申购状态';
 const heroCls =
   share.dailyLimit != null ? 'is-open'
@@ -39,7 +38,18 @@ const heroCls =
 
   <section class="hero">
     <div class="hero-label">{heroLabel}</div>
-    <div class={`hero-value ${heroCls}`}>{heroValue}</div>
+    <div class={`hero-value ${heroCls}`}>
+      {
+        share.dailyLimit != null ? (
+          <>
+            {share.dailyLimit}
+            <i class="hv-u">元</i>
+          </>
+        ) : (
+          STATUS_LABEL[share.purchaseStatus]
+        )
+      }
+    </div>
     {
       share.limitMissing && (
         <div class="hero-note">单日额度待核验：页面显示「限大额」但未公布具体上限，请以下单页面为准。</div>
@@ -47,7 +57,7 @@ const heroCls =
     }
   </section>
 
-  <div class="section-label">历史记录（近 30 天）</div>
+  <SectionHead index="01" title="历史记录 · 近 30 天" aside={`${history.length} 天`} />
   <table class="tbl">
     <thead>
       <tr>

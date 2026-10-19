@@ -1,0 +1,17 @@
+---
+interface Props {
+  /** 小节编号，如 "01" */
+  index: string;
+  title: string;
+  /** 右侧等宽小注，如「较 10-18」 */
+  aside?: string;
+}
+const { index, title, aside } = Astro.props;
+---
+
+<div class="sec">
+  <span class="sec-i">{index}</span>
+  <h2 class="sec-t">{title}</h2>
+  <span class="sec-line"></span>
+  {aside && <span class="sec-a">{aside}</span>}
+</div>

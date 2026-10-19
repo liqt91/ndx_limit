@@ -14,6 +14,7 @@ const {
 
 const snap = loadTodaySnapshot();
 const dataDate = snap.snapDate;
+const year = new Date().getFullYear();
 ---
 
 <!doctype html>
@@ -26,18 +27,35 @@ const dataDate = snap.snapDate;
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   </head>
   <body>
-    <SiteHeader />
-    <main class="wrap">
-      <slot />
-    </main>
-    <footer class="wrap foot">
-      <div class="foot-cta"><a href="/subscribe">订阅每日日报 →</a></div>
-      <p class="foot-disc">
-        数据来自基金公司公开公告与公开基金数据（代销额度抓取自天天基金），可能存在延迟或误差。实际可买额度请以下单页面为准。以上仅陈述客观信息，不构成投资建议。
-      </p>
-      <p class="foot-meta">
-        数据日期 {dataDate} · 静态生成，由每日定时构建刷新 · 多渠道监控与订阅邮件能力见项目 README
-      </p>
-    </footer>
+    <div class="frame">
+      <SiteHeader />
+      <main class="wrap">
+        <slot />
+      </main>
+      <footer class="foot">
+        <div class="foot-cta"><a href="/subscribe">订阅每日日报 →</a></div>
+        <p class="foot-disc">
+          数据来自基金公司公开公告与公开基金数据（代销额度抓取自天天基金），可能存在延迟或误差。实际可买额度请以下单页面为准。以上仅陈述客观信息，不构成投资建议。
+        </p>
+        <div class="foot-grid">
+          <div class="foot-brand">
+            © {year} 纳指开门日报<br />
+            数据日期 {dataDate}
+          </div>
+          <div class="foot-col">
+            <div class="foot-col-h">数据</div>
+            <span>抓取自天天基金</span>
+            <span>每日 08:00 更新</span>
+            <span>静态生成，无服务器</span>
+          </div>
+          <div class="foot-col">
+            <div class="foot-col-h">站内</div>
+            <a href="/">今日</a>
+            <a href="/daily">历史</a>
+            <a href="/subscribe">订阅</a>
+          </div>
+        </div>
+      </footer>
+    </div>
   </body>
 </html>
