@@ -33,7 +33,8 @@ npm run preview    # 预览构建产物
 ### 1. EdgeOne Pages（一次性）
 
 1. 登录 [EdgeOne Pages 控制台](https://console.cloud.tencent.com/edgeone/pages)，「新建项目 → 导入 Git 仓库」连到本 GitHub 仓库。
-2. 框架预设选 **Astro**；构建命令 `astro build`、输出目录 `dist`（连仓库后通常自动识别）。
+2. 框架预设选 **Astro**（连仓库后自动识别 install/build/dist）；**构建命令务必用 `npm run build`**，
+   **不要**填裸 `astro build`——EdgeOne 构建 shell 里没有全局 astro，裸跑会 `command not found`（exit 127）。
 3. 首次部署即用当前代码 + 已提交的 `data/` 构建出一个线上站点，分配 `*.edgeone.app` 默认域名。
    - 国内版：国内 CDN 快，绑自定义域名需 **ICP 备案**；国际版：免备案、全球快但国内慢。
 4. **绑定自定义子域名 `ndx.liqt91.top`（推荐）**：在 EdgeOne 项目「自定义域名」里添加 `ndx.liqt91.top`，
