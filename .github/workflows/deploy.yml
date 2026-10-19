@@ -18,6 +18,11 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    # secrets 不能直接写进 if；也不能靠「步骤级 env 在其自身 if 里判断」（不可靠，会静默跳过）。
+    # 官方推荐：把「密钥是否已配置」在 job 级算成布尔标记，再在步骤 if 里判断。
+    env:
+      HAS_NOTIFY: ${{ secrets.NOTIFY_WEBHOOK != '' }}
+      HAS_BUTTONDOWN: ${{ secrets.BUTTONDOWN_API_KEY != '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -54,7 +59,7 @@ jobs:
       # 管理员自通知（可选）：仅当配置了 NOTIFY_WEBHOOK 时执行，把变化推给站长自己（飞书/微信）。
       # 这是单收件人自通知，不是给订阅人广播。订阅人群发见下一步 broadcast.mjs。
       - name: Admin notify (optional)
-        if: ${{ env.NOTIFY_WEBHOOK != '' }}
+        if: ${{ env.HAS_NOTIFY == 'true' }}
         env:
           NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK }}
           NOTIFY_CHANNEL: ${{ secrets.NOTIFY_CHANNEL }}
@@ -64,7 +69,7 @@ jobs:
       # 走 Buttondown 邮件服务，无变化也发送（正文含「今日无变化」）。
       # 门禁联动：若 scrape 健康未通过，job 已中止，本步不会运行，不会发误导内容。
       - name: Broadcast to subscribers (optional)
-        if: ${{ env.BUTTONDOWN_API_KEY != '' }}
+        if: ${{ env.HAS_BUTTONDOWN == 'true' }}
         env:
           BUTTONDOWN_API_KEY: ${{ secrets.BUTTONDOWN_API_KEY }}
         run: node scripts/broadcast.mjs
