@@ -33,17 +33,33 @@ const totalAgency = snap.shares
   )
   .reduce((a, s) => a + (s.dailyLimit as number), 0);
 
+// 柱图标尺：按「家族当日合计额度」的最大值取整到 10 的倍数（最低 30），
+// 这样柱子能真正拉开差距，而不是所有额度都被固定分母压成一样高的小方块。
+const famTotals = cny.map((g) =>
+  g.shares
+    .filter(
+      (s) =>
+        (s.purchaseStatus === 'LIMITED' || s.purchaseStatus === 'OPEN') && s.dailyLimit != null
+    )
+    .reduce((a, s) => a + (s.dailyLimit as number), 0)
+);
+const limitCap = Math.max(30, Math.ceil(Math.max(0, ...famTotals) / 10) * 10);
+
 // 开篇陈述：全开门 / 部分 / 全暂停
 const level = stoppedCny === 0 ? 'open' : stoppedCny < cny.length ? 'warn' : 'stop';
 
+// 今日判定：有变化就把变化写进首屏，没变化也要在首屏说清楚「没变化」
 const changeParts = [
   changes.opened ? `${changes.opened} 只开门` : '',
   changes.stopped ? `${changes.stopped} 只暂停` : '',
   changes.limitChanged ? `${changes.limitChanged} 只调额度` : '',
 ].filter(Boolean);
-const changeAside = changes.hasData
-  ? `较 ${changes.prevDate} · ${changeParts.length ? changeParts.join(' / ') : '无变化'}`
-  : '';
+const hasChanges = changes.hasData && changeParts.length > 0;
+const verdictText = hasChanges ? changeParts.join('，') : '没有变化';
+
+// 额度类变动直接显示「5 元 → 10 元」，比「限大额 → 限大额」有用
+const isLimitKind = (k: string) => k.startsWith('limit');
+const fmtLimit = (v: number | null) => (v == null ? '未公布' : `${v} 元`);
 ---
 
 <BaseLayout title="纳指开门日报">
@@ -76,43 +92,71 @@ const changeAside = changes.hasData
         )
       }
     </h1>
+
+    {
+      changes.hasData && (
+        <div class={`verdict ${hasChanges ? 'is-change' : 'is-none'}`}>
+          <span class="verdict-k">较 {changes.prevDate}</span>
+          <span class="verdict-v">{verdictText}</span>
+          {!hasChanges && (
+            <span class="verdict-x">
+              开门家数与各家单日额度都和上一交易日一致，无需重新查看。
+            </span>
+          )}
+        </div>
+      )
+    }
+
     <div class="mast-num">
       <span class="mast-num-k">今日代销总可投 · 人民币</span>
-      <span class="mast-num-v tnum">¥{totalAgency.toLocaleString('zh-CN')}<i>元</i></span>
+      <span class="mast-num-v tnum">{totalAgency.toLocaleString('zh-CN')}<i>元</i></span>
     </div>
     <p class="mast-cap">按可买份额单日上限相加，A/C 类分别计算；美元份额不计入。实际以下单页面为准。</p>
   </section>
 
   {
-    changes.hasData && (
+    hasChanges && (
       <>
-        <SectionHead index="01" title="今日变化" aside={changeAside} />
-        {changes.changes.length > 0 ? (
-          <div class="changelog">
-            <ul class="changelog-list">
-              {changes.changes.map((c) => (
-                <li class={`cl-row cl-${c.kind}`}>
-                  <span class="cl-name">{c.shortName}</span>
-                  <span class="cl-transition">
-                    <span class="cl-from">{STATUS_SHORT[c.fromStatus]}</span>
-                    <span class="cl-arrow">→</span>
-                    <span class="cl-to">
-                      {STATUS_SHORT[c.toStatus]}
-                      {c.toLimit != null ? ` ${c.toLimit}元` : ''}
-                    </span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : (
-          <div class="changelog-empty">今天和 {changes.prevDate} 一样，没有变化。</div>
-        )}
+        <SectionHead index="01" title="今日变化" aside={`共 ${changes.changes.length} 处`} />
+        <div class="changelog">
+          <ul class="changelog-list">
+            {changes.changes.map((c) => (
+              <li class={`cl-row cl-${c.kind}`}>
+                <span class="cl-name">
+                  <i class={`cl-dot cl-dot-${c.kind}`}></i>
+                  {c.shortName}
+                </span>
+                <span class="cl-transition">
+                  {isLimitKind(c.kind) ? (
+                    <>
+                      <span class="cl-from">{fmtLimit(c.fromLimit)}</span>
+                      <span class="cl-arrow">→</span>
+                      <span class="cl-to">{fmtLimit(c.toLimit)}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span class="cl-from">{STATUS_SHORT[c.fromStatus]}</span>
+                      <span class="cl-arrow">→</span>
+                      <span class="cl-to">
+                        {STATUS_SHORT[c.toStatus]}
+                        {c.toLimit != null ? ` ${c.toLimit} 元` : ''}
+                      </span>
+                    </>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       </>
     )
   }
 
-  <SectionHead index={changes.hasData ? '02' : '01'} title="今天能买多少" />
+  <SectionHead
+    index={hasChanges ? '02' : '01'}
+    title="今天能买多少"
+    aside={`${openedCny} 家可买 · 柱高 ${limitCap} 元满格`}
+  />
   <div class="grid-legend legend-under">
     <span><i class="lg lg-open"></i>可投 / 限大额</span>
     <span><i class="lg lg-stop"></i>暂停</span>
@@ -120,6 +164,6 @@ const changeAside = changes.hasData
   </div>
 
   <ul class="grid">
-    {cny.map((g) => <FamilyCard shares={g.shares} />)}
+    {cny.map((g) => <FamilyCard shares={g.shares} limitCap={limitCap} />)}
   </ul>
 </BaseLayout>

@@ -7,8 +7,10 @@ interface Props {
   shares: FundShare[];
   dataCodes?: string;
   hidden?: boolean;
+  /** 柱图标尺（元），由页面统一传入，保证跨卡片可比 */
+  limitCap?: number;
 }
-const { shares, dataCodes, hidden } = Astro.props;
+const { shares, dataCodes, hidden, limitCap = 100 } = Astro.props;
 
 const first = shares[0];
 const name = `${first.company}${first.baseName}${first.currency === 'USD' ? '美元' : ''}`;
@@ -49,11 +51,13 @@ for (const s of shares) for (const d of s.history) {
 }
 const familyHistory: DayPoint[] = allDates.map((date) => {
   const entries = byDate.get(date)!;
-  const open = entries.find((e) => e.status === 'LIMITED' || e.status === 'OPEN');
+  const open = entries.filter((e) => e.status === 'LIMITED' || e.status === 'OPEN');
   const closed = entries.find((e) => e.status === 'CLOSED');
   const unknown = entries.find((e) => e.status === 'UNKNOWN');
-  const status: PurchaseStatus = open ? 'LIMITED' : closed ? 'CLOSED' : unknown ? 'UNKNOWN' : 'STOPPED';
-  return { date, status, limit: open ? open.limit : null };
+  const status: PurchaseStatus = open.length ? 'LIMITED' : closed ? 'CLOSED' : unknown ? 'UNKNOWN' : 'STOPPED';
+  // 柱高用「当日家族合计额度」，与卡片右上角的数字同口径
+  const sum = open.reduce((a, e) => a + (e.limit ?? 0), 0);
+  return { date, status, limit: open.length && sum > 0 ? sum : null };
 });
 ---
 
@@ -74,27 +78,23 @@ const familyHistory: DayPoint[] = allDates.map((date) => {
     </div>
   </div>
 
-  <Bars history={familyHistory} />
+  <Bars history={familyHistory} cap={limitCap} />
 
   <ul class="fam-rows">
     {
       shares.map((s) => (
         <li class="fam-row">
-          <div class="fr-main">
-            <a class="nm" href={`/f/${s.code}`}>{s.shortName}</a>
+          <a class="nm" href={`/f/${s.code}`}>{s.shortName}</a>
+          <div class="fam-meta">
             <span class="cd">{s.code} · {s.shareClass} 类</span>
-          </div>
-          <div class="rt">
-            <span class="lim">
+            <span class="rt">
               {s.limitMissing ? (
                 <span class="lim-unknown">限额待核验</span>
               ) : s.dailyLimit != null ? (
-                <>{s.dailyLimit} <b>元</b></>
-              ) : (
-                '额度未公布'
-              )}
+                <span class="lim">{s.dailyLimit} <b>元</b></span>
+              ) : null}
+              <span class={`tag ${statusClass(s.purchaseStatus)}`}>{STATUS_LABEL[s.purchaseStatus]}</span>
             </span>
-            <span class={`tag ${statusClass(s.purchaseStatus)}`}>{STATUS_LABEL[s.purchaseStatus]}</span>
           </div>
         </li>
       ))

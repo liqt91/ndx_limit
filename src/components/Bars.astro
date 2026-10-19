@@ -7,28 +7,46 @@ interface DayPoint {
 interface Props {
   history: DayPoint[];
   compact?: boolean;
+  /** 柱高标尺（元）：全站统一，跨基金可比。默认 100 */
+  cap?: number;
 }
-const { history, compact = false } = Astro.props;
+const { history, compact = false, cap = 100 } = Astro.props;
 
-const MAX_CAP = 200; // 单日上限封顶（用于柱高标尺）
+const CAP = cap;
+const FLOOR = 14; // 有额度的日子至少留出可见高度，避免「5 元」被画成一根头发丝
+const STOP_H = 7; // 暂停日留一条矮桩，表示「这天有记录但没开门」
+
 const bars = history.map((d, i) => {
   const prev = i > 0 ? history[i - 1] : null;
   const changed = prev ? prev.status !== d.status || prev.limit !== d.limit : false;
-  const h = d.limit != null ? Math.max(10, Math.min(d.limit / MAX_CAP, 1) * 100) : 10;
+  const h = d.limit != null ? FLOOR + (100 - FLOOR) * Math.min(d.limit / CAP, 1) : STOP_H;
   const cls =
     d.status === 'STOPPED'
       ? 'bar-stop'
       : d.status === 'OPEN' || d.status === 'LIMITED'
         ? 'bar-open'
-        : '';
-  const tip = `${d.date} · ${d.status === 'STOPPED' ? '暂停' : d.limit != null ? `单日 ${d.limit} 元` : '额度未公布'}${changed ? '（变动）' : ''}`;
-  return { cls: `${cls} ${changed ? 'bar-changed' : ''}`.trim(), h, tip };
+        : 'bar-unknown';
+  const state =
+    d.status === 'STOPPED'
+      ? '暂停'
+      : d.limit != null
+        ? `单日 ${d.limit} 元`
+        : d.status === 'CLOSED'
+          ? '停止申购'
+          : '额度未公布';
+  const tip = `${d.date} · ${state}${changed ? '（当日变动）' : ''}`;
+  return { cls: `${cls}${changed ? ' bar-changed' : ''}`, h, tip };
 });
 const firstDate = history[0]?.date;
 const lastDate = history[history.length - 1]?.date;
+const openedDays = history.filter((d) => d.limit != null || d.status === 'OPEN' || d.status === 'LIMITED').length;
 ---
 
-<div class="bars" role="img" aria-label="最近 30 天开门情况">
+<div
+  class="bars"
+  role="img"
+  aria-label={`最近 ${history.length} 天：${openedDays} 天可投、${history.length - openedDays} 天暂停`}
+>
   {bars.map((b) => <i class={`bar ${b.cls}`} style={`height:${b.h}%`} title={b.tip} />)}
 </div>
 {!compact && <div class="bars-axis"><span>{firstDate}</span><span>{lastDate}</span></div>}

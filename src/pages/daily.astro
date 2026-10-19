@@ -18,9 +18,9 @@ const summaries = loadDailySummaries(15);
         <li class="dayrow">
           <div class="day-main">
             <span class="day-date">{s.label}</span>
-            <span class="day-sub">{s.opened} 家开门 · 共监控 {s.count} 家（人民币）</span>
+            <span class="day-sub"><b>{s.opened}</b> 家开门 · 共监控 {s.count} 家（人民币）</span>
           </div>
-          <div class="day-total">¥{s.total}<span class="day-unit">元</span></div>
+          <div class="day-total">{s.total}<span class="day-unit">元</span></div>
         </li>
       ))
     }
