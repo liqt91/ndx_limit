@@ -1,0 +1,63 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+// 订阅成功后落地页（由 Buttondown 的 subscription_redirect_url /
+// subscription_confirmation_redirect_url 跳转而来，见 README「订阅」段）。
+// 双重确认（double opt-in）下：提交表单后先到这里提示去收信，点确认链接后再回到这里即真正成功。
+---
+
+<BaseLayout title="订阅成功 - 纳指开门日报">
+  <div class="ctx">
+    <span>每天早上 8 点推送</span>
+    <a href="/">今日 →</a>
+  </div>
+
+  <section class="ok-card">
+    <div class="ok-badge" aria-hidden="true">✓</div>
+    <h1 class="section-title">订阅已收到</h1>
+    <p class="my-hint">
+      感谢订阅「纳指开门日报」。每天早上 8 点（北京时间），把当天纳指基金的开门与限购变化发到你的邮箱。
+    </p>
+    <p class="note">
+      如果你刚提交表单，还会收到一封<b>确认邮件</b>——请打开并点击其中的确认链接，订阅才正式生效
+      （双重确认，用于防垃圾邮件）。没收到的话，看一眼垃圾箱，或稍后用同一邮箱再提交一次。
+    </p>
+    <p class="ok-actions">
+      <a class="ok-link" href="/">回到今日日报 →</a>
+      <span class="ok-sep">·</span>
+      <a class="ok-link" href="/subscribe">再订阅一个邮箱</a>
+    </p>
+  </section>
+</BaseLayout>
+
+<style>
+  .ok-card {
+    max-width: 560px;
+    margin: 28px auto 0;
+    text-align: center;
+  }
+  .ok-badge {
+    width: 56px;
+    height: 56px;
+    margin: 4px auto 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    line-height: 1;
+    color: #fff;
+    background: #16a34a;
+  }
+  .ok-actions {
+    margin-top: 20px;
+    font-size: 14px;
+  }
+  .ok-link {
+    color: inherit;
+  }
+  .ok-sep {
+    margin: 0 8px;
+    opacity: 0.5;
+  }
+</style>

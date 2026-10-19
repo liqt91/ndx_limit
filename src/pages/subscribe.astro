@@ -15,14 +15,14 @@ const FORM_ACTION = 'https://buttondown.com/api/emails/embed-subscribe/liqt91';
   </div>
   <h1 class="section-title">订阅日报</h1>
   <p class="my-hint">每天早上 8 点，把当天纳指基金的开门与限购变化发到你的邮箱。</p>
-  <form class="form" action={FORM_ACTION} method="POST" target="_blank">
+  <form class="form" action={FORM_ACTION} method="POST">
     <label for="email">邮箱地址</label>
     <input type="email" id="email" name="email" placeholder="you@example.com" required />
     <input type="hidden" name="embed" value="1" />
     <button type="submit">订阅</button>
     <p class="note">
-      提交后会跳转到确认页，确认订阅即可。本页为纯静态，订阅与每日群发均由 Buttondown 托管，
-      站点本身不存任何邮箱（详见项目 README）。
+      提交后会进入订阅说明页，随后请查收邮件并点击确认链接完成订阅（双重确认，防垃圾邮件）。
+      本页为纯静态，订阅与每日群发均由 Buttondown 托管，站点本身不存任何邮箱。
     </p>
   </form>
 </BaseLayout>

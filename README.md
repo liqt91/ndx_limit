@@ -109,12 +109,20 @@ npm run ci:build                  # 本地：抓取 + 构建一步到位（= scr
 站点本身**不存储任何邮箱**。整条链路仍跑在既有的免费 GitHub Actions 上，零服务器：
 
 1. **收邮箱**：`/subscribe` 页面表单 POST 到 Buttondown 公开 embed 端点
-   `https://buttondown.com/api/emails/embed-subscribe/<你的username>`（免密钥，需带隐藏字段 `embed=1`）。
-   把 `src/pages/subscribe.astro` 里的 `YOUR_BUTTONDOWN_USERNAME` 换成你的 Buttondown 用户名即可。
+   `https://buttondown.com/api/emails/embed-subscribe/liqt91`（免密钥，需带隐藏字段 `embed=1`）。
+   用户名已固化为 `liqt91`（= `buttondown.com/liqt91`）。
 2. **每日群发**：`deploy.yml` 在每天 08:00 抓取后调用 `scripts/broadcast.mjs`，调 Buttondown API
    `POST /v1/emails`（密钥 `BUTTONDOWN_API_KEY`，仅服务端使用）把日报群发给全部订阅者。
    **无变化也发送**（正文含「今日无变化」），满足每日打卡。
-3. **管理员自通知（可选）**：另可在仓库 Secrets 配 `NOTIFY_WEBHOOK`（飞书机器人 / Server酱 SCKEY），
+3. **自定义订阅成功页**：站内已有 `/subscribed`（`src/pages/subscribed.astro`）。在 Buttondown
+   后台把两个跳转字段都指向它，即可让访客提交/确认后落到自己的品牌页，而不是 Buttondown 默认页：
+   - `subscription_redirect_url` → `https://ndx.liqt91.top/subscribed`（提交表单后立刻跳，此时尚未确认）
+   - `subscription_confirmation_redirect_url` → `https://ndx.liqt91.top/subscribed`（点确认信后跳，真正成功）
+
+   这两个字段在 Buttondown 后台 Settings 里设置；若 UI 未暴露，可用 API `PATCH /v1/newsletters/{id}`
+   写入（`id` 先由 `GET /v1/newsletters` 取得）。双重确认下 `/subscribed` 页面已同时兼容
+   「去收信确认」与「已确认」两种到达时机。
+4. **管理员自通知（可选）**：另可在仓库 Secrets 配 `NOTIFY_WEBHOOK`（飞书机器人 / Server酱 SCKEY），
    让 `scripts/notify.mjs` 把变化推给站长自己巡检（单收件人，非订阅人广播）。
 
 所需密钥（仓库 `Settings → Secrets → Actions`）：
