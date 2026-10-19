@@ -55,6 +55,7 @@ export function buildSnapshot(today: string): DailySnapshot {
         currency: f.currency,
         purchaseStatus: last.status,
         dailyLimit: last.limit,
+        limitMissing: false,
         minPurchase: last.limit != null ? 1 : null,
         limitText: last.limit != null ? `${last.limit} 元` : null,
         directLimitText: null,

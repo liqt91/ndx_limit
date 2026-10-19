@@ -1,10 +1,12 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import FamilyCard from '../components/FamilyCard.astro';
-import { loadTodaySnapshot } from '../data/loader';
+import { loadTodaySnapshot, loadDailyChanges } from '../data/loader';
+import { STATUS_SHORT } from '../lib/status';
 import type { FundShare } from '../data/types';
 
 const snap = loadTodaySnapshot();
+const changes = loadDailyChanges();
 
 const byGroup = new Map<string, { currency: string; shares: FundShare[] }>();
 for (const s of snap.shares) {
@@ -14,7 +16,7 @@ for (const s of snap.shares) {
 }
 const groups = [...byGroup.values()];
 const cny = groups.filter((g) => g.currency === 'CNY');
-const usd = groups.filter((g) => g.currency === 'USD');
+// 美元份额不在站内展示（仅监控人民币份额，过滤在 loader 统一做）
 
 const isOpen = (g: { shares: FundShare[] }) =>
   g.shares.some((s) => s.purchaseStatus === 'LIMITED' || s.purchaseStatus === 'OPEN');
@@ -59,6 +61,38 @@ const bannerText =
     <div class="total-value tnum">¥{totalAgency}<span class="unit">元</span></div>
   </div>
 
+  {
+    changes.hasData && (
+      changes.changes.length > 0 ? (
+        <div class="changelog">
+          <div class="changelog-head">
+            <h2 class="grid-title">今日变化</h2>
+            <span class="changelog-sub">
+              较 {changes.prevDate}：{changes.opened} 家开门 · {changes.stopped} 家暂停 · {changes.limitChanged} 家额度变动
+            </span>
+          </div>
+          <ul class="changelog-list">
+            {changes.changes.map((c) => (
+              <li class={`cl-row cl-${c.kind}`}>
+                <span class="cl-name">{c.shortName}</span>
+                <span class="cl-transition">
+                  <span class="cl-from">{STATUS_SHORT[c.fromStatus]}</span>
+                  <span class="cl-arrow">→</span>
+                  <span class="cl-to">
+                    {STATUS_SHORT[c.toStatus]}
+                    {c.toLimit != null ? ` ${c.toLimit}元` : ''}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <div class="changelog-empty">今天和 {changes.prevDate} 一样，没有变化。</div>
+      )
+    )
+  }
+
   <div class="grid-head">
     <h2 class="grid-title">今天能买多少</h2>
     <span class="grid-legend">
@@ -70,10 +104,5 @@ const bannerText =
 
   <ul class="grid">
     {cny.map((g) => <FamilyCard shares={g.shares} />)}
-  </ul>
-
-  <div class="section-label">美元份额</div>
-  <ul class="grid">
-    {usd.map((g) => <FamilyCard shares={g.shares} />)}
   </ul>
 </BaseLayout>

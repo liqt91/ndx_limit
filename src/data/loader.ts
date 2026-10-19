@@ -62,6 +62,7 @@ function assemble(today: string): DailySnapshot {
         currency: f.currency,
         purchaseStatus: status,
         dailyLimit: limit,
+        limitMissing: status === 'LIMITED' && limit == null,
         minPurchase: limit != null ? (ov.minPurchase ?? 1) : null,
         limitText: limit != null ? `${limit} 元` : null,
         directLimitText: ov.directLimitText ?? null,
@@ -80,7 +81,12 @@ export function loadTodaySnapshot(): DailySnapshot {
   const history = readJson<Record<string, DayPoint[]>>('history.json', {});
   const hasRealData = Object.keys(history).length > 0;
   // 有真实抓取历史 → 用真实数据；否则回退 mock，保证本地/首次也能 build。
-  return hasRealData ? assemble(getToday()) : buildSnapshot(getToday());
+  const snap = hasRealData ? assemble(getToday()) : buildSnapshot(getToday());
+  // 美元份额不在站内展示：只监控人民币份额。统一在此过滤，首页/我的基金/详情页
+  // （getStaticPaths 同源）全部生效；scrape 仍继续抓美元数据，日后想展示删掉这两行即可。
+  snap.shares = snap.shares.filter((s) => s.currency !== 'USD');
+  snap.monitoredCount = snap.shares.length;
+  return snap;
 }
 
 /** 「我的基金」需要全量份额清单；前端按 localStorage 里的代码做纯展示过滤，不需要后端接口。 */
@@ -142,6 +148,131 @@ export function loadDailySummaries(n: number): DailySummary[] {
     );
     return { date, label: prettyDateCST(date), opened, total, count: cny.length };
   });
+}
+
+// ──────────────────────────────────────────────────────────────
+// 每日变化检测（首页「今日变化」区块用）：对比 history.json 中每只人民币份额
+// 的最近两天，产出「开门 / 暂停 / 额度变动」清单。仅在真实数据下有意义。
+// ──────────────────────────────────────────────────────────────
+export type ChangeKind =
+  | 'opened' // 由不可买 → 可买
+  | 'stopped' // 由可买 → 不可买
+  | 'limit-up' // 限额上调
+  | 'limit-down' // 限额下调
+  | 'limit-set' // 由无限额 → 有限额
+  | 'limit-clear' // 由有限额 → 无限额
+  | 'unknown' // 变为未知（数据降级）
+  | 'other'; // 其余（如持续暂停、未知→未知）
+
+export interface ChangeRecord {
+  code: string;
+  shortName: string;
+  company: string;
+  baseName: string;
+  shareClass: string;
+  fromStatus: PurchaseStatus;
+  toStatus: PurchaseStatus;
+  fromLimit: number | null;
+  toLimit: number | null;
+  kind: ChangeKind;
+}
+
+export interface DailyChanges {
+  date: string;
+  prevDate: string | null;
+  changes: ChangeRecord[];
+  opened: number;
+  stopped: number;
+  limitChanged: number;
+  hasData: boolean; // 是否有可对比的历史（至少两天）
+}
+
+function classifyChange(from: DayPoint, to: DayPoint): ChangeKind {
+  const fromBuy = from.status === 'OPEN' || from.status === 'LIMITED';
+  const toBuy = to.status === 'OPEN' || to.status === 'LIMITED';
+  if (to.status === 'UNKNOWN' && from.status !== 'UNKNOWN') return 'unknown';
+  if (!fromBuy && toBuy) return 'opened';
+  if (fromBuy && !toBuy) return 'stopped';
+  if (fromBuy && toBuy) {
+    if (from.limit == null && to.limit != null) return 'limit-set';
+    if (from.limit != null && to.limit == null) return 'limit-clear';
+    if (from.limit != null && to.limit != null && from.limit !== to.limit)
+      return to.limit > from.limit ? 'limit-up' : 'limit-down';
+  }
+  return 'other';
+}
+
+export function loadDailyChanges(): DailyChanges {
+  const funds = readJson<{ funds: any[] }>('funds.json', { funds: [] }).funds;
+  const history = readJson<Record<string, DayPoint[]>>('history.json', {});
+  const meta = readJson<Record<string, { name: string }>>('fund-meta.json', {});
+  const today = getToday();
+
+  const hasReal = Object.keys(history).length > 0;
+  if (!hasReal) return { date: today, prevDate: null, changes: [], opened: 0, stopped: 0, limitChanged: 0, hasData: false };
+
+  const changes: ChangeRecord[] = [];
+  for (const f of funds) {
+    if (f.currency === 'USD') continue; // 仅对比展示中的人民币份额
+    for (const c of f.codes) {
+      const arr = history[c.code];
+      if (!arr || arr.length < 2) continue; // 至少两天才有对比
+      const to = arr[arr.length - 1];
+      const from = arr[arr.length - 2];
+      const kind = classifyChange(from, to);
+      if (kind === 'other') continue; // 仅保留有实质意义的变动
+      changes.push({
+        code: c.code,
+        shortName: meta[c.code]?.name || `${f.company}${f.baseName}${c.cls}类`,
+        company: f.company,
+        baseName: f.baseName,
+        shareClass: c.cls,
+        fromStatus: from.status,
+        toStatus: to.status,
+        fromLimit: from.limit,
+        toLimit: to.limit,
+        kind,
+      });
+    }
+  }
+
+  // 排序：开门 > 暂停 > 额度变动 > 未知；同类按公司名稳定排序
+  const order: Record<ChangeKind, number> = {
+    opened: 0,
+    stopped: 1,
+    'limit-up': 2,
+    'limit-down': 3,
+    'limit-set': 4,
+    'limit-clear': 5,
+    unknown: 6,
+    other: 7,
+  };
+  changes.sort((a, b) => order[a.kind] - order[b.kind] || a.company.localeCompare(b.company));
+
+  const opened = changes.filter((c) => c.kind === 'opened').length;
+  const stopped = changes.filter((c) => c.kind === 'stopped').length;
+  const limitChanged = changes.filter((c) =>
+    ['limit-up', 'limit-down', 'limit-set', 'limit-clear'].includes(c.kind)
+  ).length;
+
+  return {
+    date: today,
+    prevDate: changes.length ? arr_prevDate(history) : null,
+    changes,
+    opened,
+    stopped,
+    limitChanged,
+    hasData: true,
+  };
+}
+
+// 取任一份额「前一天」日期作为对比基准日（用于页面副标题“较 X”）
+function arr_prevDate(history: Record<string, DayPoint[]>): string | null {
+  for (const code in history) {
+    const arr = history[code];
+    if (arr && arr.length >= 2) return arr[arr.length - 2].date;
+  }
+  return null;
 }
 
 function summarizeSnapshot(snap: DailySnapshot): DailySummary {

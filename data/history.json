@@ -4,11 +4,21 @@
       "date": "2026-10-18",
       "status": "STOPPED",
       "limit": null
+    },
+    {
+      "date": "2026-10-19",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "161130": [
     {
       "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    },
+    {
+      "date": "2026-10-19",
       "status": "STOPPED",
       "limit": null
     }
@@ -18,11 +28,21 @@
       "date": "2026-10-18",
       "status": "STOPPED",
       "limit": null
+    },
+    {
+      "date": "2026-10-19",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "539001": [
     {
       "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": 10
+    },
+    {
+      "date": "2026-10-19",
       "status": "LIMITED",
       "limit": 10
     }
@@ -32,11 +52,21 @@
       "date": "2026-10-18",
       "status": "LIMITED",
       "limit": 10
+    },
+    {
+      "date": "2026-10-19",
+      "status": "LIMITED",
+      "limit": 10
     }
   ],
   "000834": [
     {
       "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": 10
+    },
+    {
+      "date": "2026-10-19",
       "status": "LIMITED",
       "limit": 10
     }
@@ -46,11 +76,21 @@
       "date": "2026-10-18",
       "status": "STOPPED",
       "limit": null
+    },
+    {
+      "date": "2026-10-19",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "019737": [
     {
       "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": 10
+    },
+    {
+      "date": "2026-10-19",
       "status": "LIMITED",
       "limit": 10
     }
@@ -60,11 +100,21 @@
       "date": "2026-10-18",
       "status": "LIMITED",
       "limit": 10
+    },
+    {
+      "date": "2026-10-19",
+      "status": "LIMITED",
+      "limit": 10
     }
   ],
   "012752": [
     {
       "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": 10
+    },
+    {
+      "date": "2026-10-19",
       "status": "LIMITED",
       "limit": 10
     }
@@ -74,11 +124,21 @@
       "date": "2026-10-18",
       "status": "LIMITED",
       "limit": 10
+    },
+    {
+      "date": "2026-10-19",
+      "status": "LIMITED",
+      "limit": 10
     }
   ],
   "019172": [
     {
       "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": 10
+    },
+    {
+      "date": "2026-10-19",
       "status": "LIMITED",
       "limit": 10
     }
@@ -88,11 +148,21 @@
       "date": "2026-10-18",
       "status": "LIMITED",
       "limit": 10
+    },
+    {
+      "date": "2026-10-19",
+      "status": "LIMITED",
+      "limit": 10
     }
   ],
   "016452": [
     {
       "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": 10
+    },
+    {
+      "date": "2026-10-19",
       "status": "LIMITED",
       "limit": 10
     }
@@ -102,11 +172,21 @@
       "date": "2026-10-18",
       "status": "LIMITED",
       "limit": 10
+    },
+    {
+      "date": "2026-10-19",
+      "status": "LIMITED",
+      "limit": 10
     }
   ],
   "019441": [
     {
       "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": 10
+    },
+    {
+      "date": "2026-10-19",
       "status": "LIMITED",
       "limit": 10
     }
@@ -116,11 +196,21 @@
       "date": "2026-10-18",
       "status": "LIMITED",
       "limit": 10
+    },
+    {
+      "date": "2026-10-19",
+      "status": "LIMITED",
+      "limit": 10
     }
   ],
   "040046": [
     {
       "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": 5
+    },
+    {
+      "date": "2026-10-19",
       "status": "LIMITED",
       "limit": 5
     }
@@ -130,11 +220,21 @@
       "date": "2026-10-18",
       "status": "LIMITED",
       "limit": 5
+    },
+    {
+      "date": "2026-10-19",
+      "status": "LIMITED",
+      "limit": 5
     }
   ],
   "019524": [
     {
       "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": 5
+    },
+    {
+      "date": "2026-10-19",
       "status": "LIMITED",
       "limit": 5
     }
@@ -144,11 +244,21 @@
       "date": "2026-10-18",
       "status": "LIMITED",
       "limit": 5
+    },
+    {
+      "date": "2026-10-19",
+      "status": "LIMITED",
+      "limit": 5
     }
   ],
   "022525": [
     {
       "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": null
+    },
+    {
+      "date": "2026-10-19",
       "status": "LIMITED",
       "limit": null
     }
@@ -158,11 +268,21 @@
       "date": "2026-10-18",
       "status": "STOPPED",
       "limit": null
+    },
+    {
+      "date": "2026-10-19",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "016057": [
     {
       "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    },
+    {
+      "date": "2026-10-19",
       "status": "STOPPED",
       "limit": null
     }
@@ -172,11 +292,21 @@
       "date": "2026-10-18",
       "status": "STOPPED",
       "limit": null
+    },
+    {
+      "date": "2026-10-19",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "021778": [
     {
       "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    },
+    {
+      "date": "2026-10-19",
       "status": "STOPPED",
       "limit": null
     }
@@ -186,11 +316,21 @@
       "date": "2026-10-18",
       "status": "STOPPED",
       "limit": null
+    },
+    {
+      "date": "2026-10-19",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "015300": [
     {
       "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    },
+    {
+      "date": "2026-10-19",
       "status": "STOPPED",
       "limit": null
     }
@@ -200,11 +340,21 @@
       "date": "2026-10-18",
       "status": "STOPPED",
       "limit": null
+    },
+    {
+      "date": "2026-10-19",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "018967": [
     {
       "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    },
+    {
+      "date": "2026-10-19",
       "status": "STOPPED",
       "limit": null
     }
@@ -214,11 +364,21 @@
       "date": "2026-10-18",
       "status": "STOPPED",
       "limit": null
+    },
+    {
+      "date": "2026-10-19",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "016532": [
     {
       "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    },
+    {
+      "date": "2026-10-19",
       "status": "STOPPED",
       "limit": null
     }
@@ -228,11 +388,21 @@
       "date": "2026-10-18",
       "status": "STOPPED",
       "limit": null
+    },
+    {
+      "date": "2026-10-19",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "018043": [
     {
       "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    },
+    {
+      "date": "2026-10-19",
       "status": "STOPPED",
       "limit": null
     }
@@ -242,11 +412,21 @@
       "date": "2026-10-18",
       "status": "STOPPED",
       "limit": null
+    },
+    {
+      "date": "2026-10-19",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "012870": [
     {
       "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    },
+    {
+      "date": "2026-10-19",
       "status": "STOPPED",
       "limit": null
     }
@@ -256,11 +436,21 @@
       "date": "2026-10-18",
       "status": "STOPPED",
       "limit": null
+    },
+    {
+      "date": "2026-10-19",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "019548": [
     {
       "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    },
+    {
+      "date": "2026-10-19",
       "status": "STOPPED",
       "limit": null
     }
@@ -270,11 +460,21 @@
       "date": "2026-10-18",
       "status": "LIMITED",
       "limit": null
+    },
+    {
+      "date": "2026-10-19",
+      "status": "LIMITED",
+      "limit": null
     }
   ],
   "012753": [
     {
       "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": null
+    },
+    {
+      "date": "2026-10-19",
       "status": "LIMITED",
       "limit": null
     }
@@ -284,11 +484,21 @@
       "date": "2026-10-18",
       "status": "LIMITED",
       "limit": null
+    },
+    {
+      "date": "2026-10-19",
+      "status": "LIMITED",
+      "limit": null
     }
   ],
   "019175": [
     {
       "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": null
+    },
+    {
+      "date": "2026-10-19",
       "status": "LIMITED",
       "limit": null
     }
@@ -298,11 +508,21 @@
       "date": "2026-10-18",
       "status": "CLOSED",
       "limit": null
+    },
+    {
+      "date": "2026-10-19",
+      "status": "CLOSED",
+      "limit": null
     }
   ],
   "019739": [
     {
       "date": "2026-10-18",
+      "status": "CLOSED",
+      "limit": null
+    },
+    {
+      "date": "2026-10-19",
       "status": "CLOSED",
       "limit": null
     }
@@ -312,11 +532,21 @@
       "date": "2026-10-18",
       "status": "STOPPED",
       "limit": null
+    },
+    {
+      "date": "2026-10-19",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "016058": [
     {
       "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    },
+    {
+      "date": "2026-10-19",
       "status": "STOPPED",
       "limit": null
     }
@@ -326,11 +556,21 @@
       "date": "2026-10-18",
       "status": "STOPPED",
       "limit": null
+    },
+    {
+      "date": "2026-10-19",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "040047": [
     {
       "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    },
+    {
+      "date": "2026-10-19",
       "status": "STOPPED",
       "limit": null
     }
@@ -340,11 +580,21 @@
       "date": "2026-10-18",
       "status": "STOPPED",
       "limit": null
+    },
+    {
+      "date": "2026-10-19",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "015518": [
     {
       "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    },
+    {
+      "date": "2026-10-19",
       "status": "STOPPED",
       "limit": null
     }
@@ -354,11 +604,21 @@
       "date": "2026-10-18",
       "status": "STOPPED",
       "limit": null
+    },
+    {
+      "date": "2026-10-19",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "018969": [
     {
       "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    },
+    {
+      "date": "2026-10-19",
       "status": "STOPPED",
       "limit": null
     }
@@ -368,11 +628,21 @@
       "date": "2026-10-18",
       "status": "STOPPED",
       "limit": null
+    },
+    {
+      "date": "2026-10-19",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "016535": [
     {
       "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    },
+    {
+      "date": "2026-10-19",
       "status": "STOPPED",
       "limit": null
     }
@@ -382,11 +652,21 @@
       "date": "2026-10-18",
       "status": "STOPPED",
       "limit": null
+    },
+    {
+      "date": "2026-10-19",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "012871": [
     {
       "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    },
+    {
+      "date": "2026-10-19",
       "status": "STOPPED",
       "limit": null
     }

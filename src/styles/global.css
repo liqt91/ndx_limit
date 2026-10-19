@@ -129,9 +129,11 @@ a { color: inherit; text-decoration: none; }
   padding: 16px 18px; box-shadow: var(--shadow-sm); transition: border-color .12s ease, box-shadow .12s ease;
 }
 .fam:hover { border-color: #d3dae0; box-shadow: 0 2px 8px rgba(16, 24, 32, 0.07); }
-.fam-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+/* 头部定高：副标题锁单行后，头部最高 = 基金名两行(窄屏) + 副标题一行 ≈ 74px。
+   定高让两列卡片的 30 天柱状图起点一致，不会因某张卡副标题换行而错位。 */
+.fam-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-height: 76px; }
 .fam-name { font-size: 16px; font-weight: 600; color: var(--text); min-width: 0; }
-.fam-name .sub { display: block; font-size: 12px; font-weight: 400; color: var(--faint); margin-top: 3px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .01em; }
+.fam-name .sub { display: block; font-size: 12px; font-weight: 400; color: var(--faint); margin-top: 3px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fam-right { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; text-align: right; }
 .fam-big { font-size: 24px; font-weight: 700; line-height: 1.1; letter-spacing: -.02em; color: var(--open-fg); }
 .fam-big.is-stop { color: var(--faint); font-size: 16px; font-weight: 600; }
@@ -234,6 +236,32 @@ a { color: inherit; text-decoration: none; }
 .foot-cta a:hover { text-decoration: underline; text-underline-offset: 2px; }
 .foot-disc { color: var(--faint); font-size: var(--fs-meta); line-height: 1.75; margin: 0 0 8px; }
 .foot-meta { color: var(--faint); font-size: var(--fs-meta); line-height: 1.75; margin: 0; }
+
+/* ── 额度待核验 / 数据质量标记 ── */
+.lim-unknown { color: var(--warn-fg); font-weight: 600; }
+.fam-big.is-unknown { color: var(--warn-fg); font-size: 16px; font-weight: 600; }
+.fam-note { font-size: 11px; color: var(--warn-fg); background: var(--warn-bg); padding: 1px 7px; border-radius: var(--radius-sm); line-height: 1.6; }
+.hero-note { font-size: 12.5px; color: var(--warn-fg); background: var(--warn-bg); display: inline-block; padding: 4px 10px; border-radius: var(--radius-sm); margin-top: 10px; line-height: 1.5; }
+
+/* ── 今日变化区块 ── */
+.changelog { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; margin-bottom: 12px; box-shadow: var(--shadow-sm); }
+.changelog-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.changelog-sub { font-size: var(--fs-meta); color: var(--muted); }
+.changelog-list { list-style: none; margin: 0; padding: 0; }
+.cl-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 0; border-top: 1px solid var(--border-soft); }
+.cl-row:first-child { border-top: none; }
+.cl-name { font-size: 13.5px; font-weight: 500; color: var(--text); min-width: 0; }
+.cl-transition { display: inline-flex; align-items: center; gap: 7px; flex: none; font-size: 12.5px; }
+.cl-from { color: var(--faint); }
+.cl-arrow { color: var(--faint); }
+.cl-to { font-weight: 600; }
+.cl-opened .cl-to { color: var(--open-fg); }
+.cl-stopped .cl-to { color: var(--stop-fg); }
+.cl-limit-up .cl-to { color: var(--open-fg); }
+.cl-limit-down .cl-to { color: var(--warn-fg); }
+.cl-limit-set .cl-to, .cl-limit-clear .cl-to { color: var(--warn-fg); }
+.cl-unknown .cl-to { color: var(--muted); }
+.changelog-empty { font-size: 13px; color: var(--faint); background: var(--card); border: 1px dashed var(--border); border-radius: var(--radius); padding: 14px 18px; margin-bottom: 12px; }
 
 /* ── 响应式 ── */
 @media (max-width: 640px) {

@@ -40,6 +40,11 @@ const heroCls =
   <section class="hero">
     <div class="hero-label">{heroLabel}</div>
     <div class={`hero-value ${heroCls}`}>{heroValue}</div>
+    {
+      share.limitMissing && (
+        <div class="hero-note">单日额度待核验：页面显示「限大额」但未公布具体上限，请以下单页面为准。</div>
+      )
+    }
   </section>
 
   <div class="section-label">历史记录（近 30 天）</div>
@@ -57,7 +62,9 @@ const heroCls =
           <tr>
             <td>{d.date}</td>
             <td class={statusClass(d.status as PurchaseStatus)}>{STATUS_LABEL[d.status as PurchaseStatus]}</td>
-            <td class="num">{d.limit != null ? `${d.limit} 元` : '—'}</td>
+            <td class="num">
+              {d.limit != null ? `${d.limit} 元` : d.status === 'LIMITED' ? <span class="lim-unknown">待核验</span> : '—'}
+            </td>
           </tr>
         ))
       }

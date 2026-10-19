@@ -12,8 +12,8 @@ const { shares, dataCodes, hidden } = Astro.props;
 
 const first = shares[0];
 const name = `${first.company}${first.baseName}${first.currency === 'USD' ? '美元' : ''}`;
-const codesLine = shares.map((s) => `${s.code} ${s.shareClass}`).join(' · ');
-const classes = [...new Set(shares.map((s) => s.shareClass))].join('/');
+// 副标题只列代码：类别字母在下方每个份额行（「code · A 类」）已有，重复信息正是换行/被裁的元凶
+const codesLine = shares.map((s) => s.code).join(' · ');
 
 // 家族状态摘要（组内任一份额可买即算可投）
 const statuses = new Set(shares.map((s) => s.purchaseStatus));
@@ -29,10 +29,14 @@ const famCls =
   : famStatus === 'UNKNOWN' ? 'tag-unknown'
   : 'tag-ok';
 
-// 家族可投总额（组内可买份额单日上限之和）
-const famTotal = shares
+// 家族可投总额（组内可买份额单日上限之和）。
+// 区分「已知额度之和」与「是否含待核验份额」：有缺失时不臆造，用 ≈ 提示被低估。
+const famKnownTotal = shares
   .filter((s) => (s.purchaseStatus === 'LIMITED' || s.purchaseStatus === 'OPEN') && s.dailyLimit != null)
   .reduce((a, s) => a + (s.dailyLimit as number), 0);
+const famHasMissing = shares.some(
+  (s) => (s.purchaseStatus === 'LIMITED' || s.purchaseStatus === 'OPEN') && s.limitMissing
+);
 
 // 合并家族历史（用于 30 天柱图）：任一可买即视为当日开门
 const dateSet = new Set<string>();
@@ -57,14 +61,17 @@ const familyHistory: DayPoint[] = allDates.map((date) => {
   <div class="fam-head">
     <div class="fam-name">
       {name}
-      <span class="sub">{codesLine} · {classes} 类</span>
+      <span class="sub">{codesLine}</span>
     </div>
     <div class="fam-right">
-      {famTotal > 0 ? (
-        <div class="fam-big tnum">{famTotal}<span class="u">元</span></div>
+      {famKnownTotal > 0 ? (
+        <div class="fam-big tnum">{famHasMissing ? '≈' : ''}{famKnownTotal}<span class="u">元</span></div>
+      ) : famHasMissing ? (
+        <div class="fam-big is-unknown">待核验</div>
       ) : (
         <div class="fam-big is-stop">—</div>
       )}
+      {famHasMissing && <span class="fam-note">含待核验额度</span>}
       <span class={`tag ${famCls}`}>{STATUS_LABEL[famStatus]}</span>
     </div>
   </div>
@@ -81,7 +88,13 @@ const familyHistory: DayPoint[] = allDates.map((date) => {
           </div>
           <div class="rt">
             <span class="lim">
-              {s.dailyLimit != null ? <>{s.dailyLimit} <b>元</b></> : '额度未公布'}
+              {s.limitMissing ? (
+                <span class="lim-unknown">限额待核验</span>
+              ) : s.dailyLimit != null ? (
+                <>{s.dailyLimit} <b>元</b></>
+              ) : (
+                '额度未公布'
+              )}
             </span>
             <span class={`tag ${statusClass(s.purchaseStatus)}`}>{STATUS_LABEL[s.purchaseStatus]}</span>
           </div>

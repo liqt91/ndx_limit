@@ -24,6 +24,7 @@ export interface FundShare {
   currency: Currency;
   purchaseStatus: PurchaseStatus; // 今日状态（= history 最后一项）
   dailyLimit: number | null; // 今日代销单日上限
+  limitMissing: boolean; // LIMITED/OPEN 但抽不到单日上限 → 额度待核验，绝不臆造金额
   minPurchase: number | null;
   limitText: string | null; // 例如 "10 元"
   directLimitText: string | null; // 直销渠道限额文案（手工维护）
