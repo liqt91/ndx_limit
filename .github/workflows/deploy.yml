@@ -51,12 +51,20 @@ jobs:
             git push origin "HEAD:${{ github.ref_name }}"
           fi
 
-      # 变化通知（可选）：仅当仓库配置了 NOTIFY_WEBHOOK 密钥时执行。
-      # NOTIFY_CHANNEL 可选 feishu（默认，飞书机器人）或 wechat（Server酱→微信）。
-      # 门禁联动：若 scrape 健康未通过，job 已中止，本步不会运行，不会发误导性通知。
-      - name: Notify changes (optional)
+      # 管理员自通知（可选）：仅当配置了 NOTIFY_WEBHOOK 时执行，把变化推给站长自己（飞书/微信）。
+      # 这是单收件人自通知，不是给订阅人广播。订阅人群发见下一步 broadcast.mjs。
+      - name: Admin notify (optional)
         if: ${{ env.NOTIFY_WEBHOOK != '' }}
         env:
           NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK }}
           NOTIFY_CHANNEL: ${{ secrets.NOTIFY_CHANNEL }}
         run: node scripts/notify.mjs
+
+      # 群发日报给所有订阅人（可选）：仅当配置了 BUTTONDOWN_API_KEY 时执行。
+      # 走 Buttondown 邮件服务，无变化也发送（正文含「今日无变化」）。
+      # 门禁联动：若 scrape 健康未通过，job 已中止，本步不会运行，不会发误导内容。
+      - name: Broadcast to subscribers (optional)
+        if: ${{ env.BUTTONDOWN_API_KEY != '' }}
+        env:
+          BUTTONDOWN_API_KEY: ${{ secrets.BUTTONDOWN_API_KEY }}
+        run: node scripts/broadcast.mjs

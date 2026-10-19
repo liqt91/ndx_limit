@@ -105,14 +105,24 @@ npm run ci:build                  # 本地：抓取 + 构建一步到位（= scr
 
 ## 订阅功能
 
-纯静态站没有后端，`/subscribe` 是一个 POST 到第三方表单服务的表单。部署前把
-`src/pages/subscribe.astro` 里的 `FORM_ACTION` 换成你自己的接收地址：
+纯静态站没有后端，订阅与每日群发都交给 **Buttondown**（免费邮件简报服务，免费额度 100 订阅者），
+站点本身**不存储任何邮箱**。整条链路仍跑在既有的免费 GitHub Actions 上，零服务器：
 
-- **Formspree**（最简单）：`https://formspree.io/f/YOUR_FORM_ID`
-- **腾讯云函数 / 自建接口**：任何支持表单 POST 的 HTTPS 地址
+1. **收邮箱**：`/subscribe` 页面表单 POST 到 Buttondown 公开 embed 端点
+   `https://buttondown.com/api/emails/embed-subscribe/<你的username>`（免密钥，需带隐藏字段 `embed=1`）。
+   把 `src/pages/subscribe.astro` 里的 `YOUR_BUTTONDOWN_USERNAME` 换成你的 Buttondown 用户名即可。
+2. **每日群发**：`deploy.yml` 在每天 08:00 抓取后调用 `scripts/broadcast.mjs`，调 Buttondown API
+   `POST /v1/emails`（密钥 `BUTTONDOWN_API_KEY`，仅服务端使用）把日报群发给全部订阅者。
+   **无变化也发送**（正文含「今日无变化」），满足每日打卡。
+3. **管理员自通知（可选）**：另可在仓库 Secrets 配 `NOTIFY_WEBHOOK`（飞书机器人 / Server酱 SCKEY），
+   让 `scripts/notify.mjs` 把变化推给站长自己巡检（单收件人，非订阅人广播）。
 
-每天早上 8 点发邮件的能力需要单独的定时任务（例如云函数定时触发器调用邮件服务），
-不在本静态站范围内，可另起一个轻量服务实现。
+所需密钥（仓库 `Settings → Secrets → Actions`）：
+- `BUTTONDOWN_API_KEY`：Buttondown API Key（Settings → API），启用订阅人群发。
+- `NOTIFY_WEBHOOK` + 可选 `NOTIFY_CHANNEL`：管理员飞书/微信自通知，不填则不发。
+
+> 早期方案（Formspree + 云函数定时发信）已弃用：Formspree 仅收邮箱不发信，仍需另起服务，
+> 不如 Buttondown 一站式（收+发+名单+送达率）且免费额度够用。
 
 ## 目录结构
 
@@ -123,6 +133,6 @@ src/
   components/  SiteHeader、Bars（30天柱状图）、FundCard（基金卡片）
   pages/       index（今日）、f/[code]（详情）、daily（历史）、my（我的基金）、subscribe（订阅）
 public/       logo / favicon / hero 等静态资源
-scripts/      scrape.mjs 抓取脚本、notify.mjs 变化通知脚本（deploy-cos.sh 已弃用）
+scripts/      scrape.mjs 抓取、digest.mjs 日报构建、notify.mjs 管理员自通知、broadcast.mjs 订阅人群发（deploy-cos.sh 已弃用）
 .github/      workflows/deploy.yml 每日抓取+回写（触发 EdgeOne Pages 重建）
 ```

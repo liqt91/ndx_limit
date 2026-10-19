@@ -1,11 +1,11 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 
-// 纯静态站没有后端，订阅依赖第三方表单服务（或云函数）。
-// 部署前把 FORM_ACTION 换成你自己的接收地址：
-//   方案 A Formspree: https://formspree.io/f/YOUR_FORM_ID
-//   方案 B 腾讯云函数 / 自建接口: 你的 HTTPS URL（需支持 POST 表单）
-const FORM_ACTION = 'https://formspree.io/f/YOUR_FORM_ID';
+// 纯静态站没有后端，订阅人收集交给 Buttondown（邮件简报服务）：
+// 表单 POST 到 Buttondown 公开 embed 端点（免密钥），订阅人确认后进入名单；
+// 每日 08:00 的 GitHub Actions 再调 Buttondown API 把日报群发给名单里所有人。
+// 部署前把 USERNAME 换成你自己的 Buttondown 用户名（按钮：Settings → Embedding 里的用户名）。
+const FORM_ACTION = 'https://buttondown.com/api/emails/embed-subscribe/YOUR_BUTTONDOWN_USERNAME';
 ---
 
 <BaseLayout title="订阅日报 - 纳指开门日报">
@@ -18,9 +18,11 @@ const FORM_ACTION = 'https://formspree.io/f/YOUR_FORM_ID';
   <form class="form" action={FORM_ACTION} method="POST" target="_blank">
     <label for="email">邮箱地址</label>
     <input type="email" id="email" name="email" placeholder="you@example.com" required />
+    <input type="hidden" name="embed" value="1" />
     <button type="submit">订阅</button>
     <p class="note">
-      提交后会跳转到表单服务的确认页。本页为纯静态，订阅能力依赖第三方表单服务（详见项目 README）。
+      提交后会跳转到确认页，确认订阅即可。本页为纯静态，订阅与每日群发均由 Buttondown 托管，
+      站点本身不存任何邮箱（详见项目 README）。
     </p>
   </form>
 </BaseLayout>
