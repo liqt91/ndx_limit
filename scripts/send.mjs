@@ -10,7 +10,8 @@
 //   SMTP_HOST / SMTP_PORT / SMTP_SECURE('true'|'false', 可省略按端口推断)
 //   SMTP_USER / SMTP_PASS            SMTP 认证（Brevo: smtp-relay.brevo.com:587 + 登录名/密钥）
 //   MAIL_FROM                        发件人，如 "纳指开门日报 <digest@liqt91.top>"
-//   SUBSCRIBERS_URL                  GET 返回 JSON：["a@b.com"] 或 {"emails":[...]} 或 [{email}...]
+//   SUBSCRIBERS_URL                  GET 返回 JSON：["a@b.com"] / {"emails":[...]} / [{email}...]
+//   SUBSCRIBERS_TOKEN                若 SUBSCRIBERS_URL 需要鉴权，会以 Bearer 头发送
 //   SUBSCRIBERS_FILE                 本地 JSON / CSV / 换行分隔 文件（手动测试用）
 //   RATE_DELAY_MS                    每封间隔毫秒（默认 200，避免触发频率限制）
 //   UNSUBSCRIBE_MAILTO               退订地址，写入 List-Unsubscribe 头（可选）
@@ -34,6 +35,7 @@ const USER = process.env.SMTP_USER || '';
 const PASS = process.env.SMTP_PASS || '';
 const FROM = process.env.MAIL_FROM || '';
 const SUB_URL = process.env.SUBSCRIBERS_URL || '';
+const SUB_TOKEN = process.env.SUBSCRIBERS_TOKEN || '';
 const SUB_FILE = process.env.SUBSCRIBERS_FILE || '';
 const DELAY = Number(process.env.RATE_DELAY_MS ?? 200);
 const UNSUB = process.env.UNSUBSCRIBE_MAILTO || '';
@@ -71,9 +73,17 @@ function parseRaw(text) {
 }
 
 async function loadSubscribers() {
+  if (!SUB_URL && !SUB_FILE) {
+    // dry-run 只预览正文，没有名单也允许跑；真发时缺名单必须失败，不能「假装发过了」。
+    if (DRY) {
+      console.log('ℹ 未配置名单来源，dry-run 仅预览正文。');
+      return [];
+    }
+    throw new Error('未配置订阅名单来源（SUBSCRIBERS_URL / SUBSCRIBERS_FILE），拒绝「假装发过了」');
+  }
   let raw = [];
   if (SUB_URL) {
-    const r = await fetch(SUB_URL);
+    const r = await fetch(SUB_URL, SUB_TOKEN ? { headers: { Authorization: `Bearer ${SUB_TOKEN}` } } : undefined);
     if (!r.ok) throw new Error(`SUBSCRIBERS_URL HTTP ${r.status}`);
     const ct = r.headers.get('content-type') || '';
     const body = await r.text();
@@ -97,6 +107,8 @@ async function main() {
   const d = buildDailyDigest();
   if (!d.healthy) {
     console.log(`ℹ 数据不健康（覆盖率不足），本次不群发。\n${d.text}`);
+    // dry-run 只打印；真发时用它兜住「门禁被绕过」的情况，让失败可见而不是静默成功。
+    if (!DRY) process.exit(2);
     return;
   }
 
@@ -116,8 +128,8 @@ async function main() {
     return;
   }
   if (!HOST || !FROM) {
-    console.log('ℹ 未配置 SMTP_HOST / MAIL_FROM，仅打印，未发送。');
-    return;
+    console.error('✗ 未配置 SMTP_HOST / MAIL_FROM，无法发信。本地预览请用 --dry-run。');
+    process.exit(2);
   }
 
   const transport = nodemailer.createTransport({

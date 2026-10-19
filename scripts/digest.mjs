@@ -45,7 +45,8 @@ export function kindOrder(k) {
   );
 }
 
-function latestDate(history) {
+// 全量历史里最新的那一天（YYYY-MM-DD）。用于判断数据是不是「今天的」。
+export function latestDate(history) {
   let max = '';
   for (const code in history) {
     const arr = history[code];
@@ -55,6 +56,25 @@ function latestDate(history) {
     }
   }
   return max;
+}
+
+// 北京时间的今天（YYYY-MM-DD）。scrape 写数据用的是同一口径，两边必须一致。
+export function todayShanghai() {
+  return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Shanghai' }).format(new Date());
+}
+
+// 人民币份额覆盖率（分母只算人民币份额，与 scrape 门禁口径一致）。
+export function computeCoverage(funds, meta) {
+  let cnyTargets = 0;
+  let cnyOk = 0;
+  const codeCurrency = new Map();
+  for (const f of funds)
+    for (const c of f.codes) {
+      codeCurrency.set(c.code, f.currency);
+      if (f.currency !== 'USD') cnyTargets++;
+    }
+  for (const code in meta) if (codeCurrency.get(code) !== 'USD' && meta[code] && meta[code].name) cnyOk++;
+  return cnyTargets ? cnyOk / cnyTargets : 1;
 }
 
 // 返回结构化日报。healthy=false 时 text 为数据异常提示；无论有无变化都返回 text（无变化含说明）。
@@ -67,18 +87,7 @@ export function buildDailyDigest() {
     return { healthy: false, noChange: true, date: '', subject: '纳指开门日报', text: 'ℹ 暂无抓取历史，日报暂缓。', changes: [] };
   }
 
-  // 人民币覆盖率（与 scrape 门禁口径一致）
-  let cnyTargets = 0;
-  let cnyOk = 0;
-  const codeCurrency = new Map();
-  for (const f of funds)
-    for (const c of f.codes) {
-      codeCurrency.set(c.code, f.currency);
-      if (f.currency !== 'USD') cnyTargets++;
-    }
-  for (const code in meta) if (codeCurrency.get(code) !== 'USD' && meta[code] && meta[code].name) cnyOk++;
-  const coverage = cnyTargets ? cnyOk / cnyTargets : 1;
-
+  const coverage = computeCoverage(funds, meta);
   const date = latestDate(history);
 
   if (coverage < MIN_COVERAGE) {

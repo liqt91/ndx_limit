@@ -11,7 +11,7 @@
 - **详情** `/f/[code]`：单只基金份额的状态变化记录、历史快照、相关公告
 - **历史** `/daily`：最近 15 天每日快照摘要
 - **我的基金** `/my`：在浏览器 localStorage 里存基金代码，纯前端过滤展示（不上传）
-- **订阅** `/subscribe`：纯静态表单（依赖第三方表单服务，见下）
+- **订阅** `/subscribe`：本站原生表单，同域边缘函数收邮箱（见下）
 
 > 注：只展示**人民币份额**。美元份额仍在 `funds.json` 目录与抓取范围内（历史数据继续累积），
 > 只是不在站内渲染——过滤点在 `src/data/loader.ts` 的 `loadTodaySnapshot()`，日后想展示删掉那两行即可。
@@ -42,14 +42,24 @@ npm run preview    # 预览构建产物
    等证书下发后该子域名即生效。同时把 `astro.config.mjs` 的 `site` 改成 `https://ndx.liqt91.top`（已填好），
    这样 sitemap / canonical / 绝对链接都用正式域名，搜索引擎与分享卡片不会指向 `*.edgeone.app`。
 
-### 2. GitHub Actions（每日调度，已内置）
+### 2. GitHub Actions（两个独立 workflow，已内置）
 
-`deploy.yml` 每天北京时间 08:00 触发：跑 `scrape.mjs` 抓今日数据 → 把 `history.json` / `fund-meta.json`
-**回写并 push 仓库**。这次 push 自动触发 EdgeOne 重新构建部署。不需要 COS / coscli / 任何腾讯密钥。
+抓数据与发邮件**故意拆成两个 workflow**，各自调度、各自失败，互不牵连：
+
+| workflow | 时间（北京） | 职责 |
+|---|---|---|
+| `refresh.yml` | 08:00 | `scrape.mjs` 抓今日数据 → 回写 `history.json` / `fund-meta.json` 并 push |
+| `broadcast.yml` | 08:20 | 校验数据是今天的 → 拉订阅名单 → SMTP 群发日报 |
+
+为什么拆开：
+- `scrape.mjs` 只用 Node 内置模块，**不需要 `npm ci`**，抓取那一步从 50 秒降到 15 秒级，也少掉「装依赖失败」一整类故障；
+- 发信失败不该把「数据更新成功」染红（以前混在一起，红了分不清是谁坏了）；
+- 想重试发信时，不必重跑抓取、也不必再 push 一次数据。
 
 - **健康门禁联动**：覆盖率 < 90% 时 `scrape.mjs` 以非零码退出，job 中止、不回写、EdgeOne 保留上次好构建。
-- **可选通知**：仓库 `Settings → Secrets` 加 `NOTIFY_WEBHOOK`（飞书机器人）即开启「今日变化」推送。
-- **手动触发**：Actions 页面 `Run workflow` 可立即跑一轮（首次验证用）。
+- **发信前二次门禁**：`broadcast.yml` 先跑 `scripts/check-freshness.mjs`，要求 `history.json` 最新日期**就是今天**
+  且覆盖率达标，否则退出码 2、一封信都不发——宁可当天不发，也不把旧数据当今天推出去。
+- **手动触发**：`broadcast.yml` 的 `Run workflow` 默认 `mode=dry-run`（只打印不发信），确认无误再选 `send`。
 - 回写那次 commit 同时保住了 GitHub 对公开仓库「60 天无活动停用定时任务」的规则，日程不会被静默停。
 
 > 历史部署用的 `scripts/deploy-cos.sh`（coscli + COS）已弃用；如需改回 COS 见 git 历史。
@@ -65,7 +75,7 @@ npm run preview    # 预览构建产物
 
 `src/data/loader.ts` 读取 `funds.json`(目录) + 上面两个文件（+ 可选的 `direct-overrides.json`），
 装配成 `DailySnapshot`，页面直接用。**静态站「每日更新」靠 GitHub Actions 每天抓取并回写仓库**
-(见 deploy.yml)，那次 push 触发 EdgeOne Pages 重建：重建日 = 数据日，无需服务器/数据库。
+(见 `refresh.yml`)，那次 push 触发 EdgeOne Pages 重建：重建日 = 数据日，无需服务器/数据库。
 
 ```bash
 node scripts/scrape.mjs            # 抓全部基金
@@ -105,32 +115,44 @@ npm run ci:build                  # 本地：抓取 + 构建一步到位（= scr
 
 ## 订阅功能
 
-纯静态站没有后端，订阅与每日群发都交给 **Buttondown**（免费邮件简报服务，免费额度 100 订阅者），
-站点本身**不存储任何邮箱**。整条链路仍跑在既有的免费 GitHub Actions 上，零服务器：
+访客全程只访问本域名：不跳转、不出现第三方品牌、国内无需任何代理。整条链路零服务器。
 
-1. **收邮箱**：`/subscribe` 页面表单 POST 到 Buttondown 公开 embed 端点
-   `https://buttondown.com/api/emails/embed-subscribe/liqt91`（免密钥，需带隐藏字段 `embed=1`）。
-   用户名已固化为 `liqt91`（= `buttondown.com/liqt91`）。
-2. **每日群发**：`deploy.yml` 在每天 08:00 抓取后调用 `scripts/broadcast.mjs`，调 Buttondown API
-   `POST /v1/emails`（密钥 `BUTTONDOWN_API_KEY`，仅服务端使用）把日报群发给全部订阅者。
-   **无变化也发送**（正文含「今日无变化」），满足每日打卡。
-3. **自定义订阅成功页**：站内已有 `/subscribed`（`src/pages/subscribed.astro`）。在 Buttondown
-   后台把两个跳转字段都指向它，即可让访客提交/确认后落到自己的品牌页，而不是 Buttondown 默认页：
-   - `subscription_redirect_url` → `https://ndx.liqt91.top/subscribed`（提交表单后立刻跳，此时尚未确认）
-   - `subscription_confirmation_redirect_url` → `https://ndx.liqt91.top/subscribed`（点确认信后跳，真正成功）
+1. **收邮箱（同域边缘函数）**：`/subscribe` 是本站原生表单，`fetch POST /api/subscribe`
+   → `edge-functions/api/subscribe.js`，跑在 EdgeOne 边缘节点，写入 KV。
+   - 邮箱归一化为小写、SHA-256 后做 key（`sub_<hex>`），重复订阅幂等；
+   - 蜜罐字段 + Origin 校验防刷，另建议在控制台对 `/api/subscribe` 加限频规则；
+   - 只收集邮箱一个字段，页面已写明用途与退订方式。
+2. **取名单（带鉴权的只读接口）**：`GET /api/subscribers`，需 `Authorization: Bearer <SUBSCRIBERS_TOKEN>`，
+   分页遍历 KV 返回 `{count, emails}`。名单放在自己的腾讯云账号里，换发信服务商不用迁移。
+3. **每日群发**：`broadcast.yml` 每天 08:20 拉名单 → `scripts/send.mjs` 用 SMTP 逐封发送。
+   **无变化也发**（正文含「今日无变化」）。
+4. **管理员自通知（可选）**：`refresh.yml` 里跑 `scripts/notify.mjs`，把变化推给站长自己（飞书/微信）。
 
-   这两个字段在 Buttondown 后台 Settings 里设置；若 UI 未暴露，可用 API `PATCH /v1/newsletters/{id}`
-   写入（`id` 先由 `GET /v1/newsletters` 取得）。双重确认下 `/subscribed` 页面已同时兼容
-   「去收信确认」与「已确认」两种到达时机。
-4. **管理员自通知（可选）**：另可在仓库 Secrets 配 `NOTIFY_WEBHOOK`（飞书机器人 / Server酱 SCKEY），
-   让 `scripts/notify.mjs` 把变化推给站长自己巡检（单收件人，非订阅人广播）。
+### 一次性配置
 
-所需密钥（仓库 `Settings → Secrets → Actions`）：
-- `BUTTONDOWN_API_KEY`：Buttondown API Key（Settings → API），启用订阅人群发。
-- `NOTIFY_WEBHOOK` + 可选 `NOTIFY_CHANNEL`：管理员飞书/微信自通知，不填则不发。
+**EdgeOne 侧**
+- 存储 → KV → 开通账户并创建命名空间 → 绑定到本项目，运行时变量名填 `SUBS_KV`；
+- 项目 → 环境变量：`SUBSCRIBERS_TOKEN`（≥32 位随机串），可选 `ALLOWED_ORIGIN`（默认 `https://ndx.liqt91.top`）；
+- 安全防护 → 给 `/api/subscribe` 加精确限频（免费版含 1 条该规则，优先给它）。
 
-> 早期方案（Formspree + 云函数定时发信）已弃用：Formspree 仅收邮箱不发信，仍需另起服务，
-> 不如 Buttondown 一站式（收+发+名单+送达率）且免费额度够用。
+**GitHub 侧（Settings → Secrets → Actions）**
+
+| Secret | 用途 |
+|---|---|
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | SMTP 凭据（Brevo：`smtp-relay.brevo.com` 端口 `587`） |
+| `MAIL_FROM` | 发件人，如 `纳指开门日报 <digest@liqt91.top>` |
+| `SUBSCRIBERS_URL` | `https://ndx.liqt91.top/api/subscribers` |
+| `SUBSCRIBERS_TOKEN` | 与 EdgeOne 环境变量同名同值 |
+| `UNSUBSCRIBE_MAILTO`（可选） | 写入 `List-Unsubscribe` 头 |
+| `NOTIFY_WEBHOOK` + `NOTIFY_CHANNEL`（可选） | 站长自通知：`feishu`（默认）/`wechat`（Server酱） |
+
+### 免费额度与已知限制
+
+- 免费额度：EdgeOne Edge Functions 300 万次/月 + KV 1 GB；GitHub Actions（公开仓库）免费；Brevo 300 封/天永久免费。几百人规模全部在额度内。
+- **送达率才是最大变量**：Brevo 往 QQ/163 发信，**必须**在 `liqt91.top` 的 DNS 配好它给的 SPF/DKIM（TXT 记录），
+  否则大概率进垃圾箱。这一步不做，前面所有体验优化都白费。
+- Brevo 自带退订页在境外域名，国内可能打不开；已用 `List-Unsubscribe: mailto:` 兜底。
+- 早期方案已弃用：Formspree 只收不发；Buttondown 国内打不开（`buttondown.com` 不可达 → 订阅按钮必然失败）。
 
 ## 目录结构
 
@@ -141,6 +163,8 @@ src/
   components/  SiteHeader、Bars（30天柱状图）、FundCard（基金卡片）
   pages/       index（今日）、f/[code]（详情）、daily（历史）、my（我的基金）、subscribe（订阅）
 public/       logo / favicon / hero 等静态资源
-scripts/      scrape.mjs 抓取、digest.mjs 日报构建、notify.mjs 管理员自通知、broadcast.mjs 订阅人群发（deploy-cos.sh 已弃用）
-.github/      workflows/deploy.yml 每日抓取+回写（触发 EdgeOne Pages 重建）
+scripts/      scrape.mjs 抓取、check-freshness.mjs 发信前数据门禁、digest.mjs 日报构建、
+              send.mjs 群发（SMTP）、notify.mjs 管理员自通知（deploy-cos.sh 已弃用）
+edge-functions/api/  subscribe.js 收邮箱入 KV、subscribers.js 供 Actions 拉名单（Bearer 鉴权）
+.github/      workflows/refresh.yml 每日抓取+回写、workflows/broadcast.yml 每日群发（触发 EdgeOne 重建）
 ```

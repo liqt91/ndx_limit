@@ -1,0 +1,68 @@
+name: Daily Data Refresh
+
+# 每日抓取数据并回写仓库。**只负责数据，不发任何邮件**（发信见 broadcast.yml）。
+#
+# 为什么和发信拆开：
+#   1. scrape.mjs 只用 Node 内置模块，不需要 npm ci —— 这一步从 50 秒降到 15 秒级，
+#      也少掉「装依赖失败」这一整类故障；
+#   2. 发信失败不该把「数据更新成功」标记成失败（以前混在一起，红了分不清是谁坏了）；
+#   3. 想重试发信时，不必重跑抓取、也不必再 push 一次数据。
+#
+# 回写那次 push 会触发 EdgeOne Pages 自动重建。
+# GitHub 对公开仓库有「60 天无活动则停用定时任务」的规则，每日 commit 同时也保住了它。
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # UTC 00:00 = 北京 08:00
+  workflow_dispatch:
+
+permissions:
+  contents: write # 仅用于回写 data/；默认 token 只读，不开会 403
+
+concurrency:
+  group: daily-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    # secrets 不能直接进 if，也不能靠「步骤级 env 在其自身 if 里判断」（会静默跳过）。
+    # 官方推荐：job 级算成布尔标记，步骤 if 判断它。
+    env:
+      HAS_NOTIFY: ${{ secrets.NOTIFY_WEBHOOK != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 需要完整历史才能在其上 commit + push
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # 健康门禁：人民币覆盖率 < 阈值（默认 90%）→ 退出码 2，job 中止。
+      # 于是不回写、EdgeOne 保留上次好构建，绝不会出现「今日全暂停」的假象。
+      - name: Scrape today's data
+        run: node scripts/scrape.mjs
+
+      # history.json 是 30 天柱状图的数据源，CI checkout 的是已提交版，不回写会逐天丢数据。
+      # 无变化时跳过提交，避免每天产生空 commit。
+      - name: Commit data back
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/history.json data/fund-meta.json
+          if git diff --cached --quiet; then
+            echo "no data changes, skip commit"
+          else
+            git commit -m "data: daily scrape $(date -u +%Y-%m-%d)"
+            git push origin "HEAD:${{ github.ref_name }}"
+          fi
+
+      # 管理员自通知（可选，单收件人）：飞书/微信，只发给站长自己巡检用。
+      # 放在这里而不是发信 job 里：数据抓完就能立刻知道变化，且不受发信失败影响。
+      - name: Admin notify (optional)
+        if: ${{ env.HAS_NOTIFY == 'true' }}
+        env:
+          NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK }}
+          NOTIFY_CHANNEL: ${{ secrets.NOTIFY_CHANNEL }}
+        run: node scripts/notify.mjs

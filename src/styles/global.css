@@ -228,6 +228,12 @@ a { color: inherit; text-decoration: none; }
 .form button:hover { filter: brightness(1.08); }
 .form .note { color: var(--muted); font-size: 12.5px; margin-top: 14px; line-height: 1.65; }
 .form-ok { color: var(--open-fg); font-weight: 600; margin-top: 12px; }
+.form button:disabled { cursor: default; filter: none; opacity: .55; }
+.form-status { margin: 12px 0 0; font-size: 13px; line-height: 1.6; min-height: 1px; }
+.form-status.is-ok { color: var(--open-fg); font-weight: 600; }
+.form-status.is-err { color: var(--stop-fg); }
+/* 蜜罐：移出视口而非 display:none，避免部分爬虫识别 */
+.hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 
 /* ── 页脚 ── */
 .foot { margin-top: 48px; border-top: 1px solid var(--border); padding-top: 18px; }

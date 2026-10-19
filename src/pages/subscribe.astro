@@ -1,11 +1,10 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 
-// 纯静态站没有后端，订阅人收集交给 Buttondown（邮件简报服务）：
-// 表单 POST 到 Buttondown 公开 embed 端点（免密钥），订阅人确认后进入名单；
-// 每日 08:00 的 GitHub Actions 再调 Buttondown API 把日报群发给名单里所有人。
-// Buttondown 用户名（公开，即 buttondown.com/<username> 的 username）。
-const FORM_ACTION = 'https://buttondown.com/api/emails/embed-subscribe/liqt91';
+// 订阅走自己的边缘函数（EdgeOne Edge Functions），不再依赖第三方表单：
+//   浏览器 POST /api/subscribe（同域，不跳转）→ 边缘函数写 KV → 返回 JSON
+// 每天 08:20 由 GitHub Actions 拉 /api/subscribers 取名单，再用 SMTP 群发。
+// 访客全程只访问本站域名，国内不需要任何代理。
 ---
 
 <BaseLayout title="订阅日报 - 纳指开门日报">
@@ -14,15 +13,97 @@ const FORM_ACTION = 'https://buttondown.com/api/emails/embed-subscribe/liqt91';
     <a href="/">今日 →</a>
   </div>
   <h1 class="section-title">订阅日报</h1>
-  <p class="my-hint">每天早上 8 点，把当天纳指基金的开门与限购变化发到你的邮箱。</p>
-  <form class="form" action={FORM_ACTION} method="POST">
+  <p class="my-hint">每天早上 8 点，把当天纳指基金的开门与限购变化发到你的邮箱。只填邮箱，不用注册。</p>
+
+  <form class="form" id="sub-form" novalidate>
     <label for="email">邮箱地址</label>
-    <input type="email" id="email" name="email" placeholder="you@example.com" required />
-    <input type="hidden" name="embed" value="1" />
-    <button type="submit">订阅</button>
+    <input
+      type="email"
+      id="email"
+      name="email"
+      placeholder="you@example.com"
+      autocomplete="email"
+      inputmode="email"
+      required
+    />
+
+    <!-- 蜜罐：视觉隐藏且不可聚焦，正常人填不到；被填即判断为机器人 -->
+    <div class="hp" aria-hidden="true">
+      <label for="trap">请勿填写此栏</label>
+      <input type="text" id="trap" name="trap" tabindex="-1" autocomplete="off" />
+    </div>
+
+    <button type="submit" id="sub-btn">订阅</button>
+
+    <p class="form-status" id="sub-status" role="status" aria-live="polite"></p>
+
     <p class="note">
-      提交后会进入订阅说明页，随后请查收邮件并点击确认链接完成订阅（双重确认，防垃圾邮件）。
-      本页为纯静态，订阅与每日群发均由 Buttondown 托管，站点本身不存任何邮箱。
+      只收集邮箱这一个字段，仅用于每天早上发送日报，不做其它用途、不共享给第三方。
+      每封邮件底部都有退订链接，点一下就退订。本站不存姓名、手机号等任何其它信息。
+    </p>
+    <p class="note">
+      第一次收信如果没看到，先翻一下垃圾箱，并把发件人加进白名单——邮件服务对新域名会有个「养号」过程。
     </p>
   </form>
+
+  <noscript>
+    <p class="note">订阅需要开启 JavaScript。也可以在浏览器的开发者工具里关闭脚本限制后重试。</p>
+  </noscript>
+
+  <script>
+    const form = document.getElementById('sub-form');
+    if (form) {
+      const btn = document.getElementById('sub-btn');
+      const status = document.getElementById('sub-status');
+      const emailInput = document.getElementById('email');
+      const trap = document.getElementById('trap');
+      const idleLabel = btn.textContent;
+
+      const setStatus = (msg, kind) => {
+        status.textContent = msg;
+        status.className = 'form-status' + (kind ? ' is-' + kind : '');
+      };
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = (emailInput.value || '').trim();
+        if (!email) {
+          setStatus('请先填邮箱。', 'err');
+          emailInput.focus();
+          return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = '提交中…';
+        setStatus('');
+
+        try {
+          const res = await fetch('/api/subscribe', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ email, trap: trap ? trap.value : '' }),
+          });
+          const data = await res.json().catch(() => ({}));
+
+          if (res.ok && data.ok) {
+            emailInput.disabled = true;
+            btn.textContent = '已订阅 ✓';
+            setStatus('已订阅。每天早上 8 点，日报会发到 ' + email + '。', 'ok');
+            return;
+          }
+
+          btn.disabled = false;
+          btn.textContent = idleLabel;
+          setStatus(
+            data.error === 'bad_email' ? '这个邮箱格式看起来不对，检查一下？' : '订阅服务暂时不可用，请稍后再试。',
+            'err'
+          );
+        } catch {
+          btn.disabled = false;
+          btn.textContent = idleLabel;
+          setStatus('网络异常，请稍后再试。', 'err');
+        }
+      });
+    }
+  </script>
 </BaseLayout>

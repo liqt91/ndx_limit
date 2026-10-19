@@ -1,0 +1,69 @@
+name: Daily Broadcast
+
+# 每天早上把日报群发给所有订阅人。**不抓数据，只发信**（抓取见 refresh.yml）。
+#
+# 为什么用独立 cron 而不是 workflow_run 串在抓取后面：
+#   workflow_run 校验的是「另一个 job 是否成功」，而真正该校验的是「数据是不是今天的」。
+#   独立 cron + check-freshness 门禁校验的是事实本身：抓取失败了就明确拒发并变红，
+#   而不是拿昨天的数据当今天推出去。顺带也不会被 GITHUB_TOKEN 的递归触发限制绊住。
+#
+# 时间差：抓取 08:00（北京），发信 08:20 —— 留 20 分钟给抓取和 EdgeOne 重建。
+
+on:
+  schedule:
+    - cron: '20 0 * * *' # UTC 00:20 = 北京 08:20
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'dry-run 只打印不发信（默认）；send 真发'
+        type: choice
+        options:
+          - dry-run
+          - send
+        default: dry-run
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-broadcast
+  cancel-in-progress: false
+
+jobs:
+  broadcast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # 门禁：最新数据必须就是今天（北京时间），且人民币覆盖率达标。
+      # 抓取失败/没跑完 → 退出码 2，本 job 变红，一封信都不发。
+      - name: Check data freshness
+        run: node scripts/check-freshness.mjs
+
+      - name: Send digest
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_SECURE: ${{ secrets.SMTP_SECURE }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          UNSUBSCRIBE_MAILTO: ${{ secrets.UNSUBSCRIBE_MAILTO }}
+          SUBSCRIBERS_URL: ${{ secrets.SUBSCRIBERS_URL }}
+          SUBSCRIBERS_TOKEN: ${{ secrets.SUBSCRIBERS_TOKEN }}
+          RATE_DELAY_MS: '200'
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.mode }}" = "dry-run" ]; then
+            echo "== 手动触发，mode=dry-run：只打印不发信 =="
+            node scripts/send.mjs --dry-run
+          else
+            node scripts/send.mjs
+          fi
