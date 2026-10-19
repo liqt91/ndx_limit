@@ -1,0 +1,26 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+// 纯静态站没有后端，订阅依赖第三方表单服务（或云函数）。
+// 部署前把 FORM_ACTION 换成你自己的接收地址：
+//   方案 A Formspree: https://formspree.io/f/YOUR_FORM_ID
+//   方案 B 腾讯云函数 / 自建接口: 你的 HTTPS URL（需支持 POST 表单）
+const FORM_ACTION = 'https://formspree.io/f/YOUR_FORM_ID';
+---
+
+<BaseLayout title="订阅日报 - 纳指开门日报">
+  <div class="ctx">
+    <span>每天早上 8 点推送</span>
+    <a href="/">今日 →</a>
+  </div>
+  <h1 class="section-title">订阅日报</h1>
+  <p class="my-hint">每天早上 8 点，把当天纳指基金的开门与限购变化发到你的邮箱。</p>
+  <form class="form" action={FORM_ACTION} method="POST" target="_blank">
+    <label for="email">邮箱地址</label>
+    <input type="email" id="email" name="email" placeholder="you@example.com" required />
+    <button type="submit">订阅</button>
+    <p class="note">
+      提交后会跳转到表单服务的确认页。本页为纯静态，订阅能力依赖第三方表单服务（详见项目 README）。
+    </p>
+  </form>
+</BaseLayout>

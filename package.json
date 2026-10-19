@@ -1,0 +1,17 @@
+{
+  "name": "nasdaq-daily",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "description": "纳指开门日报 - 静态复刻版 (Astro SSG)",
+  "scripts": {
+    "dev": "astro dev",
+    "scrape": "node scripts/scrape.mjs",
+    "build": "astro build",
+    "ci:build": "node scripts/scrape.mjs && astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "astro": "^5.0.0"
+  }
+}

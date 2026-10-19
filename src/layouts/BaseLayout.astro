@@ -1,0 +1,43 @@
+---
+import '../styles/global.css';
+import SiteHeader from '../components/SiteHeader.astro';
+import { loadTodaySnapshot } from '../data/loader';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+const {
+  title,
+  description = '每天早上 8 点，告诉你今天纳斯达克基金还能不能买、能买多少。',
+} = Astro.props;
+
+const snap = loadTodaySnapshot();
+const dataDate = snap.snapDate;
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  </head>
+  <body>
+    <SiteHeader />
+    <main class="wrap">
+      <slot />
+    </main>
+    <footer class="wrap foot">
+      <div class="foot-cta"><a href="/subscribe">订阅每日日报 →</a></div>
+      <p class="foot-disc">
+        数据来自基金公司公开公告与公开基金数据（代销额度抓取自天天基金），可能存在延迟或误差。实际可买额度请以下单页面为准。以上仅陈述客观信息，不构成投资建议。
+      </p>
+      <p class="foot-meta">
+        数据日期 {dataDate} · 静态生成，由每日定时构建刷新 · 多渠道监控与订阅邮件能力见项目 README
+      </p>
+    </footer>
+  </body>
+</html>

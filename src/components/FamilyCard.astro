@@ -1,0 +1,92 @@
+---
+import type { FundShare, PurchaseStatus, DayPoint } from '../data/types';
+import { STATUS_LABEL, statusClass } from '../lib/status';
+import Bars from './Bars.astro';
+
+interface Props {
+  shares: FundShare[];
+  dataCodes?: string;
+  hidden?: boolean;
+}
+const { shares, dataCodes, hidden } = Astro.props;
+
+const first = shares[0];
+const name = `${first.company}${first.baseName}${first.currency === 'USD' ? '美元' : ''}`;
+const codesLine = shares.map((s) => `${s.code} ${s.shareClass}`).join(' · ');
+const classes = [...new Set(shares.map((s) => s.shareClass))].join('/');
+
+// 家族状态摘要（组内任一份额可买即算可投）
+const statuses = new Set(shares.map((s) => s.purchaseStatus));
+let famStatus: PurchaseStatus;
+if (statuses.has('LIMITED') || statuses.has('OPEN')) famStatus = 'LIMITED';
+else if (statuses.has('CLOSED')) famStatus = 'CLOSED';
+else if (statuses.has('UNKNOWN')) famStatus = 'UNKNOWN';
+else famStatus = 'STOPPED';
+
+const famCls =
+  famStatus === 'STOPPED' ? 'tag-stop'
+  : famStatus === 'CLOSED' ? 'tag-closed'
+  : famStatus === 'UNKNOWN' ? 'tag-unknown'
+  : 'tag-ok';
+
+// 家族可投总额（组内可买份额单日上限之和）
+const famTotal = shares
+  .filter((s) => (s.purchaseStatus === 'LIMITED' || s.purchaseStatus === 'OPEN') && s.dailyLimit != null)
+  .reduce((a, s) => a + (s.dailyLimit as number), 0);
+
+// 合并家族历史（用于 30 天柱图）：任一可买即视为当日开门
+const dateSet = new Set<string>();
+for (const s of shares) for (const d of s.history) dateSet.add(d.date);
+const allDates = [...dateSet].sort();
+const byDate = new Map<string, DayPoint[]>();
+for (const s of shares) for (const d of s.history) {
+  if (!byDate.has(d.date)) byDate.set(d.date, []);
+  byDate.get(d.date)!.push(d);
+}
+const familyHistory: DayPoint[] = allDates.map((date) => {
+  const entries = byDate.get(date)!;
+  const open = entries.find((e) => e.status === 'LIMITED' || e.status === 'OPEN');
+  const closed = entries.find((e) => e.status === 'CLOSED');
+  const unknown = entries.find((e) => e.status === 'UNKNOWN');
+  const status: PurchaseStatus = open ? 'LIMITED' : closed ? 'CLOSED' : unknown ? 'UNKNOWN' : 'STOPPED';
+  return { date, status, limit: open ? open.limit : null };
+});
+---
+
+<div class="fam" data-codes={dataCodes} hidden={hidden}>
+  <div class="fam-head">
+    <div class="fam-name">
+      {name}
+      <span class="sub">{codesLine} · {classes} 类</span>
+    </div>
+    <div class="fam-right">
+      {famTotal > 0 ? (
+        <div class="fam-big tnum">{famTotal}<span class="u">元</span></div>
+      ) : (
+        <div class="fam-big is-stop">—</div>
+      )}
+      <span class={`tag ${famCls}`}>{STATUS_LABEL[famStatus]}</span>
+    </div>
+  </div>
+
+  <Bars history={familyHistory} />
+
+  <ul class="fam-rows">
+    {
+      shares.map((s) => (
+        <li class="fam-row">
+          <div>
+            <a class="nm" href={`/f/${s.code}`}>{s.shortName}</a>
+            <span class="cd">{s.code} · {s.shareClass} 类</span>
+          </div>
+          <div class="rt">
+            <span class="lim">
+              {s.dailyLimit != null ? <>{s.dailyLimit} <b>元</b></> : '额度未公布'}
+            </span>
+            <span class={`tag ${statusClass(s.purchaseStatus)}`}>{STATUS_LABEL[s.purchaseStatus]}</span>
+          </div>
+        </li>
+      ))
+    }
+  </ul>
+</div>

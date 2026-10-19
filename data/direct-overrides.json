@@ -1,0 +1,3 @@
+{
+  "_说明": "本版本仅使用「代销渠道」自动抓取的数据，此文件留空即可。若未来需要补充某只基金的直销渠道限额/公告，可按代码在此手工填写：directLimitText（如 \"100 元\"）、directAnnTitle、directAnnUrl、channelHighlight、minPurchase。填后重新构建即生效。"
+}

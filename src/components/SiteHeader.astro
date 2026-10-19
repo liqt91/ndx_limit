@@ -1,0 +1,20 @@
+---
+const path = Astro.url.pathname;
+const isCurrent = (p: string) =>
+  p === '/' ? path === '/' : path === p || path.startsWith(p + '/');
+---
+
+<header class="site-head">
+  <div class="site-head-inner">
+    <a class="site-brand" href="/">
+      <img src="/nasdaq-logo.svg" alt="" width="26" height="26" />
+      <span>纳指开门日报</span>
+    </a>
+    <nav class="site-nav">
+      <a href="/" aria-current={isCurrent('/') ? 'page' : undefined}>今日</a>
+      <a href="/my" aria-current={isCurrent('/my') ? 'page' : undefined}>我的基金</a>
+      <a href="/daily" aria-current={isCurrent('/daily') ? 'page' : undefined}>历史</a>
+      <a class="btn-sub" href="/subscribe">订阅</a>
+    </nav>
+  </div>
+</header>

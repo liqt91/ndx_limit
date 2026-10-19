@@ -1,0 +1,66 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { loadAllShares } from '../../data/loader';
+import { STATUS_LABEL, statusClass } from '../../lib/status';
+import type { FundShare, PurchaseStatus } from '../../data/types';
+
+export function getStaticPaths() {
+  const shares = loadAllShares();
+  return shares.map((s) => ({ params: { code: s.code }, props: { share: s } }));
+}
+
+const { share } = Astro.props as { share: FundShare };
+
+// 历史按从新到旧展示
+const history = [...share.history].reverse();
+const last = history[history.length - 1];
+
+const currencyLabel = share.currency === 'USD' ? '美元' : '人民币';
+const heroValue =
+  share.dailyLimit != null ? `${share.dailyLimit} 元` : STATUS_LABEL[share.purchaseStatus];
+const heroLabel = share.dailyLimit != null ? '单日最多可投（代销）' : '当前申购状态';
+const heroCls =
+  share.dailyLimit != null ? 'is-open'
+  : share.purchaseStatus === 'STOPPED' ? 'is-stop'
+  : share.purchaseStatus === 'CLOSED' ? 'is-closed'
+  : '';
+---
+
+<BaseLayout title={`${share.shortName} - 纳指开门日报`}>
+  <div class="ctx">
+    <a href="/">← 返回今日</a>
+    <span>数据日期 {last?.date}</span>
+  </div>
+
+  <h1 class="section-title">{share.shortName}</h1>
+  <div class="detail-meta">
+    {share.code} · {share.company} · {share.indexKey} · {share.shareClass} 类 · {currencyLabel}
+  </div>
+
+  <section class="hero">
+    <div class="hero-label">{heroLabel}</div>
+    <div class={`hero-value ${heroCls}`}>{heroValue}</div>
+  </section>
+
+  <div class="section-label">历史记录（近 30 天）</div>
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th>日期</th>
+        <th>状态</th>
+        <th class="num">单日额度</th>
+      </tr>
+    </thead>
+    <tbody>
+      {
+        history.map((d) => (
+          <tr>
+            <td>{d.date}</td>
+            <td class={statusClass(d.status as PurchaseStatus)}>{STATUS_LABEL[d.status as PurchaseStatus]}</td>
+            <td class="num">{d.limit != null ? `${d.limit} 元` : '—'}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+</BaseLayout>

@@ -1,0 +1,394 @@
+{
+  "160213": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "161130": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "270042": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "539001": [
+    {
+      "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": 10
+    }
+  ],
+  "019736": [
+    {
+      "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": 10
+    }
+  ],
+  "000834": [
+    {
+      "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": 10
+    }
+  ],
+  "000055": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "019737": [
+    {
+      "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": 10
+    }
+  ],
+  "008971": [
+    {
+      "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": 10
+    }
+  ],
+  "012752": [
+    {
+      "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": 10
+    }
+  ],
+  "023422": [
+    {
+      "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": 10
+    }
+  ],
+  "019172": [
+    {
+      "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": 10
+    }
+  ],
+  "019173": [
+    {
+      "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": 10
+    }
+  ],
+  "016452": [
+    {
+      "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": 10
+    }
+  ],
+  "016453": [
+    {
+      "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": 10
+    }
+  ],
+  "019441": [
+    {
+      "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": 10
+    }
+  ],
+  "019442": [
+    {
+      "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": 10
+    }
+  ],
+  "040046": [
+    {
+      "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": 5
+    }
+  ],
+  "014978": [
+    {
+      "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": 5
+    }
+  ],
+  "019524": [
+    {
+      "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": 5
+    }
+  ],
+  "019525": [
+    {
+      "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": 5
+    }
+  ],
+  "022525": [
+    {
+      "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": null
+    }
+  ],
+  "016055": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "016057": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "006479": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "021778": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "015299": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "015300": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "018966": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "018967": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "021773": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "016532": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "016533": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "018043": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "018044": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "012870": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "019547": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "019548": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "012751": [
+    {
+      "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": null
+    }
+  ],
+  "012753": [
+    {
+      "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": null
+    }
+  ],
+  "019174": [
+    {
+      "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": null
+    }
+  ],
+  "019175": [
+    {
+      "date": "2026-10-18",
+      "status": "LIMITED",
+      "limit": null
+    }
+  ],
+  "019738": [
+    {
+      "date": "2026-10-18",
+      "status": "CLOSED",
+      "limit": null
+    }
+  ],
+  "019739": [
+    {
+      "date": "2026-10-18",
+      "status": "CLOSED",
+      "limit": null
+    }
+  ],
+  "016056": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "016058": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "006480": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "040047": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "040048": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "015518": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "018968": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "018969": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "016534": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "016535": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "003722": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "012871": [
+    {
+      "date": "2026-10-18",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ]
+}

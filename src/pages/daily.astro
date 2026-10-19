@@ -1,0 +1,28 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { loadDailySummaries } from '../data/loader';
+
+const summaries = loadDailySummaries(15);
+---
+
+<BaseLayout title="历史日报 - 纳指开门日报">
+  <div class="ctx">
+    <span>每日快照 · 静态站每日重建刷新</span>
+    <a href="/">今日 →</a>
+  </div>
+  <h1 class="section-title">历史日报</h1>
+
+  <ul class="daylist">
+    {
+      summaries.map((s) => (
+        <li class="dayrow">
+          <div class="day-main">
+            <span class="day-date">{s.label}</span>
+            <span class="day-sub">{s.opened} 家开门 · 共监控 {s.count} 家（人民币）</span>
+          </div>
+          <div class="day-total">¥{s.total}<span class="day-unit">元</span></div>
+        </li>
+      ))
+    }
+  </ul>
+</BaseLayout>

@@ -1,0 +1,243 @@
+/* =============================================================
+   设计令牌 — 参照 nasdaq.jaelchen.cn（清爽金融数据站）
+   -------------------------------------------------------------
+   浅灰底 + 白卡片 + 1px 细线；青蓝=开门/可投，红=暂停，琥珀=限购。
+   克制、专业、信息优先。无重阴影、无渐变发光。
+   ============================================================= */
+:root {
+  --bg: #f6f7f9;
+  --card: #ffffff;
+  --border: #e5e7eb;
+  --border-soft: #eaeef2;
+
+  --text: #1f2328;
+  --muted: #656d76;
+  --faint: #8c959f;
+
+  --link: #0996c7;
+  --open-bg: #e3f4fb;
+  --open-fg: #0b6d92;
+  --open-bar: #0996c7;
+  --warn-bg: #fff8c5;
+  --warn-fg: #7d4e00;
+  --warn-bar: #bf8700;
+  --stop-bg: #ffebe9;
+  --stop-fg: #a40e26;
+  --stop-bar: #cf222e;
+
+  --hero-bg: #f3f7fc;
+  --radius: 10px;
+  --radius-sm: 6px;
+
+  --maxw: 880px;
+  --headw: 900px;
+
+  --fs-hero: 30px;
+  --fs-title: 22px;
+  --fs-body: 14px;
+  --fs-meta: 12px;
+
+  --shadow-sm: 0 1px 3px rgba(16, 24, 32, 0.05);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+html { color-scheme: light; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  font-size: var(--fs-body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+a { color: inherit; text-decoration: none; }
+::selection { background: #d6eef7; color: var(--text); }
+
+.wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 16px 56px; }
+
+.tnum, .total-value, .fam-big, .day-total, .tbl td.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* ── 顶部导航（白底 + 细线 + 极淡阴影，仿原站） ── */
+.site-head { background: var(--card); border-bottom: 1px solid var(--border); box-shadow: var(--shadow-sm); }
+.site-head-inner {
+  max-width: var(--headw); margin: 0 auto; padding: 13px 16px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.site-brand { font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: .2px; display: inline-flex; align-items: center; gap: 9px; }
+.site-brand img { display: block; border-radius: 6px; }
+.site-brand:hover { color: var(--link); }
+.site-nav { display: flex; gap: 18px; }
+.site-nav a { font-size: 13.5px; color: var(--muted); transition: color .12s ease; }
+.site-nav a:hover, .site-nav a[aria-current="page"] { color: var(--link); }
+.site-nav a[aria-current="page"] { font-weight: 600; }
+.site-nav .btn-sub {
+  color: #fff; background: var(--link); padding: 6px 14px; border-radius: var(--radius-sm);
+  font-weight: 500; font-size: 13px; transition: filter .12s ease;
+}
+.site-nav .btn-sub:hover { filter: brightness(1.08); }
+
+/* ── 顶部上下文行 ── */
+.ctx {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  font-size: var(--fs-meta); color: var(--faint); padding: 22px 0 12px;
+}
+.ctx a { color: var(--muted); }
+.ctx a:hover { color: var(--link); text-decoration: underline; text-underline-offset: 2px; }
+
+/* ── 状态 banner（开门/提醒/暂停，彩色实底 + 白字） ── */
+.banner {
+  display: flex; align-items: center; gap: 12px; padding: 13px 18px; border-radius: var(--radius);
+  margin-bottom: 20px; color: #fff; font-size: 15px; font-weight: 600;
+}
+.banner-open { background: var(--open-bar); }
+.banner-warn { background: var(--warn-bar); }
+.banner-stop { background: var(--stop-bar); }
+.banner-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%; background: rgba(255, 255, 255, .25);
+  font-size: 13px; flex: none;
+}
+.banner-text { flex: 1; }
+.banner-date { font-size: 13px; font-weight: 400; opacity: .85; white-space: nowrap; }
+
+/* ── 总额卡片 ── */
+.total {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 16px 20px; margin-bottom: 12px; box-shadow: var(--shadow-sm);
+}
+.total-label { font-size: 14px; font-weight: 600; }
+.total-note { font-size: 12px; color: var(--faint); margin-top: 4px; line-height: 1.5; max-width: 46ch; }
+.total-value { font-size: var(--fs-hero); font-weight: 700; color: var(--open-fg); white-space: nowrap; letter-spacing: -.02em; }
+.total-value .unit { font-size: 14px; font-weight: 500; color: var(--muted); margin-left: 3px; }
+
+/* ── 两列网格 + 家族卡片 ── */
+.grid-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 26px 0 12px; }
+.grid-title { font-size: var(--fs-title); font-weight: 600; margin: 0; }
+.grid-legend { font-size: var(--fs-meta); color: var(--muted); display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+.grid { list-style: none; margin: 0 0 16px; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+
+.fam {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 16px 18px; box-shadow: var(--shadow-sm); transition: border-color .12s ease, box-shadow .12s ease;
+}
+.fam:hover { border-color: #d3dae0; box-shadow: 0 2px 8px rgba(16, 24, 32, 0.07); }
+.fam-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.fam-name { font-size: 16px; font-weight: 600; color: var(--text); min-width: 0; }
+.fam-name .sub { display: block; font-size: 12px; font-weight: 400; color: var(--faint); margin-top: 3px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .01em; }
+.fam-right { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; text-align: right; }
+.fam-big { font-size: 24px; font-weight: 700; line-height: 1.1; letter-spacing: -.02em; color: var(--open-fg); }
+.fam-big.is-stop { color: var(--faint); font-size: 16px; font-weight: 600; }
+.fam-big .u { font-size: 12px; font-weight: 500; color: var(--muted); margin-left: 2px; }
+
+/* 状态标签（小圆角药丸，彩色文字 + 浅底，克制） */
+.tag {
+  display: inline-flex; align-items: center; font-size: 12px; font-weight: 600;
+  padding: 2px 9px; border-radius: var(--radius-sm); line-height: 1.6; white-space: nowrap;
+}
+.tag-ok { color: var(--open-fg); background: var(--open-bg); }
+.tag-stop { color: var(--stop-fg); background: var(--stop-bg); }
+.tag-closed { color: var(--warn-fg); background: var(--warn-bg); }
+.tag-unknown { color: var(--muted); background: var(--border-soft); }
+
+/* 家族内份额行 */
+.fam-rows { list-style: none; margin: 12px 0 0; padding: 10px 0 0; border-top: 1px solid var(--border-soft); }
+.fam-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 0; }
+.fam-row + .fam-row { border-top: 1px solid var(--border-soft); }
+.fam-row .nm { font-size: 13.5px; color: var(--text); font-weight: 500; }
+.fam-row .nm:hover { color: var(--link); text-decoration: underline; text-underline-offset: 2px; }
+.fam-row .cd { font-size: 11.5px; color: var(--faint); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.fam-row .rt { display: flex; align-items: center; gap: 10px; flex: none; }
+.fam-row .lim { font-size: 13px; color: var(--muted); }
+.fam-row .lim b { color: var(--text); font-weight: 600; font-size: 14px; }
+
+/* ── 30 天迷你柱状图 ── */
+.bars { display: flex; align-items: flex-end; gap: 3px; height: 42px; margin-top: 14px; border-bottom: 1px solid var(--border); padding-bottom: 1px; }
+.bar { flex: 1 1; min-width: 0; border-radius: 1px; background: var(--border); }
+.bar-open, .bar-limited { background: var(--open-bar); }
+.bar-stop { background: var(--stop-bar); }
+.bar-changed { background: var(--warn-bar); }
+.bars-axis { display: flex; justify-content: space-between; margin-top: 5px; font-size: 11px; color: var(--faint); }
+
+/* ── 图例圆点 ── */
+.lg { display: inline-block; width: 11px; height: 8px; border-radius: 1px; vertical-align: middle; margin-right: 4px; }
+.lg-open { background: var(--open-bar); }
+.lg-stop { background: var(--stop-bar); }
+.lg-changed { background: var(--warn-bar); }
+
+/* ── 章节标签 ── */
+.section-title { font-size: var(--fs-title); font-weight: 600; margin: 28px 0 12px; }
+.section-label { font-size: 12px; font-weight: 600; color: var(--faint); letter-spacing: .4px; text-transform: uppercase; margin: 30px 0 4px; }
+
+/* ── 历史日报行 ── */
+.daylist { list-style: none; margin: 8px 0 0; padding: 0; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); }
+.dayrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 18px; border-bottom: 1px solid var(--border-soft); }
+.dayrow:last-child { border-bottom: none; }
+.dayrow:hover { background: var(--bg); }
+.day-date { font-size: 14px; font-weight: 600; }
+.day-sub { display: block; font-size: 12px; color: var(--faint); margin-top: 2px; }
+.day-total { font-size: 15px; font-weight: 700; color: var(--open-fg); white-space: nowrap; }
+.day-total .u { font-size: 12px; font-weight: 500; color: var(--muted); margin-left: 2px; }
+
+/* ── 数据表格（详情页历史） ── */
+.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-top: 6px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); }
+.tbl th { text-align: left; font-size: 12px; font-weight: 600; color: var(--muted); padding: 10px 14px; border-bottom: 1px solid var(--border); background: var(--bg); }
+.tbl td { padding: 11px 14px; border-bottom: 1px solid var(--border-soft); color: var(--text); }
+.tbl tbody tr:last-child td { border-bottom: none; }
+.tbl tbody tr:hover { background: var(--bg); }
+.tbl th.num, .tbl td.num { text-align: right; }
+
+/* ── 详情页元信息 ── */
+.detail-meta { font-size: 12.5px; color: var(--faint); margin: 8px 0 20px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+/* ── 详情页 hero 数字块 ── */
+.hero { padding: 2px 0 18px; border-bottom: 1px solid var(--border); margin-bottom: 18px; }
+.hero-label { font-size: 12px; color: var(--faint); letter-spacing: .3px; }
+.hero-value { font-size: 34px; font-weight: 700; color: var(--text); letter-spacing: -.02em; margin-top: 6px; line-height: 1.1; }
+.hero-value.is-open { color: var(--open-fg); }
+.hero-value.is-stop { color: var(--stop-fg); }
+.hero-value.is-closed { color: var(--warn-fg); }
+
+/* ── 我的基金 ── */
+.my-input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; background: var(--card); color: var(--text); margin-bottom: 12px; transition: border-color .12s ease; }
+.my-input::placeholder { color: var(--faint); }
+.my-input:focus { outline: none; border-color: var(--link); }
+.my-hint { color: var(--muted); font-size: 13px; line-height: 1.65; margin: 0 0 16px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 3px 4px 3px 10px; background: var(--card); }
+.chip button { border: none; background: none; color: var(--faint); cursor: pointer; font-size: 14px; line-height: 1; }
+.chip button:hover { color: var(--stop-fg); }
+.empty { border: 1px dashed var(--border); border-radius: var(--radius); padding: 22px; text-align: center; color: var(--faint); font-size: 13.5px; background: var(--card); }
+
+/* ── 订阅表单 ── */
+.form { max-width: 440px; }
+.form label { display: block; font-size: 13.5px; font-weight: 600; margin-bottom: 8px; }
+.form input[type="email"] { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; background: var(--card); color: var(--text); margin-bottom: 16px; transition: border-color .12s ease; }
+.form input[type="email"]::placeholder { color: var(--faint); }
+.form input[type="email"]:focus { outline: none; border-color: var(--link); }
+.form button { background: var(--link); color: #fff; border: none; border-radius: var(--radius-sm); padding: 10px 22px; font-size: 14px; font-weight: 600; cursor: pointer; transition: filter .12s ease; }
+.form button:hover { filter: brightness(1.08); }
+.form .note { color: var(--muted); font-size: 12.5px; margin-top: 14px; line-height: 1.65; }
+.form-ok { color: var(--open-fg); font-weight: 600; margin-top: 12px; }
+
+/* ── 页脚 ── */
+.foot { margin-top: 48px; border-top: 1px solid var(--border); padding-top: 18px; }
+.foot-cta { font-size: 13.5px; margin-bottom: 12px; }
+.foot-cta a { color: var(--link); }
+.foot-cta a:hover { text-decoration: underline; text-underline-offset: 2px; }
+.foot-disc { color: var(--faint); font-size: var(--fs-meta); line-height: 1.75; margin: 0 0 8px; }
+.foot-meta { color: var(--faint); font-size: var(--fs-meta); line-height: 1.75; margin: 0; }
+
+/* ── 响应式 ── */
+@media (max-width: 640px) {
+  .grid { grid-template-columns: 1fr; }
+  .total { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .total-value { font-size: 26px; }
+}

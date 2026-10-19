@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1672 600" width="1672" height="600">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e6f6f0"/>
+      <stop offset="1" stop-color="#cdeee2"/>
+    </linearGradient>
+  </defs>
+  <rect width="1672" height="600" fill="url(#g)"/>
+  <circle cx="1380" cy="150" r="220" fill="#00906b" opacity="0.12"/>
+  <circle cx="1500" cy="430" r="140" fill="#00906b" opacity="0.10"/>
+  <text x="80" y="290" font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="92" font-weight="800" fill="#00906b">纳指开门日报</text>
+  <text x="84" y="360" font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="34" fill="#5b6b7b">每天追踪纳斯达克 QDII 额度变化 · 今天还能不能买、能买多少</text>
+  <text x="84" y="430" font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="26" fill="#00906b" font-weight="600">9 家开门 · 今日代销总可投 150 元</text>
+</svg>

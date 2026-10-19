@@ -1,0 +1,115 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import FamilyCard from '../components/FamilyCard.astro';
+import { loadAllShares } from '../data/loader';
+import type { FundShare } from '../data/types';
+
+const shares = loadAllShares();
+const byGroup = new Map<string, { currency: string; shares: FundShare[] }>();
+for (const s of shares) {
+  const k = `${s.company}|${s.baseName}|${s.currency}`;
+  if (!byGroup.has(k)) byGroup.set(k, { currency: s.currency, shares: [] });
+  byGroup.get(k)!.shares.push(s);
+}
+const groups = [...byGroup.values()];
+---
+
+<BaseLayout title="我的基金 - 纳指开门日报">
+  <div class="ctx">
+    <span>持有基金优先置顶</span>
+    <a href="/">今日 →</a>
+  </div>
+  <h1 class="section-title">我的基金</h1>
+  <p class="my-hint">
+    把你买过的基金代码填进去，这里会优先显示你持有的那几只今天的状态与额度。代码只保存在本机浏览器，不会上传。
+  </p>
+  <input id="codeInput" class="my-input" placeholder="输入基金代码，如 019736 或 019736,000834，回车添加" />
+  <div class="chips" id="chips"></div>
+  <div id="empty" class="empty">还没有添加基金。在上方输入代码试试（例如 019736）。</div>
+
+  <div id="myList">
+    {
+      groups.map((g) => (
+        <FamilyCard shares={g.shares} dataCodes={g.shares.map((s) => s.code).join(' ')} hidden={true} />
+      ))
+    }
+  </div>
+
+  <script>
+    const KEY = 'nasdaq-my-codes';
+    const input = document.getElementById('codeInput') as HTMLInputElement;
+    const chips = document.getElementById('chips') as HTMLElement;
+    const empty = document.getElementById('empty') as HTMLElement;
+    const list = document.getElementById('myList') as HTMLElement;
+
+    function load(): string[] {
+      try {
+        return JSON.parse(localStorage.getItem(KEY) || '[]');
+      } catch {
+        return [];
+      }
+    }
+    function save(codes: string[]) {
+      localStorage.setItem(KEY, JSON.stringify(codes));
+    }
+
+    function applyFilter() {
+      const set = new Set(load());
+      let visible = 0;
+      list.querySelectorAll('.fam').forEach((el) => {
+        const elCodes = (el.getAttribute('data-codes') || '').split(' ');
+        const match = elCodes.some((c) => set.has(c));
+        if (match) {
+          (el as HTMLElement).removeAttribute('hidden');
+          visible++;
+        } else {
+          (el as HTMLElement).setAttribute('hidden', '');
+        }
+      });
+      empty.style.display = visible === 0 ? 'block' : 'none';
+    }
+
+    function renderChips() {
+      const codes = load();
+      chips.innerHTML = '';
+      codes.forEach((c) => {
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        chip.textContent = c;
+        const btn = document.createElement('button');
+        btn.textContent = '×';
+        btn.setAttribute('aria-label', '删除 ' + c);
+        btn.onclick = () => {
+          save(load().filter((x) => x !== c));
+          renderChips();
+          applyFilter();
+        };
+        chip.appendChild(btn);
+        chips.appendChild(chip);
+      });
+    }
+
+    function addCodes(raw: string) {
+      const parts = raw
+        .split(/[\s,，;；]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (!parts.length) return;
+      const cur = new Set(load());
+      parts.forEach((p) => cur.add(p));
+      save([...cur]);
+      renderChips();
+      applyFilter();
+    }
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        addCodes(input.value);
+        input.value = '';
+      }
+    });
+
+    renderChips();
+    applyFilter();
+  </script>
+</BaseLayout>

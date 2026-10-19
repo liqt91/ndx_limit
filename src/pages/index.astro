@@ -1,0 +1,79 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import FamilyCard from '../components/FamilyCard.astro';
+import { loadTodaySnapshot } from '../data/loader';
+import type { FundShare } from '../data/types';
+
+const snap = loadTodaySnapshot();
+
+const byGroup = new Map<string, { currency: string; shares: FundShare[] }>();
+for (const s of snap.shares) {
+  const key = `${s.company}|${s.baseName}|${s.currency}`;
+  if (!byGroup.has(key)) byGroup.set(key, { currency: s.currency, shares: [] });
+  byGroup.get(key)!.shares.push(s);
+}
+const groups = [...byGroup.values()];
+const cny = groups.filter((g) => g.currency === 'CNY');
+const usd = groups.filter((g) => g.currency === 'USD');
+
+const isOpen = (g: { shares: FundShare[] }) =>
+  g.shares.some((s) => s.purchaseStatus === 'LIMITED' || s.purchaseStatus === 'OPEN');
+const openedCny = cny.filter(isOpen).length;
+const stoppedCny = cny.length - openedCny;
+
+const totalAgency = snap.shares
+  .filter(
+    (s) =>
+      s.currency === 'CNY' &&
+      (s.purchaseStatus === 'LIMITED' || s.purchaseStatus === 'OPEN') &&
+      s.dailyLimit != null
+  )
+  .reduce((a, s) => a + (s.dailyLimit as number), 0);
+
+// banner 等级：全开门=open，部分暂停=warn，全暂停=stop
+const bannerLevel = stoppedCny === 0 ? 'open' : stoppedCny < cny.length ? 'warn' : 'stop';
+const bannerIcon = bannerLevel === 'open' ? '✓' : bannerLevel === 'warn' ? '!' : '×';
+const bannerText =
+  bannerLevel === 'open'
+    ? `${openedCny} 家开门，今日可正常申购`
+    : `${openedCny} 家开门 · ${stoppedCny} 家暂停申购`;
+---
+
+<BaseLayout title="纳指开门日报">
+  <div class="ctx">
+    <span>数据每日 08:00（北京时间）更新 · 代销额度抓取自天天基金</span>
+    <a href="/daily">历史日报 →</a>
+  </div>
+
+  <div class={`banner banner-${bannerLevel}`}>
+    <span class="banner-icon">{bannerIcon}</span>
+    <span class="banner-text">{bannerText}</span>
+    <span class="banner-date">{snap.snapDate}</span>
+  </div>
+
+  <div class="total">
+    <div>
+      <div class="total-label">今日代销总可投（人民币）</div>
+      <div class="total-note">按可买份额单日上限相加，A/C 类分别计算；美元份额不计入。实际以下单页面为准。</div>
+    </div>
+    <div class="total-value tnum">¥{totalAgency}<span class="unit">元</span></div>
+  </div>
+
+  <div class="grid-head">
+    <h2 class="grid-title">今天能买多少</h2>
+    <span class="grid-legend">
+      <span class="lg lg-open"></span>可投 / 限大额
+      <span class="lg lg-stop"></span>暂停
+      <span class="lg lg-changed"></span>当日变动
+    </span>
+  </div>
+
+  <ul class="grid">
+    {cny.map((g) => <FamilyCard shares={g.shares} />)}
+  </ul>
+
+  <div class="section-label">美元份额</div>
+  <ul class="grid">
+    {usd.map((g) => <FamilyCard shares={g.shares} />)}
+  </ul>
+</BaseLayout>

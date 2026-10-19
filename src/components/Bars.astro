@@ -1,0 +1,34 @@
+---
+interface DayPoint {
+  date: string;
+  status: string;
+  limit: number | null;
+}
+interface Props {
+  history: DayPoint[];
+  compact?: boolean;
+}
+const { history, compact = false } = Astro.props;
+
+const MAX_CAP = 200; // 单日上限封顶（用于柱高标尺）
+const bars = history.map((d, i) => {
+  const prev = i > 0 ? history[i - 1] : null;
+  const changed = prev ? prev.status !== d.status || prev.limit !== d.limit : false;
+  const h = d.limit != null ? Math.max(10, Math.min(d.limit / MAX_CAP, 1) * 100) : 10;
+  const cls =
+    d.status === 'STOPPED'
+      ? 'bar-stop'
+      : d.status === 'OPEN' || d.status === 'LIMITED'
+        ? 'bar-open'
+        : '';
+  const tip = `${d.date} · ${d.status === 'STOPPED' ? '暂停' : d.limit != null ? `单日 ${d.limit} 元` : '额度未公布'}${changed ? '（变动）' : ''}`;
+  return { cls: `${cls} ${changed ? 'bar-changed' : ''}`.trim(), h, tip };
+});
+const firstDate = history[0]?.date;
+const lastDate = history[history.length - 1]?.date;
+---
+
+<div class="bars" role="img" aria-label="最近 30 天开门情况">
+  {bars.map((b) => <i class={`bar ${b.cls}`} style={`height:${b.h}%`} title={b.tip} />)}
+</div>
+{!compact && <div class="bars-axis"><span>{firstDate}</span><span>{lastDate}</span></div>}

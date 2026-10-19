@@ -1,0 +1,14 @@
+# 依赖
+node_modules/
+
+# 构建产物（由 astro build 生成，CI / 本地预览时重建）
+dist/
+.astro/
+
+# WorkBuddy 项目内部数据（非源码）
+.workbuddy/
+
+# 系统 / 日志
+.DS_Store
+*.log
+npm-debug.log*
