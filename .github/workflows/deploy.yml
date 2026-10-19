@@ -52,9 +52,11 @@ jobs:
           fi
 
       # 变化通知（可选）：仅当仓库配置了 NOTIFY_WEBHOOK 密钥时执行。
+      # NOTIFY_CHANNEL 可选 feishu（默认，飞书机器人）或 wechat（Server酱→微信）。
       # 门禁联动：若 scrape 健康未通过，job 已中止，本步不会运行，不会发误导性通知。
       - name: Notify changes (optional)
         if: ${{ env.NOTIFY_WEBHOOK != '' }}
         env:
           NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK }}
+          NOTIFY_CHANNEL: ${{ secrets.NOTIFY_CHANNEL }}
         run: node scripts/notify.mjs

@@ -7,10 +7,14 @@
 //
 // 用法：
 //   node scripts/notify.mjs                 # 推送（需 NOTIFY_WEBHOOK 环境变量）
-//   NOTIFY_WEBHOOK=https://open.feishu...  node scripts/notify.mjs
-//   node scripts/notify.mjs --dry-run       # 只打印待发送内容，不请求网络
+//   NOTIFY_WEBHOOK=https://open.feishu...  node scripts/notify.mjs          # 飞书（默认）
+//   NOTIFY_CHANNEL=wechat NOTIFY_WEBHOOK=<SCKEY> node scripts/notify.mjs    # 微信（Server酱）
+//   node scripts/notify.mjs --dry-run       # 只打印待发送内容与目标端点，不请求网络
 //
-// 通知格式默认按「飞书自定义机器人」text 消息构造；其它 webhook 服务若接受相同 JSON 也可直接用。
+// 渠道（NOTIFY_CHANNEL，默认 feishu）：
+//   feishu  —— 飞书自定义机器人，NOTIFY_WEBHOOK 为完整 webhook 地址，POST 飞书 text 消息。
+//   wechat  —— Server酱（sctapi.ftqq.com），NOTIFY_WEBHOOK 填 SCKEY（纯 key，脚本自动拼成发送地址），
+//             推送到绑定的微信；免域名、零成本，最贴合「微信通知」。
 //
 // 依赖：仅 Node 22 内置。
 
@@ -23,7 +27,15 @@ const DATA_DIR = path.resolve(__dirname, '..', 'data');
 
 const MIN_COVERAGE = Number(process.env.SCRAPE_MIN_COVERAGE ?? 0.9);
 const DRY_RUN = process.argv.includes('--dry-run');
+const CHANNEL = (process.env.NOTIFY_CHANNEL || 'feishu').toLowerCase();
 const WEBHOOK = process.env.NOTIFY_WEBHOOK || '';
+
+// 由 key/URL 解析出最终发送端点。wechat 渠道下，纯 SCKEY 自动拼成 Server酱 发送地址。
+function resolveEndpoint(key) {
+  if (/^https?:\/\//i.test(key)) return key;
+  if (CHANNEL === 'wechat') return `https://sctapi.ftqq.com/${key}.send`;
+  return key;
+}
 
 function readJson(name, fallback) {
   try {
@@ -135,23 +147,43 @@ function main() {
 
   if (DRY_RUN || !WEBHOOK) {
     console.log(msg);
-    console.log(`\nℹ ${DRY_RUN ? 'dry-run' : '未配置 NOTIFY_WEBHOOK'}，仅打印，未发送。`);
+    const endpoint = WEBHOOK ? resolveEndpoint(WEBHOOK) : '(未配置 NOTIFY_WEBHOOK)';
+    console.log(
+      `\nℹ 渠道=${CHANNEL} 目标=${endpoint}；${DRY_RUN ? 'dry-run' : '未配置 NOTIFY_WEBHOOK'}，仅打印，未发送。`
+    );
     return;
   }
 
-  fetch(WEBHOOK, {
+  send(msg, date).catch((e) => {
+    console.error('✗ 通知发送失败：', e.message || e);
+    process.exit(1);
+  });
+}
+
+// 按渠道发送。飞书走 JSON text 消息；微信（Server酱）走 form-urlencoded（title/desp）。
+async function send(msg, date) {
+  if (CHANNEL === 'wechat') {
+    const endpoint = resolveEndpoint(WEBHOOK);
+    const body = new URLSearchParams({ title: `纳指开门日报 · ${date}`, desp: msg });
+    const r = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    });
+    const j = await r.json().catch(() => ({}));
+    // Server酱成功返回 code=0；HTTP 非 2xx 或 code!=0 视为失败
+    if (!r.ok || (j && typeof j.code === 'number' && j.code !== 0))
+      throw new Error('HTTP ' + r.status + (j && j.message ? ' ' + j.message : ''));
+    console.log('✓ 微信通知已发送（Server酱 → 微信）。');
+    return;
+  }
+  const r = await fetch(WEBHOOK, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ msg_type: 'text', content: { text: msg } }),
-  })
-    .then((r) => {
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      console.log('✓ 通知已发送。');
-    })
-    .catch((e) => {
-      console.error('✗ 通知发送失败：', e.message || e);
-      process.exit(1);
-    });
+  });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  console.log('✓ 通知已发送（飞书）。');
 }
 
 function kindOrder(k) {
