@@ -2,7 +2,7 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import FamilyCard from '../components/FamilyCard.astro';
 import SectionHead from '../components/SectionHead.astro';
-import { loadTodaySnapshot, loadDailyChanges, getTradingContext, tradingWindowMap } from '../data/loader';
+import { loadTodaySnapshot, loadDailyChanges, getTradingContext, tradingWindowMap, loadUsdShares } from '../data/loader';
 import { STATUS_SHORT, classRank } from '../lib/status';
 import type { FundShare } from '../data/types';
 
@@ -23,7 +23,18 @@ for (const g of byGroup.values()) {
 }
 const groups = [...byGroup.values()];
 const cny = groups.filter((g) => g.currency === 'CNY');
-// 美元份额不在站内展示（仅监控人民币份额，过滤在 loader 统一做）
+// 美元份额单独成组：首页「美元家族」区块展示，与人民币额度口径（元）相互独立
+const usdShares = loadUsdShares();
+const usdByGroup = new Map<string, { currency: string; shares: FundShare[] }>();
+for (const s of usdShares) {
+  const key = `${s.company}|${s.baseName}|${s.currency}`;
+  if (!usdByGroup.has(key)) usdByGroup.set(key, { currency: s.currency, shares: [] });
+  usdByGroup.get(key)!.shares.push(s);
+}
+for (const g of usdByGroup.values()) {
+  g.shares.sort((a, b) => classRank(a.shareClass) - classRank(b.shareClass));
+}
+const usdGroups = [...usdByGroup.values()];
 
 const isOpen = (g: { shares: FundShare[] }) =>
   g.shares.some((s) => s.purchaseStatus === 'LIMITED' || s.purchaseStatus === 'OPEN');
@@ -47,6 +58,10 @@ const changeParts = [
 ].filter(Boolean);
 const hasChanges = changes.hasData && changeParts.length > 0;
 const verdictText = hasChanges ? changeParts.join('，') : '没有变化';
+
+// 小节编号：有「今日变化」时它占 01，人民币占 02、美元占 03；否则人民币 01、美元 02
+const idxMain = ctx.isTrading && hasChanges ? '02' : '01';
+const idxUsd = ctx.isTrading && hasChanges ? '03' : '02';
 
 // 额度类变动直接显示「5 元 → 10 元」，比「限大额 → 限大额」有用
 const isLimitKind = (k: string) => k.startsWith('limit');
@@ -153,7 +168,7 @@ const tradingMap = tradingWindowMap(10, 30);
   }
 
   <SectionHead
-    index={ctx.isTrading && hasChanges ? '02' : '01'}
+    index={idxMain}
     title={ctx.isTrading ? '今天能买多少' : `最近交易日额度（${ctx.lastTrading?.date ?? ''}）`}
   >
     {/* 数量与图例同处一行：图例就是那把尺，四档颜色连读，读者拿它去对格子，不必换算任何数值 */}
@@ -164,13 +179,23 @@ const tradingMap = tradingWindowMap(10, 30);
         <em>申购额度</em>
       </span>
       <span><i class="lg off"></i>暂停</span>
-      <span><i class="lg miss"></i>额度未公布</span>
     </span>
   </SectionHead>
 
   <ul class="grid">
     {cny.map((g) => <FamilyCard shares={g.shares} />)}
   </ul>
+
+  {
+    usdGroups.length > 0 && (
+      <>
+        <SectionHead index={idxUsd} title="美元基金" />
+        <ul class="grid">
+          {usdGroups.map((g) => <FamilyCard shares={g.shares} />)}
+        </ul>
+      </>
+    )
+  }
 
   {/* 放在页面最末尾：脚本要改 H1 和下方小节标题，必须在这些节点解析完之后执行 */}
   <script is:inline define:vars={{ dataDate: ctx.dataDate, tradingMap }}>

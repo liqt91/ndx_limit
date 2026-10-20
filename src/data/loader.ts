@@ -128,6 +128,14 @@ export function loadAllShares(): FundShare[] {
   return loadTodaySnapshot().shares;
 }
 
+/** 美元份额清单（美元现汇/现钞类）。首页「美元家族」区块专用；其余页面仍默认只看人民币。 */
+export function loadUsdShares(): FundShare[] {
+  const history = readHistory();
+  if (Object.keys(history).length === 0) return [];
+  const snap = assemble(getToday());
+  return snap.shares.filter((s) => s.currency === 'USD');
+}
+
 // ──────────────────────────────────────────────────────────────
 // 历史日报摘要（/daily 用）：最近 n 天，每天聚合开门数 / 总额 / 监控数。
 // 口径与首页一致：按「公司 + 指数 + 币种」成组，组内任一份额开门即算开门，
