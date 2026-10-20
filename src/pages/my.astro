@@ -2,6 +2,7 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import FamilyCard from '../components/FamilyCard.astro';
 import { loadAllShares } from '../data/loader';
+import { classRank } from '../lib/status';
 import type { FundShare } from '../data/types';
 
 const shares = loadAllShares();
@@ -10,6 +11,10 @@ for (const s of shares) {
   const k = `${s.company}|${s.baseName}|${s.currency}`;
   if (!byGroup.has(k)) byGroup.set(k, { currency: s.currency, shares: [] });
   byGroup.get(k)!.shares.push(s);
+}
+// 与首页同一条规则：卡片上的类别次序固定成 A → C → D → E → F
+for (const g of byGroup.values()) {
+  g.shares.sort((a, b) => classRank(a.shareClass) - classRank(b.shareClass));
 }
 const groups = [...byGroup.values()];
 ---

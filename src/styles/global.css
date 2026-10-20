@@ -493,36 +493,36 @@ a { color: inherit; text-decoration: none; }
 .st-closed { color: var(--warn); }
 .st-unknown { color: var(--ink-3); }
 
-/* 份额流水行：代码 + 类别 + 额度 + 状态点，一行排完，段间中点分隔。
+/* 份额流水行：类别 + 代码 + 额度，一段一个链接，段与段之间用空白隔开。
    原来是每条份额占一整行（代码左、额度右，靠 justify-content: space-between 拉开），
-   三份额就是三行、白白多出 80px 高。压成流水后整行 12px 等宽字，与柱图之间只留一点呼吸。
-   放不下（窄屏或多份额）就折行——flex-wrap 兜底，不至于溢出。 */
+   三份额就是三行、白白多出 80px 高。压成流水后整行 12px 等宽字，与柱图之间只留一点呼吸。 */
 .fam-shares {
   display: flex; flex-wrap: wrap; align-items: baseline;
+  /* 右对齐：与右上角的额度/状态同一列，卡片右侧形成一条干净的边 */
+  justify-content: flex-end;
+  column-gap: 16px; row-gap: 2px;
   margin: 6px 0 0;
   font-family: var(--mono);
   font-size: 12px; line-height: 1.55; letter-spacing: 0.01em;
+  /* 段内用真空格分词，靠负 word-spacing 收紧：比给三个 span 各加 margin 更省宽度，
+     省下来的正是「A类 → 10元」中间那两处空白，三个份额才挤得进一行 */
+  word-spacing: -2.5px;
 }
-.sh-grp { display: inline-flex; align-items: baseline; white-space: nowrap; }
-.sh { display: inline-flex; align-items: baseline; gap: 4px; color: var(--ink-2); transition: color 0.12s; }
-.sh:hover { color: var(--ink); }
-.sh:hover .sh-code { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
-.sh-code { letter-spacing: 0.02em; }
-.sh-cls { color: var(--ink-3); font-size: 11px; }
-.sh-lim { color: var(--ink); font-weight: 500; }
-.sh-lim i { font-style: normal; font-weight: 400; font-size: 10.5px; color: var(--ink-3); margin-left: 1px; }
-.sh-lim.is-unknown { color: var(--warn); font-weight: 400; }
-.sh-sep { color: var(--rule-2); margin: 0 8px; }
-
-/* 份额状态色点：颜色来自 .st-ok/.st-stop/... 的 color，背景取 currentColor。
-   文字状态在头部家族块里已有，份额行只留一个 6px 方块——含义放 title/aria-label。 */
-.st-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  flex: none;
-  background: currentColor;
-  align-self: center;
+/* 整段一个颜色（.st-ok / .st-stop / .st-unknown 给在 a 上），整段不可拆 */
+.sh { display: inline-block; white-space: nowrap; transition: color 0.12s; }
+/* 整段下划线：段内只有一个文本盒（.sh-txt），text-decoration 天然是连续的一条；
+   位置交给 text-underline-offset（从基线算 3px），比用背景线贴盒底更贴字、不压笔画。
+   注：如果以后再把段内拆成多个 inline 块，装饰会在块边界断开——verify-card-v5 的
+   像素判据就是防这个回退的。 */
+.sh:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+.sh:focus-visible { outline: 1px solid var(--ink-2); outline-offset: 3px; }
+/* 单列可视宽只剩 ~295px，12px 的三份额会挤出去：缩一档字号再收段距 */
+@media (max-width: 680px) {
+  .fam-shares { font-size: 11px; column-gap: 12px; }
 }
 
 /* ── 30 天柱图：可投=墨绿，暂停=浅砂，变动=赭黄 ── */

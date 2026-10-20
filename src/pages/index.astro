@@ -3,7 +3,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import FamilyCard from '../components/FamilyCard.astro';
 import SectionHead from '../components/SectionHead.astro';
 import { loadTodaySnapshot, loadDailyChanges, getTradingContext, tradingWindowMap } from '../data/loader';
-import { STATUS_SHORT } from '../lib/status';
+import { STATUS_SHORT, classRank } from '../lib/status';
 import type { FundShare } from '../data/types';
 
 const snap = loadTodaySnapshot();
@@ -15,6 +15,11 @@ for (const s of snap.shares) {
   const key = `${s.company}|${s.baseName}|${s.currency}`;
   if (!byGroup.has(key)) byGroup.set(key, { currency: s.currency, shares: [] });
   byGroup.get(key)!.shares.push(s);
+}
+// 类别次序固定成 A → C → D → E → F：同一家族的类别可能分属 funds.json 里多个条目
+// （天弘的 D 类就是单独一条），不排的话卡片上会出现「D类 / A类 / C类」这种跳序
+for (const g of byGroup.values()) {
+  g.shares.sort((a, b) => classRank(a.shareClass) - classRank(b.shareClass));
 }
 const groups = [...byGroup.values()];
 const cny = groups.filter((g) => g.currency === 'CNY');

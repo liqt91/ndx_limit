@@ -68,6 +68,10 @@ function assemble(today: string): DailySnapshot {
 
   const shares: FundShare[] = [];
 
+  // 份额类别的次序在分组之后排（见 index.astro / my.astro）：
+  // 同一家族的不同类别可能横跨 funds.json 里多个条目（天弘的 D 类就单独一条），
+  // 在这里按 fund 排序管不到跨条目的先后。
+
   for (const f of funds) {
     for (const c of f.codes) {
       const code = c.code;

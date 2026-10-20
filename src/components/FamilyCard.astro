@@ -1,6 +1,6 @@
 ---
 import type { FundShare, PurchaseStatus, DayPoint } from '../data/types';
-import { STATUS_LABEL, statusClass } from '../lib/status';
+import { STATUS_LABEL, amountClass } from '../lib/status';
 import Bars from './Bars.astro';
 
 interface Props {
@@ -98,38 +98,22 @@ const familyHistory: DayPoint[] = allDates.map((date) => {
     </div>
   </div>
 
-  {/* 份额压成一行流水：代码 类别 额度 状态点，段间中点分隔。
-      一行放不下时（窄屏/份额多）自然折行，行距极小，仍比原来一档一行的三段式矮。
-      每段仍是独立链接，点哪只进哪只的详情页；全名与状态放 title/aria-label。 */}
+  {/* 份额压成一行流水：类别 代码 额度，段与段之间用空白隔开，不再放「·」。
+      状态不另设色块——整段一个颜色，买得到是绿的，买不到是红的 0 元。
+      「0 元」不是猜的额度，是「今天单日可买 0 元」这个事实；额度未公布（UNKNOWN）
+      既不冒充能买也不冒充不能买，留灰字。
+      每段整段不可拆（nowrap），一行放不下时按段折行，绝不把「A类」和代码劈开。 */}
   <div class="fam-shares">
     {
-      shares.map((s, i) => (
-        /* 分隔点包在「组」里而跟着后一个份额走：折行时整组往下掉，
-           不会在上一行末尾留下一个孤零零的 · */
-        <span class="sh-grp">
-          {i > 0 && <span class="sh-sep">·</span>}
-          <a
-            class="sh"
-            href={`/f/${s.code}`}
-            title={`${s.shortName} · ${STATUS_LABEL[s.purchaseStatus]}`}
-            aria-label={`${s.code} ${s.shareClass} 类${s.dailyLimit != null ? ` 单日 ${s.dailyLimit} 元` : ''} · ${STATUS_LABEL[s.purchaseStatus]}`}
-          >
-            <span class="sh-code">{s.code}</span>
-            <span class="sh-cls">{s.shareClass}</span>
-            {s.limitMissing ? (
-              <span class="sh-lim is-unknown">待核验</span>
-            ) : s.dailyLimit != null ? (
-              /* 数字与「元」之间不能有换行/缩进：Astro 会把那段空白渲染成一个空格，
-                 视觉上变成「10  元」，整行显得松 */
-              <span class="sh-lim">{s.dailyLimit}<i>元</i></span>
-            ) : null}
-            <span
-              class={`st-dot ${statusClass(s.purchaseStatus)}`}
-              title={STATUS_LABEL[s.purchaseStatus]}
-              aria-hidden="true"
-            />
-          </a>
-        </span>
+      shares.map((s) => (
+        <a
+          class={`sh ${amountClass(s.purchaseStatus)}`}
+          href={`/f/${s.code}`}
+          title={`${s.shortName} · ${STATUS_LABEL[s.purchaseStatus]}`}
+          aria-label={`${s.shareClass} 类 ${s.code}${s.dailyLimit != null ? ` 单日 ${s.dailyLimit} 元` : ''} · ${STATUS_LABEL[s.purchaseStatus]}`}
+        >
+          <span class="sh-txt">{s.shareClass}类 {s.code} {s.limitMissing ? '待核验' : `${s.dailyLimit ?? 0}元`}</span>
+        </a>
       ))
     }
   </div>
