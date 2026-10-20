@@ -17,18 +17,24 @@ for (const g of byGroup.values()) {
   g.shares.sort((a, b) => classRank(a.shareClass) - classRank(b.shareClass));
 }
 const groups = [...byGroup.values()];
+
+// 防呆用的白名单：把本页能显示的份额代码注入页面，客户端据此校验输入。
+// 用 loadAllShares()（只含人民币份额）而不是全量 56 个：本页渲染的卡片也只来自
+// 这份数据，把美元代码放进来会出现「校验通过但仍无卡片显示」的新坑。
+// 56 个代码全为 6 位数字（见 data/funds.json），所以规则是「6 位数字 + 在册」。
+const knownCodes = [...new Set(shares.map((s) => s.code))].sort();
 ---
 
 <BaseLayout title="我的基金 - 纳指开门日报">
-  <div class="ctx">
-    <span>持有基金优先置顶</span>
-    <a href="/">今日 →</a>
-  </div>
   <h1 class="section-title">我的基金</h1>
   <p class="my-hint">
     把你买过的基金代码填进去，这里会优先显示你持有的那几只今天的状态与额度。代码只保存在本机浏览器，不会上传。
   </p>
-  <input id="codeInput" class="my-input" placeholder="输入基金代码，如 019736 或 019736,000834，回车添加" />
+  <div class="my-add">
+    <input id="codeInput" class="my-input" placeholder="输入基金代码，如 019736 或 019736,000834，回车添加"
+      autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="numeric" />
+    <p class="my-msg" id="codeMsg" role="status" aria-live="polite"></p>
+  </div>
   <div class="chips" id="chips"></div>
   <div id="empty" class="empty">还没有添加基金。在上方输入代码试试（例如 019736）。</div>
 
@@ -40,22 +46,67 @@ const groups = [...byGroup.values()];
     }
   </div>
 
+  <!-- 本站收录的份额代码全集，供客户端校验（见上方 knownCodes） -->
+  <script id="knownCodes" type="application/json" set:html={JSON.stringify(knownCodes)} />
+
   <script>
     const KEY = 'nasdaq-my-codes';
     const input = document.getElementById('codeInput') as HTMLInputElement;
+    const msg = document.getElementById('codeMsg') as HTMLElement;
     const chips = document.getElementById('chips') as HTMLElement;
     const empty = document.getElementById('empty') as HTMLElement;
     const list = document.getElementById('myList') as HTMLElement;
 
+    // 本站收录的代码全集（构建时注入）。不在其中的代码一律不收——
+    // 否则用户会看到「添加成功但下面空着」，以为页面坏了。
+    const KNOWN = new Set<string>(
+      JSON.parse(document.getElementById('knownCodes')?.textContent || '[]')
+    );
+    const CODE_RE = /^\d{6}$/;
+
     function load(): string[] {
       try {
-        return JSON.parse(localStorage.getItem(KEY) || '[]');
+        const v = JSON.parse(localStorage.getItem(KEY) || '[]');
+        return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
       } catch {
         return [];
       }
     }
     function save(codes: string[]) {
       localStorage.setItem(KEY, JSON.stringify(codes));
+    }
+
+    /** 把一段输入切成代码 token：兼容空格/逗号/顿号/分号分隔 */
+    function tokenize(raw: string): string[] {
+      return raw
+        .split(/[\s,，、;；]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+
+    type Check =
+      | { kind: 'ok'; code: string }
+      | { kind: 'format'; raw: string }
+      | { kind: 'unknown'; code: string };
+
+    function check(raw: string): Check {
+      const code = raw.trim();
+      if (!CODE_RE.test(code)) return { kind: 'format', raw };
+      if (!KNOWN.has(code)) return { kind: 'unknown', code };
+      return { kind: 'ok', code };
+    }
+
+    function describe(c: Check): string {
+      if (c.kind === 'format') return `${c.raw} 不是 6 位基金代码`;
+      // 本页只渲染人民币份额（loadAllShares 不含美元份额），所以美元代码在这里
+      // 也无处可显示。提示要写清「本页不支持」而不是「本站没收录」，否则误导。
+      if (c.kind === 'unknown') return `${c.code} 不在本页可显示的 ${KNOWN.size} 只人民币份额里`;
+      return c.code;
+    }
+
+    function setMsg(text: string, kind: 'ok' | 'err' | '') {
+      msg.textContent = text;
+      msg.className = 'my-msg' + (kind ? ' is-' + kind : '');
     }
 
     function applyFilter() {
@@ -95,20 +146,49 @@ const groups = [...byGroup.values()];
     }
 
     function addCodes(raw: string) {
-      const parts = raw
-        .split(/[\s,，;；]+/)
-        .map((s) => s.trim())
-        .filter(Boolean);
+      const parts = tokenize(raw);
       if (!parts.length) return;
+
       const cur = new Set(load());
-      parts.forEach((p) => cur.add(p));
-      save([...cur]);
-      renderChips();
-      applyFilter();
+      const added: string[] = [];
+      const errors: string[] = [];
+      const dup: string[] = [];
+
+      parts.forEach((p) => {
+        const c = check(p);
+        if (c.kind === 'ok') {
+          if (cur.has(c.code)) dup.push(c.code);
+          else {
+            cur.add(c.code);
+            added.push(c.code);
+          }
+        } else {
+          errors.push(describe(c));
+        }
+      });
+
+      if (added.length) {
+        save([...cur]);
+        renderChips();
+        applyFilter();
+      }
+
+      // 三种结果各给一句话。也可能三者皆空（全是重复且无错误），
+      // 那就明确说「已在列表里」，不能落到 errors.join() 变成一条空白红字。
+      if (added.length && errors.length) {
+        setMsg(`已添加 ${added.join('、')}；${errors.join('；')}`, 'err');
+      } else if (added.length) {
+        setMsg(added.length === 1 ? `已添加 ${added[0]}` : `已添加 ${added.join('、')}`, 'ok');
+      } else if (errors.length) {
+        setMsg(errors.join('；'), 'err');
+      } else if (dup.length) {
+        setMsg(dup.length === 1 ? `${dup[0]} 已在列表里` : `${dup.join('、')} 已在列表里`, '');
+      }
     }
 
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
+        e.preventDefault();
         addCodes(input.value);
         input.value = '';
       }
@@ -116,5 +196,23 @@ const groups = [...byGroup.values()];
 
     renderChips();
     applyFilter();
+
+    // 老数据兜底：早期版本没校验，本地可能已存了非 6 位或不在册的代码。
+    // 这里清掉并告知，而不是让它们继续「占着 chip 却无卡片」。
+    (function sweepLegacy() {
+      const all = load();
+      const good = all.filter((c) => check(c).kind === 'ok');
+      const dropped = all.filter((c) => check(c).kind !== 'ok');
+      if (!dropped.length) {
+        if (all.length) setMsg('');
+        return;
+      }
+      save(good);
+      renderChips();
+      applyFilter();
+      const shown = dropped.slice(0, 3).join('、');
+      const more = dropped.length > 3 ? ` 等 ${dropped.length} 个` : '';
+      setMsg(`已移除无效代码 ${shown}${more}`, 'err');
+    })();
   </script>
 </BaseLayout>
