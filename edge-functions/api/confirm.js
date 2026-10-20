@@ -16,7 +16,7 @@ const KEY_SUB = 'sub_';
 const KEY_PEND = 'pend_';
 const KEY_TOK = 'tok_';
 
-const PENDING_TTL_MS = 72 * 3600 * 1000; // 与 subscribe.js 保持一致
+const PENDING_TTL_MS = 24 * 3600 * 1000; // 与 subscribe.js 保持一致（1 天）
 const TOKEN_RE = /^[a-f0-9]{48}$/;
 
 function getKV(env) {
@@ -49,7 +49,7 @@ function page(env, status) {
     expired: {
       code: 410,
       title: '确认链接已过期',
-      body: '这个链接超过 3 天了。回订阅页重新填一次邮箱，会收到新的确认信。',
+      body: '这个链接超过 1 天了。回订阅页重新填一次邮箱，会收到新的确认信。',
     },
     invalid: {
       code: 404,

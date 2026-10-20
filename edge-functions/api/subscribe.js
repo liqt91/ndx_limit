@@ -38,7 +38,7 @@ const KEY_SUB = 'sub_'; // 已确认名单（subscribers.js 只认这个前缀�
 const KEY_PEND = 'pend_'; // 待确认
 const KEY_TOK = 'tok_'; // token → 邮箱 索引，供 confirm.js 反查
 
-const PENDING_TTL_MS = 72 * 3600 * 1000; // 确认链接有效期 3 天
+const PENDING_TTL_MS = 24 * 3600 * 1000; // 确认链接有效期 1 天（confirm.js 必须一致）
 const RESEND_COOLDOWN_MS = 10 * 60 * 1000; // 同一邮箱 10 分钟内不重复发信
 
 function json(body, status = 200) {
@@ -90,7 +90,7 @@ function confirmationHtml(link, email) {
       <a href="${link}" style="display:inline-block;background:#1a1a1a;color:#fff;text-decoration:none;padding:11px 22px;border-radius:8px;font-size:14px">确认订阅</a>
     </p>
     <p style="font-size:12.5px;line-height:1.7;margin:0 0 10px;color:#666">
-      链接 3 天内有效。如果按钮点不动，把下面这行复制到浏览器打开：<br>
+      链接 1 天内有效。如果按钮点不动，把下面这行复制到浏览器打开：<br>
       <span style="color:#0a58ca;word-break:break-all">${link}</span>
     </p>
     <p style="font-size:12.5px;line-height:1.7;margin:0;color:#666">
@@ -117,7 +117,7 @@ async function sendConfirmation(env, email, token) {
       to: [{ email }],
       subject: '确认订阅：纳指开门日报',
       htmlContent: confirmationHtml(link, email),
-      textContent: `确认订阅纳指开门日报\n\n请在浏览器打开下面的链接完成确认（3 天内有效）：\n${link}\n\n不是你本人操作？忽略这封邮件即可，该地址不会被加入名单。`,
+      textContent: `确认订阅纳指开门日报\n\n请在浏览器打开下面的链接完成确认（1 天内有效）：\n${link}\n\n不是你本人操作？忽略这封邮件即可，该地址不会被加入名单。`,
       // 确认信属于事务邮件，带 List-Unsubscribe 反而容易被判为营销邮件的同类处理
       headers: { 'X-Entity-Ref-ID': token },
     }),
