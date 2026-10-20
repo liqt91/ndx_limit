@@ -329,6 +329,25 @@ a { color: inherit; text-decoration: none; }
   font-size: 1.06em;
   color: var(--ink);
 }
+/* kicker 里的抓取时刻：等宽、比正文轻，跟着「数据更新于今日」走 */
+.mast-updated-t { font-family: var(--mono); margin-left: 6px; }
+
+/* 数据过期提示（客户端按浏览器当天日期点亮）。细线框 + 赭色字，
+   不用底色——它是一句说明，不是警报横幅。 */
+.stale-hint {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 9px 11px;
+  border: 1px solid color-mix(in srgb, var(--warn) 34%, transparent);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  line-height: 1.7;
+  color: var(--warn);
+}
+.stale-hint[hidden] { display: none; }
 
 /* ── 小节头：[01] 标题 ————————— 右侧注 ── */
 .sec {

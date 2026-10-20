@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { DailySnapshot, FundShare, DayPoint } from './types';
 import { buildSnapshot } from './mock'; // 兜底：无真实数据时
-import { todayCST, lastNDates, prettyDateCST, isTradingDay, prevTradingDay } from './dates';
+import { todayCST, lastNDates, prettyDateCST, isTradingDay, prevTradingDay, shiftDate } from './dates';
 
 // ──────────────────────────────────────────────────────────────
 // 数据获取层
@@ -51,6 +51,15 @@ export function getToday(): string {
   return todayCST();
 }
 
+/** history 里出现过的最大日期（= 最近一次抓到的交易日）。空历史返回 null。 */
+function latestDataDate(history: Record<string, DayPoint[]>): string | null {
+  let max: string | null = null;
+  for (const code in history) {
+    for (const d of history[code]) if (!max || d.date > max) max = d.date;
+  }
+  return max;
+}
+
 function assemble(today: string): DailySnapshot {
   const funds = readJson<{ funds: any[] }>('funds.json', { funds: [] }).funds;
   const history = readHistory();
@@ -93,7 +102,9 @@ function assemble(today: string): DailySnapshot {
     }
   }
 
-  return { snapDate: today, shares, monitoredCount: shares.length };
+  // snapDate 用「数据实际日期」而不是构建日：早上数据还没更新时构建，
+  // 页面必须承认自己展示的是哪一天的数据——用构建日会让它谎称「今天」。
+  return { snapDate: latestDataDate(history) ?? today, shares, monitoredCount: shares.length };
 }
 
 export function loadTodaySnapshot(): DailySnapshot {
@@ -369,19 +380,79 @@ export interface LastTradingDay {
   count: number;
 }
 
+export interface FetchMeta {
+  /** 抓取日 YYYY-MM-DD（应与 history 最新日期一致） */
+  date: string | null;
+  /** 抓取时刻 ISO（+08:00） */
+  fetchedAt: string | null;
+  /** 展示用 HH:MM；没有 fetch-meta.json 时为 null */
+  time: string | null;
+}
+
+/** 抓取时刻（data/fetch-meta.json，scrape.mjs 写）。缺失时全部为 null，页面只显示日期不显示钟点。 */
+export function loadFetchMeta(): FetchMeta {
+  const raw = readJson<{ date?: string; fetchedAt?: string } | null>('fetch-meta.json', null);
+  const fetchedAt = typeof raw?.fetchedAt === 'string' ? raw.fetchedAt : null;
+  const m = fetchedAt?.match(/T(\d{2}:\d{2})/);
+  return {
+    date: typeof raw?.date === 'string' ? raw.date : null,
+    fetchedAt,
+    time: m ? m[1] : null,
+  };
+}
+
+/** 数据日期相对今天的措辞：「今日」/「上个交易日」/「10月19日 周一」。
+ *  「昨天」不许用——昨天可能是周六，上一个有数据的交易日未必是昨天。 */
+export function dataDateLabel(dataDate: string, today = getToday()): string {
+  if (dataDate === today) return '今日';
+  const prev = prevTradingDay(today, HOLIDAYS);
+  if (prev && dataDate === prev) return '上个交易日';
+  return prettyDateCST(dataDate);
+}
+
+/** 窗口内每一天的交易日标记，1=交易日 0=休市。给客户端判断「今天该不该有新数据」、
+ *  「数据日是不是上个交易日」用。窗口含过去 10 天（要往前找上一个交易日）+ 未来 30 天。
+ *  页面超过窗口没重建时查不到今天 → 客户端按「数据过期」提示。 */
+export function tradingWindowMap(pastDays = 10, futureDays = 30): Record<string, 0 | 1> {
+  const today = getToday();
+  const out: Record<string, 0 | 1> = {};
+  for (let i = -pastDays; i < futureDays; i++) {
+    const d = shiftDate(today, i);
+    out[d] = isTradingDay(d, HOLIDAYS) ? 1 : 0;
+  }
+  return out;
+}
+
 export interface TradingContext {
   today: string;
   isTrading: boolean;
   lastTrading: LastTradingDay | null;
+  /** 页面展示的数据日期（history 最新交易日） */
+  dataDate: string;
+  /** 数据日期相对今天的措辞：今日 / 上个交易日 / 具体日期 */
+  dataLabel: string;
+  /** 抓取时刻 HH:MM，无 fetch-meta.json 时为 null */
+  updatedTime: string | null;
+  /** 今天是交易日、但数据不是今天（早上还没抓 / 抓取失败 / 页面隔夜未重建） */
+  isStale: boolean;
 }
 
-/** 首页首屏所需的交易日上下文：今天是否交易日 + （若休市）最近交易日快照。 */
-export function getTradingContext(): TradingContext {
+/** 首页首屏所需的交易日上下文：今天是否交易日、（若休市）最近交易日快照、数据新鲜度。 */
+export function getTradingContext(dataDate?: string): TradingContext {
   const today = getToday();
   const isTrading = isTradingDay(today, HOLIDAYS);
-  if (isTrading) return { today, isTrading, lastTrading: null };
-  const prev = prevTradingDay(today, HOLIDAYS);
-  if (!prev) return { today, isTrading, lastTrading: { date: null, opened: 0, total: 0, count: 0 } };
-  const agg = aggregateForDate(prev);
-  return { today, isTrading, lastTrading: { date: prev, ...agg } };
+  const dd = dataDate ?? latestDataDate(readHistory()) ?? today;
+  const base = {
+    today,
+    isTrading,
+    dataDate: dd,
+    dataLabel: dataDateLabel(dd, today),
+    updatedTime: loadFetchMeta().time,
+    isStale: isTrading && dd !== today,
+  };
+  if (isTrading) return { ...base, lastTrading: null };
+  // 休市时「最近交易日」用数据里最新的那一天，不用日历推算——推算出来的那天可能
+  // 根本没抓到数据（抓取失败/长假），aggregate 会返回 0 家开门，比不给数字更误导。
+  const agg = aggregateForDate(dd);
+  return { ...base, lastTrading: { date: dd, ...agg } };
 }

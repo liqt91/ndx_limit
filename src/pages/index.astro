@@ -2,13 +2,13 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import FamilyCard from '../components/FamilyCard.astro';
 import SectionHead from '../components/SectionHead.astro';
-import { loadTodaySnapshot, loadDailyChanges, getTradingContext } from '../data/loader';
+import { loadTodaySnapshot, loadDailyChanges, getTradingContext, tradingWindowMap } from '../data/loader';
 import { STATUS_SHORT } from '../lib/status';
 import type { FundShare } from '../data/types';
 
 const snap = loadTodaySnapshot();
 const changes = loadDailyChanges();
-const ctx = getTradingContext();
+const ctx = getTradingContext(snap.snapDate);
 
 const byGroup = new Map<string, { currency: string; shares: FundShare[] }>();
 for (const s of snap.shares) {
@@ -61,13 +61,22 @@ const verdictText = hasChanges ? changeParts.join('，') : '没有变化';
 // 额度类变动直接显示「5 元 → 10 元」，比「限大额 → 限大额」有用
 const isLimitKind = (k: string) => k.startsWith('limit');
 const fmtLimit = (v: number | null) => (v == null ? '未公布' : `${v} 元`);
+
+// 首屏的日期指代：数据是今天的才说「今天」，否则说「上个交易日」或具体日期。
+// 不用「昨天」——昨天可能是周六，上一个有数据的交易日未必是昨天。
+const dayRef = ctx.dataLabel === '今日' ? '今天' : ctx.dataLabel;
+// 交易日窗口表（过去 10 天 + 未来 30 天）：客户端据此判断「今天该不该有新数据」、
+// 「数据日是不是上个交易日」——靠日期间隔猜会在长假上出错
+const tradingMap = tradingWindowMap(10, 30);
 ---
 
 <BaseLayout title="纳指开门日报">
   <section class="masthead">
     <div class="mast-kicker">
       <span class={`dot dot-${level}`}></span>
-      <span>{snap.snapDate}</span>
+      <span class="mast-updated">
+        数据更新于<span data-updated-label>{ctx.dataLabel}</span>{ctx.updatedTime ? <span class="mast-updated-t">{ctx.updatedTime}</span> : null}
+      </span>
       <span>·</span>
       <span>纳指 QDII 申购额度</span>
     </div>
@@ -75,11 +84,11 @@ const fmtLimit = (v: number | null) => (v == null ? '未公布' : `${v} 元`);
       {
         ctx.isTrading ? (
           stoppedCny === 0 ? (
-            <>今天 <span class="num">{openedCny}</span> 家全部开门。</>
+            <><span data-day-ref>{dayRef}</span> <span class="num">{openedCny}</span> 家全部开门。</>
           ) : stoppedCny === cny.length ? (
-            <>今天 <span class="num">{cny.length}</span> 家全部暂停申购。</>
+            <><span data-day-ref>{dayRef}</span> <span class="num">{cny.length}</span> 家全部暂停申购。</>
           ) : (
-            <>今天 <span class="num">{openedCny}</span> 家开门，<span class="num">{stoppedCny}</span> 家暂停。</>
+            <><span data-day-ref>{dayRef}</span> <span class="num">{openedCny}</span> 家开门，<span class="num">{stoppedCny}</span> 家暂停。</>
           )
         ) : (
           <>今日休市（非交易日）</>
@@ -106,6 +115,10 @@ const fmtLimit = (v: number | null) => (v == null ? '未公布' : `${v} 元`);
         )
       }
     </div>
+
+    {/* 数据过期提示：静态页不会自己变，由下面的内联脚本按浏览器当天日期点亮。
+        服务端默认 hidden —— 没 JS 时宁可不说，也不要按构建日的判断说错。 */}
+    <div class="stale-hint" id="stale-hint" hidden><span data-stale-text></span></div>
   </section>
 
   {
@@ -148,7 +161,7 @@ const fmtLimit = (v: number | null) => (v == null ? '未公布' : `${v} 元`);
 
   <SectionHead
     index={ctx.isTrading && hasChanges ? '02' : '01'}
-    title={ctx.isTrading ? '今天能买多少' : `最近交易日额度（${ctx.lastTrading?.date ?? ''}）`}
+    title={ctx.isTrading ? `${dayRef}能买多少` : `最近交易日额度（${ctx.lastTrading?.date ?? ''}）`}
     aside={`${openedCny} 家可买 · 柱高 ${limitCap} 元满格`}
   />
   <div class="grid-legend legend-under">
@@ -160,4 +173,62 @@ const fmtLimit = (v: number | null) => (v == null ? '未公布' : `${v} 元`);
   <ul class="grid">
     {cny.map((g) => <FamilyCard shares={g.shares} limitCap={limitCap} />)}
   </ul>
+
+  {/* 放在页面最末尾：脚本要改 H1 和下方小节标题，必须在这些节点解析完之后执行 */}
+  <script is:inline define:vars={{ dataDate: ctx.dataDate, tradingMap }}>
+    // 静态页隔夜不会自己变：按浏览器当天（东八区）判断数据是否过期，统一改日期指代并亮提示。
+    // 周末/节假日不提示——那天本来就没有新数据，提示会变成每天误报。
+    (function () {
+      var today;
+      try {
+        today = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
+        }).format(new Date());
+      } catch (e) { return; }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(today) || today <= dataDate) return;
+
+      var p = dataDate.split('-');
+      var zh = Number(p[1]) + '月' + Number(p[2]) + '日';
+      var shift = function (d, n) {
+        var q = d.split('-');
+        return new Date(Date.UTC(+q[0], +q[1] - 1, +q[2] + n)).toISOString().slice(0, 10);
+      };
+      // 数据日是不是「上个交易日」：从今天往前找最近一个交易日精确比对，
+      // 不靠「间隔几天」猜——长假里猜出来的「上个交易日」可能是错的。
+      var prev = null;
+      for (var i = 1; i <= 10; i++) {
+        var x = shift(today, -i);
+        if (tradingMap[x] === 1) { prev = x; break; }
+        if (tradingMap[x] === undefined) break;
+      }
+      var words = prev === dataDate ? '上个交易日' : zh;
+
+      // kicker / H1 / 小节标题三处一起改，否则会出现「今日未更新」与「今天 8 家开门」并存
+      var labelEl = document.querySelector('[data-updated-label]');
+      if (labelEl) labelEl.textContent = words;
+      var refEl = document.querySelector('[data-day-ref]');
+      if (refEl) refEl.textContent = words;
+      document.querySelectorAll('.sec-t').forEach(function (el) {
+        if (el.textContent.indexOf('今天') === 0) el.textContent = el.textContent.replace(/^今天/, words);
+      });
+
+      // 提示只在「今天本该有新数据」时亮：休市日不提示，那天本来就不更新
+      if (tradingMap[today] === 0) return;
+      var nowHM = '12:00';
+      try {
+        nowHM = new Intl.DateTimeFormat('sv-SE', {
+          timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit', hour12: false,
+        }).format(new Date());
+      } catch (e) {}
+
+      var hint = document.getElementById('stale-hint');
+      var text = document.querySelector('[data-stale-text]');
+      if (hint && text) {
+        text.textContent = nowHM < '08:00'
+          ? '今日数据预计 08:00 更新，当前展示 ' + zh + ' 的数据。'
+          : '今日数据尚未更新，当前展示 ' + zh + ' 的数据。';
+        hint.hidden = false;
+      }
+    })();
+  </script>
 </BaseLayout>

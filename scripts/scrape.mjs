@@ -221,6 +221,19 @@ async function main() {
   writeJsonAtomic('history.json', history);
   writeJsonAtomic('fund-meta.json', meta);
 
+  // 抓取时刻（东八区）：页面「数据更新于今日 08:03」用。单独文件而不是塞进 history.json ——
+  // 后者的结构是 Record<code, DayPoint[]>，多一个顶层 key 会被 filterTradingDays 当成基金代码。
+  const fetchedAt =
+    new Intl.DateTimeFormat('sv-SE', {
+      timeZone: 'Asia/Shanghai',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: false,
+    })
+      .format(new Date())
+      .replace(' ', 'T') + '+08:00';
+  writeJsonAtomic('fetch-meta.json', { date: today, fetchedAt });
+
   // ── 健康门禁（仅看人民币份额，美元失败不应阻断人民币展示）──
   const cnyCoverage = cnyTargets ? cnyOk / cnyTargets : 1;
   const health = cnyCoverage >= MIN_COVERAGE ? 'OK' : 'DEGRADED';
