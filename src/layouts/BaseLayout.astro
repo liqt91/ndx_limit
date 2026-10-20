@@ -1,8 +1,6 @@
 ---
 import '../styles/global.css';
 import SiteHeader from '../components/SiteHeader.astro';
-import { loadTodaySnapshot } from '../data/loader';
-import { CALENDAR_FACTS } from '../data/calendar-facts';
 
 interface Props {
   title: string;
@@ -13,10 +11,7 @@ const {
   description = '每天早上 8 点，告诉你今天纳斯达克基金还能不能买、能买多少。',
 } = Astro.props;
 
-const snap = loadTodaySnapshot();
-const dataDate = snap.snapDate;
 const year = new Date().getFullYear();
-const cf = CALENDAR_FACTS;
 ---
 
 <!doctype html>
@@ -35,17 +30,12 @@ const cf = CALENDAR_FACTS;
         <slot />
       </main>
       <footer class="foot">
-        <div class="foot-cta"><a href="/subscribe">订阅每日日报 →</a></div>
-        <p class="foot-disc">
-          数据来自基金公司公开公告与公开基金数据（代销额度抓取自天天基金），可能存在延迟或误差。实际可买额度请以下单页面为准。以上仅陈述客观信息，不构成投资建议。
-        </p>
-        <p class="foot-cal">
-          <span class="foot-cal-k">判定口径</span>交易日按交易所假日规则推算：纳斯达克 {cf.usVerifiedFromYear}–{cf.usVerifiedToYear} 已与交易所公告逐日核对，其后至 {cf.usCoveredToYear} 为规则外推，两者都不是交易所的实时公告。计划外休市（国葬、极端天气、技术故障）无法提前预知，届时本站只照实显示各份额的实际申购状态，不推测原因。A 股交易日取自公开交易日历，覆盖不足时宁可不抓取、不发信，也不猜。
-        </p>
+        <p class="foot-cal">只展示交易日。A股交易日信息来源于国务院放假安排，美股交易日信息来源于节假日规则，美股计划外休市（极端天气、技术故障）可能当作交易日展示，请自行甄别</p>
+        <p class="foot-disc">实际可买额度请以各渠道下单页面为准。数据抓取自天天基金、新浪财经等公开数据，可能存在延迟或误差</p>
+        <p class="foot-disc">仅陈述客观信息，不构成投资建议</p>
         <div class="foot-grid">
           <div class="foot-brand">
-            © {year} 纳指开门日报<br />
-            数据日期 {dataDate}
+            © {year} 纳指开门日报
           </div>
           <!-- 备案号位：拿到号码后把文字替换为「京ICP备XXXXXXXX号-X」，
                改成指向 https://beian.miit.gov.cn 的链接，颜色类换掉（ghost → ink-3） -->

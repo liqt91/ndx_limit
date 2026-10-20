@@ -207,14 +207,32 @@ a { color: inherit; text-decoration: none; }
 
 /* 详情页：状态来源与归因边界。明确写「不推测原因」，
    因为抓到的字段本身就没有原因（暂停是多因一果，见 docs/design 2.3.3） */
-.detail-note {
-  font-size: 12.5px;
-  line-height: 1.85;
+.ext-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin: 22px 0 0;
+}
+.ext-links-label {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
   color: var(--ink-3);
-  max-width: 56ch;
-  margin: 12px 0 0;
-  padding-left: 10px;
-  border-left: 1px solid var(--rule-2);
+}
+.ext-links a {
+  font-size: 13.5px;
+  color: var(--ink-2);
+  text-decoration: none;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  padding: 5px 15px;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.ext-links a::after { content: ' ↗'; color: var(--ink-3); }
+.ext-links a:hover {
+  border-color: var(--ink-3);
+  color: var(--ink);
 }
 
 /* ── 页面开篇（首页用）：只两行 —— 结论句 + 一行小注 ─────────────────
@@ -244,7 +262,7 @@ a { color: inherit; text-decoration: none; }
   flex-wrap: wrap;
   align-items: baseline;
   gap: 4px 16px;
-  margin: 12px 0 0;
+  margin: 5px 0 0;
   font-size: 14px;
   line-height: 1.7;
   color: var(--ink-2);
@@ -365,6 +383,7 @@ a { color: inherit; text-decoration: none; }
 }
 .total-value .unit { font-family: var(--sans); font-size: 12px; font-weight: 400; color: var(--ink-3); margin-left: 3px; }
 
+/* ── 美元份额提示行 ── */
 /* ── 两列网格 + 基金家族 ── */
 .grid {
   list-style: none; margin: 0 0 8px; padding: 0;
@@ -529,8 +548,6 @@ a { color: inherit; text-decoration: none; }
    只有两档字色：能买是墨色，买不到一律同一种灰。
    原因不写进格子（格子里没地方讲），交给悬停提示的三行字——
    用删除线/下划线/色点去编码四种状态，等于逼读者先读图例再读日历。 */
-.cal-lead { font-size: 15px; line-height: 1.85; color: var(--ink-2); margin: 10px 0 0; }
-.cal-lead b { color: var(--ink); font-weight: 600; }
 
 .cal-months {
   display: grid;
@@ -617,24 +634,6 @@ a { color: inherit; text-decoration: none; }
 .ct-v { font-weight: 700; color: var(--ink); }
 .ct-v.ct-off { color: var(--ink-3); font-weight: 400; }
 .ct-why { color: var(--ink-2); }
-
-.cal-lg {
-  display: flex; flex-wrap: wrap; gap: 8px 20px;
-  margin-top: 20px; padding-top: 12px;
-  border-top: 1px solid var(--rule);
-  font-size: 12.5px; color: var(--ink-2);
-}
-.cal-lg-i { display: inline-flex; align-items: center; gap: 6px; }
-.gl-n {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-width: 22px; height: 18px;
-  font-family: var(--mono); font-size: 13px; font-weight: 500; line-height: 1;
-}
-.gl-off { color: var(--cal-off); font-weight: 400; }
-.gl-today { outline: 1px solid var(--ink); outline-offset: -1px; font-weight: 700; }
-.cal-lg-hint { color: var(--ink-3); }
-
-.cal-note { font-size: 12.5px; color: var(--ink-3); line-height: 1.9; margin: 14px 0 0; }
 
 /* 窄屏：三列会把格子压到 20px 以下，宁可变一列 */
 @media (max-width: 680px) {
@@ -732,8 +731,12 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* ── 我的基金 ── */
+/* 输入线不横贯整栏：760px 的下划线太宽，视觉上把这一小块拉散。
+   收到 460px——与订阅页邮箱输入线（.form 的 max-width）同宽，
+   也和上面 .my-hint 的 56ch（约 460px）左对齐成同一列。 */
 .my-input {
   width: 100%;
+  max-width: 460px;
   padding: 12px 0;
   border: none;
   border-bottom: 1px solid var(--rule-2);
@@ -747,7 +750,17 @@ a { color: inherit; text-decoration: none; }
 }
 .my-input::placeholder { color: var(--ghost); font-family: var(--sans); }
 .my-input:focus { outline: none; border-bottom-color: var(--ink); }
-.my-hint { color: var(--ink-2); font-size: 14px; line-height: 1.85; margin: 0 0 22px; max-width: 56ch; }
+/* 我的基金页与订阅页的引导语（各 50+ 字）若按 14px 排会超过 760px 的栏宽，
+   而旧的 max-width:56ch（约 460px）又只容三十几字，于是都在句子中间折行、
+   第二行只剩半句，读起来像被切断。统一降一档到 13.5px 并放开宽度：
+   两段都在 750px 内排成一行。 */
+.my-hint {
+  color: var(--ink-2);
+  font-size: 13.5px;
+  line-height: 1.85;
+  margin: 0 0 20px;
+  max-width: none;
+}
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 22px; }
 .chip {
   display: inline-flex; align-items: center; gap: 5px;
@@ -760,10 +773,23 @@ a { color: inherit; text-decoration: none; }
 }
 .chip button { border: none; background: none; color: var(--ink-3); cursor: pointer; font-size: 14px; line-height: 1; padding: 0 2px; }
 .chip button:hover { color: var(--stop); }
+/* 输入区包裹层：只包 input + 提示行，两者同宽（与提示行左对齐成一条列） */
+.my-add { max-width: 460px; }
+/* 校验提示：默认不占位（min-height 留 1 行会撑高空白区，故用 :empty 隐藏） */
+.my-msg {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--ink-3);
+}
+.my-msg:empty { display: none; }
+.my-msg.is-ok { color: var(--ok); }
+.my-msg.is-err { color: var(--stop); }
+
+/* 空态：只留一句话。原先上下各一条横线，但输入线就在它上方不远处，
+   再夹两条线等于把这小块横切成三段，读起来比不画线更碎。 */
 .empty {
-  border-top: 1px solid var(--rule);
-  border-bottom: 1px solid var(--rule);
-  padding: 20px 0;
+  padding: 0;
   color: var(--ink-3);
   font-size: 13.5px;
   background: transparent;
@@ -809,11 +835,14 @@ a { color: inherit; text-decoration: none; }
 }
 .form button:hover { opacity: .82; }
 .form button:disabled { cursor: default; opacity: .38; }
-.form .note { color: var(--ink-3); font-size: 12.5px; margin-top: 12px; line-height: 1.85; }
 .form-ok { color: var(--ok); font-weight: 500; margin-top: 12px; }
 .form-status { margin: 14px 0 0; font-size: 13.5px; line-height: 1.7; }
 .form-status.is-ok { color: var(--ok); }
 .form-status.is-err { color: var(--stop); }
+/* 说明段：不套 .form 的 460px 宽度（那会把长句在中间折断），
+   也不设 max-width——直接吃满 760px 的栏宽，一行排完。 */
+.form-notes { margin-top: 20px; }
+.note { color: var(--ink-3); font-size: 12.5px; margin: 0 0 12px; line-height: 1.85; }
 /* 蜜罐：移出视口而非 display:none，避免部分爬虫识别 */
 .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 
@@ -821,12 +850,8 @@ a { color: inherit; text-decoration: none; }
 .foot {
   max-width: var(--maxw);
   margin: 0 auto;
-  border-top: 1px solid var(--rule);
   padding: 22px 0 44px;
 }
-.foot-cta { font-size: 14px; margin-bottom: 14px; }
-.foot-cta a { border-bottom: 1px solid var(--ink-3); padding-bottom: 1px; }
-.foot-cta a:hover { border-bottom-color: var(--ink); }
 .foot-disc { color: var(--ink-3); font-size: 12.5px; line-height: 1.85; margin: 0 0 12px; }
 /* 判定口径：比免责声明更实一层，但仍是常驻小字，不做横幅
    （横幅的语义是「现在出事了」，而这里的边界是永久存在的） */
@@ -834,17 +859,12 @@ a { color: inherit; text-decoration: none; }
   color: var(--ink-3);
   font-size: 12.5px;
   line-height: 1.85;
-  margin: 0 0 18px;
-}
-.foot-cal-k {
-  font-family: var(--mono);
-  font-size: 11.5px;
-  letter-spacing: 0.1em;
-  color: var(--ink-2);
-  margin-right: 8px;
+  margin: 0 0 12px;
 }
 .foot-grid {
   display: grid;
+  /* 两列：左版权、右备案号。「仅陈述客观信息」已上移到页脚正文段，
+     这里不再有中间列。 */
   grid-template-columns: 1fr auto;
   gap: 18px;
   padding-top: 16px;
@@ -929,7 +949,6 @@ a { color: inherit; text-decoration: none; }
   .site-nav { gap: 14px; }
   .mast-lead { font-size: 26px; }
   .hero-value { font-size: 34px; }
-  .foot-grid { grid-template-columns: 1fr auto; }
 }
 /* 视口不够宽时退回单列全宽：两列下卡片内容约 340px，
    仅当视口 ≥ 861px 才用两列，保证最长基金名一行不换行 */
@@ -952,7 +971,6 @@ a { color: inherit; text-decoration: none; }
   /* 小注在窄屏必须能折行：nowrap 是给桌面「不拆开一句话」用的，
      390 宽下「较上个交易日（2026-10-19）3 只开门…」比屏还宽，会横滚 */
   .mast-summary .mast-sum-item { white-space: normal; }
-  .foot-grid { grid-template-columns: 1fr; gap: 16px; }
-  /* 单列堆叠时备案号回左对齐，右对齐会像被扔在角落里 */
+  .foot-grid { grid-template-columns: 1fr; gap: 8px; }
   .foot-icp { text-align: left; }
 }
