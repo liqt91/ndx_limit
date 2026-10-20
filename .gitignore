@@ -18,3 +18,10 @@ data/subscribers*.json
 data/subscribers*.csv
 data/*.subscribers.*
 subscribers*.csv
+
+# IDE 配置（个人本地，不入库）
+.vscode/
+
+# 数据备份（history.json 抓取/清理时的临时副本，非源码）
+*.bak
+data/*.bak*

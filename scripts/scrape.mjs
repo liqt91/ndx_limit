@@ -46,6 +46,15 @@ function readJson(name, fallback) {
   }
 }
 
+// 中国 A股休市日（法定节假日实际放假日期），来源 data/market-holidays.json。
+// 交易日 = 工作日 且 不在该集合；调休补班日若在周末市场仍休市，无需单独处理。
+const HOLIDAYS = new Set(readJson('market-holidays.json', []));
+function isTradingDay(date) {
+  const dow = new Date(date + 'T00:00:00+08:00').getDay();
+  if (dow === 0 || dow === 6) return false; // 周末
+  return !HOLIDAYS.has(date);
+}
+
 // 原子写：先写临时文件，再 rename 覆盖，避免构建侧读到半截文件。
 function writeJsonAtomic(name, obj) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -77,6 +86,10 @@ function parseTrading(html) {
   let status = 'UNKNOWN';
   if (/暂停申购/.test(chunk)) status = 'STOPPED';
   else if (/封闭/.test(chunk)) status = 'CLOSED';
+  // 暂不开放购买 = 官网明确的「当前不可申购」信号，优先级高于「限大额」。
+  // 如天弘D类(022525)交易状态字段写「限大额 开放赎回」却紧跟「该基金暂不开放购买」，
+  // 若不拦截会被误判为可买的 LIMITED。命中即视为不可买。
+  else if (/暂不开放购买/.test(chunk)) status = 'STOPPED';
   else if (/限大额/.test(chunk)) status = 'LIMITED';
   else if (/开放申购/.test(chunk)) status = 'OPEN';
 
@@ -154,6 +167,12 @@ async function main() {
   const today = todayCST();
 
   const only = process.argv.slice(2);
+  // 非交易日（周末/法定节假日）：不抓取、不写数据，避免 history.json 混入休市日记录。
+  // CI 仍每日触发，但今日无有效数据可抓 → 直接成功退出，不污染数据、也不产生空 commit。
+  if (!isTradingDay(today)) {
+    console.log(`今日 ${today} 为非交易日（休市），跳过抓取，不写入任何数据。`);
+    process.exit(0);
+  }
   // 代码 → 币种映射，用于「仅看人民币」的健康门禁
   const codeCurrency = new Map();
   const allCodes = [];

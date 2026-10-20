@@ -2,12 +2,13 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import FamilyCard from '../components/FamilyCard.astro';
 import SectionHead from '../components/SectionHead.astro';
-import { loadTodaySnapshot, loadDailyChanges } from '../data/loader';
+import { loadTodaySnapshot, loadDailyChanges, getTradingContext } from '../data/loader';
 import { STATUS_SHORT } from '../lib/status';
 import type { FundShare } from '../data/types';
 
 const snap = loadTodaySnapshot();
 const changes = loadDailyChanges();
+const ctx = getTradingContext();
 
 const byGroup = new Map<string, { currency: string; shares: FundShare[] }>();
 for (const s of snap.shares) {
@@ -77,45 +78,43 @@ const fmtLimit = (v: number | null) => (v == null ? '未公布' : `${v} 元`);
     </div>
     <h1 class="mast-lead">
       {
-        stoppedCny === 0 ? (
-          <>
-            今天 <span class="num">{openedCny}</span> 家全部开门。
-          </>
-        ) : stoppedCny === cny.length ? (
-          <>
-            今天 <span class="num">{cny.length}</span> 家全部暂停申购。
-          </>
+        ctx.isTrading ? (
+          stoppedCny === 0 ? (
+            <>今天 <span class="num">{openedCny}</span> 家全部开门。</>
+          ) : stoppedCny === cny.length ? (
+            <>今天 <span class="num">{cny.length}</span> 家全部暂停申购。</>
+          ) : (
+            <>今天 <span class="num">{openedCny}</span> 家开门，<span class="num">{stoppedCny}</span> 家暂停。</>
+          )
         ) : (
-          <>
-            今天 <span class="num">{openedCny}</span> 家开门，<span class="num">{stoppedCny}</span> 家暂停。
-          </>
+          <>今日休市（非交易日）</>
         )
       }
     </h1>
 
-    {
-      changes.hasData && (
-        <div class={`verdict ${hasChanges ? 'is-change' : 'is-none'}`}>
-          <span class="verdict-k">较 {changes.prevDate}</span>
-          <span class="verdict-v">{verdictText}</span>
-          {!hasChanges && (
-            <span class="verdict-x">
-              开门家数与各家单日额度都和上一交易日一致，无需重新查看。
-            </span>
-          )}
-        </div>
-      )
-    }
-
-    <div class="mast-num">
-      <span class="mast-num-k">今日代销总可投 · 人民币</span>
-      <span class="mast-num-v tnum">{totalAgency.toLocaleString('zh-CN')}<i>元</i></span>
+    <div class="mast-summary">
+      {
+        ctx.isTrading ? (
+          <>
+            {changes.prevDate && (
+              <span class="mast-sum-item">较上个交易日（{changes.prevDate}）{verdictText}</span>
+            )}
+            <span class="mast-sum-item">总可投人民币 <span class="tnum">{totalAgency.toLocaleString('zh-CN')}</span> 元</span>
+          </>
+        ) : (
+          <>
+            <span class="mast-sum-item">总可投人民币 <span class="tnum">0</span> 元</span>
+            {ctx.lastTrading?.date && (
+              <span class="mast-sum-item">最近交易日（{ctx.lastTrading.date}）{ctx.lastTrading.opened} 家开门 · 可投 {ctx.lastTrading.total} 元</span>
+            )}
+          </>
+        )
+      }
     </div>
-    <p class="mast-cap">按可买份额单日上限相加，A/C 类分别计算；美元份额不计入。实际以下单页面为准。</p>
   </section>
 
   {
-    hasChanges && (
+    hasChanges && ctx.isTrading && (
       <>
         <SectionHead index="01" title="今日变化" aside={`共 ${changes.changes.length} 处`} />
         <div class="changelog">
@@ -153,8 +152,8 @@ const fmtLimit = (v: number | null) => (v == null ? '未公布' : `${v} 元`);
   }
 
   <SectionHead
-    index={hasChanges ? '02' : '01'}
-    title="今天能买多少"
+    index={ctx.isTrading && hasChanges ? '02' : '01'}
+    title={ctx.isTrading ? '今天能买多少' : `最近交易日额度（${ctx.lastTrading?.date ?? ''}）`}
     aside={`${openedCny} 家可买 · 柱高 ${limitCap} 元满格`}
   />
   <div class="grid-legend legend-under">

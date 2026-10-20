@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { DailySnapshot, FundShare, DayPoint } from './types';
 import { buildSnapshot } from './mock'; // 兜底：无真实数据时
-import { todayCST, lastNDates, prettyDateCST } from './dates';
+import { todayCST, lastNDates, prettyDateCST, isTradingDay, prevTradingDay } from './dates';
 
 // ──────────────────────────────────────────────────────────────
 // 数据获取层
@@ -28,13 +28,32 @@ function readJson<T>(name: string, fallback: T): T {
   }
 }
 
+// 中国 A股休市日集合（法定节假日实际放假日期，已含调休）。数据源 data/market-holidays.json。
+// 交易日判定只认「周末 + 此集合」；调休补班日若在周末仍休市，无需单独列出。
+const HOLIDAYS = new Set<string>(readJson<string[]>('market-holidays.json', []));
+
+// history.json 里只保留交易日记录：非交易日（周末/法定节假日）数据不参与任何聚合与展示，
+// 既修掉「把周日当上个交易日」的误判，也保证 /daily 与 30 天柱图只出现交易日。
+function filterTradingDays(history: Record<string, DayPoint[]>): Record<string, DayPoint[]> {
+  const out: Record<string, DayPoint[]> = {};
+  for (const code in history) {
+    const kept = history[code].filter((d) => isTradingDay(d.date, HOLIDAYS));
+    if (kept.length) out[code] = kept;
+  }
+  return out;
+}
+
+function readHistory(): Record<string, DayPoint[]> {
+  return filterTradingDays(readJson<Record<string, DayPoint[]>>('history.json', {}));
+}
+
 export function getToday(): string {
   return todayCST();
 }
 
 function assemble(today: string): DailySnapshot {
   const funds = readJson<{ funds: any[] }>('funds.json', { funds: [] }).funds;
-  const history = readJson<Record<string, DayPoint[]>>('history.json', {});
+  const history = readHistory();
   const meta = readJson<Record<string, { name: string }>>('fund-meta.json', {});
   const overrides = readJson<Record<string, any>>('direct-overrides.json', {});
 
@@ -78,7 +97,7 @@ function assemble(today: string): DailySnapshot {
 }
 
 export function loadTodaySnapshot(): DailySnapshot {
-  const history = readJson<Record<string, DayPoint[]>>('history.json', {});
+  const history = readHistory();
   const hasRealData = Object.keys(history).length > 0;
   // 有真实抓取历史 → 用真实数据；否则回退 mock，保证本地/首次也能 build。
   const snap = hasRealData ? assemble(getToday()) : buildSnapshot(getToday());
@@ -109,7 +128,7 @@ export interface DailySummary {
 
 export function loadDailySummaries(n: number): DailySummary[] {
   const funds = readJson<{ funds: any[] }>('funds.json', { funds: [] }).funds;
-  const history = readJson<Record<string, DayPoint[]>>('history.json', {});
+  const history = readHistory();
   const hasReal = Object.keys(history).length > 0;
 
   // 无真实抓取历史（本地首次未跑 scrape）→ 回退 mock 逐日生成，保证能 build
@@ -204,7 +223,7 @@ function classifyChange(from: DayPoint, to: DayPoint): ChangeKind {
 
 export function loadDailyChanges(): DailyChanges {
   const funds = readJson<{ funds: any[] }>('funds.json', { funds: [] }).funds;
-  const history = readJson<Record<string, DayPoint[]>>('history.json', {});
+  const history = readHistory();
   const meta = readJson<Record<string, { name: string }>>('fund-meta.json', {});
   const today = getToday();
 
@@ -295,4 +314,74 @@ function summarizeSnapshot(snap: DailySnapshot): DailySummary {
     )
     .reduce((a, s) => a + (s.dailyLimit as number), 0);
   return { date: snap.snapDate, label: prettyDateCST(snap.snapDate), opened, total, count: cny.length };
+}
+
+// ──────────────────────────────────────────────────────────────
+// 交易日上下文（首页首屏用）
+//
+// 首页需要回答两个问题：
+//   1) 今天是不是交易日？
+//   2) 若今天休市，最近一个交易日各家族开门数与总额是多少（用于「最近交易日」快照）？
+// 口径与全站一致：按「公司+指数+币种」成组，组内任一可买即开门，人民币可买份额上限相加为总额。
+// ──────────────────────────────────────────────────────────────
+
+/** 聚合指定日期（含之前最近一条）的人民币开门数与可投总额。 */
+function aggregateForDate(date: string): { opened: number; total: number; count: number } {
+  const funds = readJson<{ funds: any[] }>('funds.json', { funds: [] }).funds;
+  const history = readHistory();
+  const byGroup = new Map<string, { currency: string; statuses: string[]; limits: number[] }>();
+  for (const f of funds) {
+    for (const c of f.codes) {
+      const arr = history[c.code] || [];
+      // 取 date 当天或之前最近的一条（YYYY-MM-DD 字符串比较即时间序）
+      let entry: DayPoint | null = null;
+      for (const d of arr) {
+        if (d.date <= date) {
+          if (!entry || d.date > entry.date) entry = d;
+        }
+      }
+      if (!entry) continue;
+      const key = `${f.company}|${f.baseName}|${f.currency}`;
+      if (!byGroup.has(key)) byGroup.set(key, { currency: f.currency, statuses: [], limits: [] });
+      const g = byGroup.get(key)!;
+      g.statuses.push(entry.status);
+      if (entry.limit != null) g.limits.push(entry.limit);
+    }
+  }
+  const groups = [...byGroup.values()];
+  const cny = groups.filter((g) => g.currency === 'CNY');
+  const opened = cny.filter((g) => g.statuses.some((s) => s === 'LIMITED' || s === 'OPEN')).length;
+  const total = cny.reduce(
+    (a, g) =>
+      a +
+      g.limits
+        .filter((_, i) => g.statuses[i] === 'LIMITED' || g.statuses[i] === 'OPEN')
+        .reduce((x, y) => x + y, 0),
+    0
+  );
+  return { opened, total, count: cny.length };
+}
+
+export interface LastTradingDay {
+  date: string | null;
+  opened: number;
+  total: number;
+  count: number;
+}
+
+export interface TradingContext {
+  today: string;
+  isTrading: boolean;
+  lastTrading: LastTradingDay | null;
+}
+
+/** 首页首屏所需的交易日上下文：今天是否交易日 + （若休市）最近交易日快照。 */
+export function getTradingContext(): TradingContext {
+  const today = getToday();
+  const isTrading = isTradingDay(today, HOLIDAYS);
+  if (isTrading) return { today, isTrading, lastTrading: null };
+  const prev = prevTradingDay(today, HOLIDAYS);
+  if (!prev) return { today, isTrading, lastTrading: { date: null, opened: 0, total: 0, count: 0 } };
+  const agg = aggregateForDate(prev);
+  return { today, isTrading, lastTrading: { date: prev, ...agg } };
 }

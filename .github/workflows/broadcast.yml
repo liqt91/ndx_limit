@@ -43,12 +43,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # 门禁：最新数据必须就是今天（北京时间），且人民币覆盖率达标。
-      # 抓取失败/没跑完 → 退出码 2，本 job 变红，一封信都不发。
+      # 门禁：最新数据必须是应有交易日的数据（交易日=今天；休市日=最近交易日），
+      # 且人民币覆盖率达标。抓取失败/没跑完 → 退出码 2，本 job 变红，一封信都不发。
+      # 休市日时门禁放行但输出 skip=true，让下方 Send 步骤跳过群发。
       - name: Check data freshness
+        id: freshness
         run: node scripts/check-freshness.mjs
 
       - name: Send digest
+        if: steps.freshness.outputs.skip != 'true'
         env:
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}

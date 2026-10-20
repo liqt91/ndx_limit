@@ -77,6 +77,29 @@ export function computeCoverage(funds, meta) {
   return cnyTargets ? cnyOk / cnyTargets : 1;
 }
 
+// 交易日判定（与 src/data/dates.ts、scripts/scrape.mjs 同源：data/market-holidays.json）。
+// 交易日 = 工作日 且 非法定休市日；调休补班日若在周末市场仍休市，无需单独处理。
+export function loadHolidays() {
+  return new Set(readJson('market-holidays.json', []));
+}
+export function isTradingDay(date, holidays) {
+  const dow = new Date(date + 'T00:00:00+08:00').getDay();
+  if (dow === 0 || dow === 6) return false; // 周末
+  return !holidays.has(date);
+}
+export function prevTradingDay(date, holidays) {
+  const dt = new Date(date + 'T00:00:00+08:00');
+  for (let i = 1; i <= 30; i++) {
+    dt.setDate(dt.getDate() - 1);
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, '0');
+    const d = String(dt.getDate()).padStart(2, '0');
+    const cand = `${y}-${m}-${d}`;
+    if (isTradingDay(cand, holidays)) return cand;
+  }
+  return null;
+}
+
 // 返回结构化日报。healthy=false 时 text 为数据异常提示；无论有无变化都返回 text（无变化含说明）。
 export function buildDailyDigest() {
   const funds = readJson('funds.json', { funds: [] }).funds;

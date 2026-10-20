@@ -17,18 +17,40 @@ const name = `${first.company}${first.baseName}${first.currency === 'USD' ? '美
 // 副标题只列代码：类别字母在下方每个份额行（「code · A 类」）已有，重复信息正是换行/被裁的元凶
 const codesLine = shares.map((s) => s.code).join(' · ');
 
-// 家族状态摘要（组内任一份额可买即算可投）
-const statuses = new Set(shares.map((s) => s.purchaseStatus));
-let famStatus: PurchaseStatus;
-if (statuses.has('LIMITED') || statuses.has('OPEN')) famStatus = 'LIMITED';
-else if (statuses.has('CLOSED')) famStatus = 'CLOSED';
-else if (statuses.has('UNKNOWN')) famStatus = 'UNKNOWN';
+// 家族状态摘要：同家族内各份额状态可能不一致（如 A/C 暂停、D 类限大额待核验）。
+// 不再「任一可买即算可投」，而是如实区分：
+//   - 既有可买、又有不可买 → 部分可投（PARTIAL）
+//   - 全部可买 → 开放 / 限额
+//   - 全部不可买 → 暂停 / 封闭 / 未公布（取最具体的一类）
+const shareStatuses = shares.map((s) => s.purchaseStatus);
+const buyable = shareStatuses.filter((s) => s === 'LIMITED' || s === 'OPEN').length;
+const stopped = shareStatuses.filter((s) => s === 'STOPPED').length;
+const closed = shareStatuses.filter((s) => s === 'CLOSED').length;
+const unknown = shareStatuses.filter((s) => s === 'UNKNOWN').length;
+const nonBuyable = stopped + closed + unknown;
+
+type FamilyStatus = 'OPEN' | 'LIMITED' | 'STOPPED' | 'CLOSED' | 'UNKNOWN' | 'PARTIAL';
+let famStatus: FamilyStatus;
+if (buyable > 0 && nonBuyable > 0) famStatus = 'PARTIAL';
+else if (buyable > 0) famStatus = shareStatuses.includes('OPEN') ? 'OPEN' : 'LIMITED';
+else if (closed > 0) famStatus = 'CLOSED';
+else if (unknown > 0) famStatus = 'UNKNOWN';
 else famStatus = 'STOPPED';
+
+const famLabel: Record<FamilyStatus, string> = {
+  OPEN: '开放申购',
+  LIMITED: '限额申购',
+  STOPPED: '暂停申购',
+  CLOSED: '封闭期',
+  UNKNOWN: '额度未公布',
+  PARTIAL: '部分可投',
+};
 
 const famCls =
   famStatus === 'STOPPED' ? 'tag-stop'
   : famStatus === 'CLOSED' ? 'tag-closed'
   : famStatus === 'UNKNOWN' ? 'tag-unknown'
+  : famStatus === 'PARTIAL' ? 'tag-partial'
   : 'tag-ok';
 
 // 家族可投总额（组内可买份额单日上限之和）。
@@ -74,7 +96,7 @@ const familyHistory: DayPoint[] = allDates.map((date) => {
         <div class="fam-big is-unknown">待核验</div>
       ) : null}
       {famHasMissing && <span class="fam-note">含待核验额度</span>}
-      <span class={`tag ${famCls}`}>{STATUS_LABEL[famStatus]}</span>
+      <span class={`tag ${famCls}`}>{famLabel[famStatus]}</span>
     </div>
   </div>
 
