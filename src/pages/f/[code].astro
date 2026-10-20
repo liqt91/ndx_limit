@@ -1,12 +1,12 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import SectionHead from '../../components/SectionHead.astro';
-import { loadAllShares } from '../../data/loader';
+import { loadAllShares, loadUsdShares } from '../../data/loader';
 import { STATUS_LABEL, statusClass } from '../../lib/status';
 import type { FundShare, PurchaseStatus } from '../../data/types';
 
 export function getStaticPaths() {
-  const shares = loadAllShares();
+  const shares = [...loadAllShares(), ...loadUsdShares()];
   return shares.map((s) => ({ params: { code: s.code }, props: { share: s } }));
 }
 
@@ -59,9 +59,12 @@ const heroCls =
     }
   </section>
 
-  <p class="detail-note">
-    状态取自基金公司公开页面，原文不带原因。暂停可能来自额度用尽、外汇额度、境外休市或公司自身安排，本站不推测具体原因。
-  </p>
+  <nav class="ext-links" aria-label="在其它平台查看本基金的页面">
+    <span class="ext-links-label">在其它平台查看</span>
+    <a href={`https://fund.eastmoney.com/${share.code}.html`} target="_blank" rel="noopener noreferrer">天天基金</a>
+    <a href={`https://finance.sina.com.cn/fund/quotes/${share.code}/bc.shtml`} target="_blank" rel="noopener noreferrer">新浪财经</a>
+    <a href={`https://www.morningstar.cn/fund/${share.code}.html`} target="_blank" rel="noopener noreferrer">晨星网</a>
+  </nav>
 
   <SectionHead index="01" title="历史记录 · 近 30 天" aside={`${history.length} 天`} />
   <table class="tbl">
