@@ -8,10 +8,6 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 ---
 
 <BaseLayout title="订阅日报 - 纳指开门日报">
-  <div class="ctx">
-    <span>每天早上 8 点推送</span>
-    <a href="/">今日 →</a>
-  </div>
   <h1 class="section-title">订阅日报</h1>
   <p class="my-hint">
     每天早上 8 点，把当天纳指基金的开门与限购变化发到你的邮箱。只填邮箱，提交后去收件箱点一下确认链接就完成了。
@@ -38,19 +34,18 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     <button type="submit" id="sub-btn">订阅</button>
 
     <p class="form-status" id="sub-status" role="status" aria-live="polite"></p>
-
-    <p class="note">
-      提交后会收到一封确认信，点信里的链接才正式入名单（3 天内有效，未确认不会收到日报）。
-      这样别人就没法拿你的邮箱替你订阅。
-    </p>
-    <p class="note">
-      只收集邮箱这一个字段，仅用于每天早上发送日报，不做其它用途、不共享给第三方。
-      每封邮件底部都有退订链接，点一下就退订。本站不存姓名、手机号等任何其它信息。
-    </p>
-    <p class="note">
-      第一次收信如果没看到，先翻一下垃圾箱，并把发件人加进白名单——邮件服务对新域名会有个「养号」过程。
-    </p>
   </form>
+
+  <!-- 说明段放在 form 之外：.form 有 max-width:460px，写在 form 里会被表单宽度
+       卡住而不得不在句中折行。表单只装输入控件，说明文字不受它的宽度约束。 -->
+  <div class="form-notes">
+    <p class="note">
+      提交后会收到一封确认信，点信里的链接才正式入名单（1 天内有效，未确认不会收到日报）
+    </p>
+    <p class="note">
+      如果没看到来信，先翻一下垃圾箱，并把发件人加进白名单  ：）
+    </p>
+  </div>
 
   <noscript>
     <p class="note">订阅需要开启 JavaScript。也可以在浏览器的开发者工具里关闭脚本限制后重试。</p>
@@ -96,7 +91,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
             if (data.pending) {
               // 双重确认：还没入名单，得去邮箱点一下链接
               btn.textContent = '待确认';
-              setStatus('确认邮件已发到 ' + email + '，点信里的链接才完成订阅（3 天内有效）。', 'ok');
+              setStatus('确认邮件已发到 ' + email + '，点信里的链接才完成订阅（1 天内有效）。', 'ok');
             } else {
               btn.textContent = '已订阅 ✓';
               setStatus('已订阅。每天早上 8 点，日报会发到 ' + email + '。', 'ok');
