@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "astro dev",
     "scrape": "node scripts/scrape.mjs",
+    "import:history": "node scripts/import-history.mjs",
     "check:data": "node scripts/check-freshness.mjs",
     "calendar:build": "node scripts/build-us-calendar.mjs",
     "calendar:check": "node scripts/build-us-calendar.mjs --check && node scripts/check-cn-holidays.mjs",

@@ -11,6 +11,9 @@ export interface DayPoint {
   date: string; // YYYY-MM-DD
   status: PurchaseStatus;
   limit: number | null; // 代销单日上限（元），null = 未公布/不可买
+  /** 单位净值。可选：只有 scripts/import-history.mjs 回填的历史才带，scrape 不写；
+   *  缺失 = 未采集，不是 0。当前页面不展示，留作日后画净值曲线。 */
+  nav?: number | null;
 }
 
 /** 单只基金份额（如「宝盈纳斯达克100 A 类，代码 019736」） */

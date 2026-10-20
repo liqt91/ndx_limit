@@ -85,6 +85,24 @@ npm run ci:build                  # 本地：抓取 + 构建一步到位（= scr
 
 > 本地没跑 scrape 时，`loader` 会自动回退到 `src/data/mock.ts` 的兜底数据，保证能 build。
 
+### 历史回填（一次性，`scripts/import-history.mjs`）
+
+`scrape.mjs` 只能从今天起逐日累积，新站上线时 30 天柱状图只有一两根柱子。回填脚本从
+`https://nasdaq.jaelchen.cn/f/{code}` 的「历史快照」表取近 30 天数据，合并进 `data/history.json`：
+
+```bash
+node scripts/import-history.mjs --dry-run    # 只打印报告，不写盘（先跑这个）
+node scripts/import-history.mjs              # 全量回填（56 只份额，含 19 个美元份额）
+node scripts/import-history.mjs --prefer=remote   # 同日冲突改以来源站为准
+```
+
+- **只写 A 股交易日**：来源站按自然日给数（周末/假日只是重复上个交易日），这里用 `digest.mjs`
+  的 `isTradingDay` 过滤掉，与 `scrape.mjs` 口径一致。
+- **同日冲突默认保留本地值**：本地是当天亲自抓的。已知口径差异——天天基金写「限大额」但补一句
+  「该基金暂不开放购买」时，本站判 `STOPPED`（见 `parseTrading` 注释），来源站判 `LIMITED`。
+- **单只失败不清空**：抓取失败的份额跳过，保留原历史；解析成功率低于 80% 直接拒绝写盘。
+- 顺带把 `nav`（单位净值）写进 `DayPoint`（可选字段，页面暂不展示，留作以后画净值曲线）。
+
 ### 直销渠道与公告（可选，本版默认不使用）
 
 本版本**仅使用代销渠道（天天基金自动抓取）的数据**，直销渠道限额与基金公司公告暂不涉及。

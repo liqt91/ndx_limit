@@ -14,7 +14,9 @@ const { share } = Astro.props as { share: FundShare };
 
 // 历史按从新到旧展示
 const history = [...share.history].reverse();
-const last = history[history.length - 1];
+// 页头「数据日期」要的是最新一天。history 已经反转过，取末项会拿到最旧的一天
+// （回填 21 天历史后这个错会被放大成「数据日期 2026-09-14」），所以从原数组取。
+const newest = share.history[share.history.length - 1];
 
 const currencyLabel = share.currency === 'USD' ? '美元' : '人民币';
 const heroLabel = share.dailyLimit != null ? '单日最多可投（代销）' : '当前申购状态';
@@ -28,7 +30,7 @@ const heroCls =
 <BaseLayout title={`${share.shortName} - 纳指开门日报`}>
   <div class="ctx">
     <a href="/">← 返回今日</a>
-    <span>数据日期 {last?.date}</span>
+    <span>数据日期 {newest?.date}</span>
   </div>
 
   <h1 class="section-title">{share.shortName}</h1>
