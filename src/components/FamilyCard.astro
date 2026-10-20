@@ -14,8 +14,7 @@ const { shares, dataCodes, hidden, limitCap = 100 } = Astro.props;
 
 const first = shares[0];
 const name = `${first.company}${first.baseName}${first.currency === 'USD' ? '美元' : ''}`;
-// 副标题只列代码：类别字母在下方每个份额行（「code · A 类」）已有，重复信息正是换行/被裁的元凶
-const codesLine = shares.map((s) => s.code).join(' · ');
+// 头部不再放代码串：份额行本来就是「code · A 类」，代码在下方一行一个，头部再列一遍是纯重复
 
 // 家族状态摘要：同家族内各份额状态可能不一致（如 A/C 暂停、D 类限大额待核验）。
 // 不再「任一可买即算可投」，而是如实区分：
@@ -87,7 +86,6 @@ const familyHistory: DayPoint[] = allDates.map((date) => {
   <div class="fam-head">
     <div class="fam-name">
       {name}
-      <span class="sub">{codesLine}</span>
     </div>
     <div class="fam-right">
       {famKnownTotal > 0 ? (
@@ -116,7 +114,13 @@ const familyHistory: DayPoint[] = allDates.map((date) => {
               ) : s.dailyLimit != null ? (
                 <span class="lim">{s.dailyLimit} <b>元</b></span>
               ) : null}
-              <span class={`tag ${statusClass(s.purchaseStatus)}`}>{STATUS_LABEL[s.purchaseStatus]}</span>
+              {/* 状态只用色点：份额行的文字状态与头部家族状态重复，卡片要紧凑；
+                  语义留在 title/aria-label 里，读屏和悬停仍能拿到 */}
+              <span
+                class={`st-dot ${statusClass(s.purchaseStatus)}`}
+                title={STATUS_LABEL[s.purchaseStatus]}
+                aria-label={STATUS_LABEL[s.purchaseStatus]}
+              ></span>
             </span>
           </a>
         </li>

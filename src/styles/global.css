@@ -454,20 +454,10 @@ a { color: inherit; text-decoration: none; }
 .fam:hover .fam-name { color: var(--ink); }
 /* 名字与额度数字同一行：名字在左、可压缩（空间不够时自身折行，不裁切不溢出），
    数字+标签块在右、flex:none 保证永远完整显示；一行实在放不下时整块降到第二行兜底。
-   basis 用 0% 而非 auto：副标题是 nowrap+ellipsis 的代码串，content 宽度会把
-   base size 撑到 150px+，窄屏（≤320）下名字+数字块总和虚超容器宽、触发整块换行。 */
+   basis 用 0% 而非 auto：名字块若按内容宽算，窄屏（≤320）下与数字块总和会虚超容器宽、
+   触发整块换行。 */
 .fam-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
 .fam-name { flex: 1 1 0%; font-size: 15px; font-weight: 700; color: var(--ink); min-width: 0; letter-spacing: -0.005em; line-height: 1.4; }
-.fam-name .sub {
-  display: block;
-  font-family: var(--mono);
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--ink-3);
-  margin-top: 6px;
-  letter-spacing: 0.03em;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
 .fam-right { flex: none; display: flex; flex-direction: row; align-items: baseline; justify-content: flex-start; gap: 12px; text-align: left; }
 .fam-big {
   font-family: var(--mono);
@@ -511,9 +501,20 @@ a { color: inherit; text-decoration: none; }
 .fam-item { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 9px 0; }
 .fam-item .cd { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); letter-spacing: 0.02em; transition: color 0.12s; }
 .fam-item:hover .cd { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
-.fam-item .rt { display: inline-flex; align-items: baseline; gap: 10px; flex: none; }
+.fam-item .rt { display: inline-flex; align-items: baseline; gap: 8px; flex: none; }
 .fam-item .lim { font-family: var(--mono); font-size: 14px; font-weight: 500; color: var(--ink); }
 .fam-item .lim b { font-weight: 400; color: var(--ink-3); font-size: 11.5px; margin-left: 1px; }
+
+/* 份额状态色点：颜色来自 .st-ok/.st-stop/... 的 color，背景取 currentColor。
+   文字状态在头部家族块里已有，份额行只留一个 6px 方块——含义放 title/aria-label。 */
+.st-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  flex: none;
+  background: currentColor;
+  align-self: center;
+}
 
 /* ── 30 天柱图：可投=墨绿，暂停=浅砂，变动=赭黄 ── */
 .bars {
