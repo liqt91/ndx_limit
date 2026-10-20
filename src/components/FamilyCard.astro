@@ -87,14 +87,16 @@ const familyHistory: DayPoint[] = allDates.map((date) => {
     <div class="fam-name">
       {name}
     </div>
+    {/* 右侧顺序：状态 → 提示 → 数字。状态贴着家族名读起来是「某某基金 · 限额申购」，
+        数字落在最右端，与下方份额行的右边缘对齐成一列。 */}
     <div class="fam-right">
+      <span class={`tag ${famCls}`}>{famLabel[famStatus]}</span>
+      {famHasMissing && <span class="fam-note">含待核验额度</span>}
       {famKnownTotal > 0 ? (
         <div class="fam-big tnum">{famHasMissing ? '≈' : ''}{famKnownTotal}<span class="u">元</span></div>
       ) : famHasMissing ? (
         <div class="fam-big is-unknown">待核验</div>
       ) : null}
-      {famHasMissing && <span class="fam-note">含待核验额度</span>}
-      <span class={`tag ${famCls}`}>{famLabel[famStatus]}</span>
     </div>
   </div>
 
