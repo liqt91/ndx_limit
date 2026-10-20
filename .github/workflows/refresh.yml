@@ -11,11 +11,10 @@ name: Daily Data Refresh
 # 回写那次 push 会触发 EdgeOne Pages 自动重建。
 # GitHub 对公开仓库有「60 天无活动则停用定时任务」的规则，每日 commit 同时也保住了它。
 
+# 定时由外部 cron 触发（腾讯轻量云 lhins-0ky4jsqs 的 crontab，见运维文档），
+# 不再依赖 GitHub 自带 schedule——实测延迟可达 2h44m（2026-10-20）。
+
 on:
-  schedule:
-    # 不写 UTC 00:00（北京 08:00）——那是 GitHub Actions 全球最拥挤的时段，
-    # schedule 是尽力而为，实测延迟可达 2h44m+（2026-10-20）。错峰到 23:50。
-    - cron: '50 23 * * *' # UTC 23:50 = 北京 07:50
   workflow_dispatch:
 
 permissions:
