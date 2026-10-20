@@ -493,17 +493,26 @@ a { color: inherit; text-decoration: none; }
 .st-closed { color: var(--warn); }
 .st-unknown { color: var(--ink-3); }
 
-/* 家族内份额行：只列「代码 · 类别」，整行是链接（详情页里有全名）。
-   卡片内的线只保留柱图基线一条——轴下方再拉分区线、份额之间再拉分隔线，
-   会变成三线夹两行的表格观感，同类数据靠间距区分即可。 */
-.fam-rows { list-style: none; margin: 18px 0 0; padding: 0; }
-.fam-row { display: block; }
-.fam-item { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 9px 0; }
-.fam-item .cd { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); letter-spacing: 0.02em; transition: color 0.12s; }
-.fam-item:hover .cd { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
-.fam-item .rt { display: inline-flex; align-items: baseline; gap: 8px; flex: none; }
-.fam-item .lim { font-family: var(--mono); font-size: 14px; font-weight: 500; color: var(--ink); }
-.fam-item .lim b { font-weight: 400; color: var(--ink-3); font-size: 11.5px; margin-left: 1px; }
+/* 份额流水行：代码 + 类别 + 额度 + 状态点，一行排完，段间中点分隔。
+   原来是每条份额占一整行（代码左、额度右，靠 justify-content: space-between 拉开），
+   三份额就是三行、白白多出 80px 高。压成流水后整行 12px 等宽字，与柱图之间只留一点呼吸。
+   放不下（窄屏或多份额）就折行——flex-wrap 兜底，不至于溢出。 */
+.fam-shares {
+  display: flex; flex-wrap: wrap; align-items: baseline;
+  margin: 6px 0 0;
+  font-family: var(--mono);
+  font-size: 12px; line-height: 1.55; letter-spacing: 0.01em;
+}
+.sh-grp { display: inline-flex; align-items: baseline; white-space: nowrap; }
+.sh { display: inline-flex; align-items: baseline; gap: 4px; color: var(--ink-2); transition: color 0.12s; }
+.sh:hover { color: var(--ink); }
+.sh:hover .sh-code { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.sh-code { letter-spacing: 0.02em; }
+.sh-cls { color: var(--ink-3); font-size: 11px; }
+.sh-lim { color: var(--ink); font-weight: 500; }
+.sh-lim i { font-style: normal; font-weight: 400; font-size: 10.5px; color: var(--ink-3); margin-left: 1px; }
+.sh-lim.is-unknown { color: var(--warn); font-weight: 400; }
+.sh-sep { color: var(--rule-2); margin: 0 8px; }
 
 /* 份额状态色点：颜色来自 .st-ok/.st-stop/... 的 color，背景取 currentColor。
    文字状态在头部家族块里已有，份额行只留一个 6px 方块——含义放 title/aria-label。 */
@@ -519,7 +528,7 @@ a { color: inherit; text-decoration: none; }
 /* ── 30 天柱图：可投=墨绿，暂停=浅砂，变动=赭黄 ── */
 .bars {
   display: flex; align-items: flex-end; gap: 3px;
-  height: 46px; margin-top: 18px;
+  height: 46px; margin-top: 12px;
   border-bottom: 1px solid var(--rule);
   padding-bottom: 0;
 }
