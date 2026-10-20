@@ -16,6 +16,8 @@
   --rule-2: #cfccc0;
   /* 占位符：明确弱于正文，避免被当成已填内容 */
   --ghost: #b3afa2;
+  /* 日历里「买不到」的统一灰：比 ghost 深一档（3:1 上下），置灰但要能看清数字 */
+  --cal-off: #928e80;
 
   /* 状态墨色：可投 / 限购 / 暂停 */
   --ok: #2c6e4f;
@@ -530,9 +532,9 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* ── 交易日历（/daily）──────────────────────────────────────────────
-   月历本身已经是网格，所以不再给格子加边框——42 个带框的格子会变成电子表格。
-   层级只靠三样东西：字色、一条删除线、一条赭色下划线（不是色块）。
-   赭色下划线只给「A 股开市但美股休市」，一年 7 天，是唯一需要提前知道的日子。 */
+   只有两档字色：能买是墨色，买不到一律同一种灰。
+   原因不写进格子（格子里没地方讲），交给悬停提示的三行字——
+   用删除线/下划线/色点去编码四种状态，等于逼读者先读图例再读日历。 */
 .cal-lead { font-size: 15px; line-height: 1.85; color: var(--ink-2); margin: 10px 0 0; }
 .cal-lead b { color: var(--ink); font-weight: 600; }
 
@@ -568,27 +570,59 @@ a { color: inherit; text-decoration: none; }
   font-variant-numeric: tabular-nums;
   color: var(--ink);
 }
-/* 可申购 */
+/* 可申购：两市都开，今晚能下单 */
 .cal-d.is-trade { color: var(--ink); font-weight: 500; }
-/* 周末：最淡，不划线（一整片周末都划掉会盖住真正重要的信息） */
-.cal-d.is-weekend { color: var(--ghost); }
-/* A 股法定休市 / 两市同时休市：划掉。删除线颜色必须跟着字色走，
-   用 --rule-2 那种浅灰在 14px 数字上等于没画（第一版就踩了这个坑）。 */
-.cal-d.is-cn {
-  color: var(--ink-3);
-  text-decoration: line-through;
-  text-decoration-thickness: 1px;
-}
-/* 美股休市：唯一的彩色信号。用下划线而不是圆点——圆点在这个字号下读起来像标点，
-   下划线是排版里现成的强调手段，且与删除线位置相反，不会混淆。 */
-.cal-d.is-us {
-  color: var(--warn); font-weight: 600;
-  text-decoration: underline; text-decoration-color: var(--warn);
-  text-decoration-thickness: 2px; text-underline-offset: 4px;
-}
-.cal-d.is-unknown { color: var(--ghost); }
+/* 买不到：周末、A 股法定假日、美股假日、覆盖不到 —— 统一这一种灰 */
+.cal-d.is-off { color: var(--cal-off); font-weight: 400; }
 .cal-d.is-pad { color: transparent; }
-.cal-d.is-today { outline: 1px solid var(--ink); outline-offset: -2px; color: var(--ink); font-weight: 700; }
+/* 今天只加方框，不改字色 —— 今天若买不到，它依然是灰的 */
+.cal-d.is-today { outline: 1px solid var(--ink); outline-offset: -2px; font-weight: 700; }
+
+/* ── 悬停提示：三行（日期星期 / A 股 / 美股），纯 CSS 无 JS ──
+   一张浮起来的纸片：白底 + 1px 细线，不用阴影圆角（与全站一致）。
+   默认居中于格子；首列左对齐、末列右对齐，防止顶出页面。 */
+.cal-tip {
+  position: absolute;
+  left: 50%; bottom: calc(100% + 2px);
+  transform: translateX(-50%);
+  z-index: 30;
+  display: none; flex-direction: column; gap: 3px;
+  width: max-content;
+  max-width: min(240px, calc(100vw - 44px));
+  padding: 8px 10px 9px;
+  background: var(--surface);
+  border: 1px solid var(--rule-2);
+  color: var(--ink-2);
+  text-align: left;
+  white-space: nowrap;
+  pointer-events: none;
+  font-family: var(--sans);
+  font-size: 12.5px; font-weight: 400; line-height: 1.5;
+}
+.cal-d:hover .cal-tip,
+.cal-d:focus-visible .cal-tip { display: flex; }
+/* 触摸屏没有 hover：iOS/Android 点击带 tabindex 的元素会 focus，靠 :focus 接住，
+   否则手机上永远看不到原因（:focus-visible 对触摸不生效，所以两条都要写） */
+.cal-d:focus .cal-tip { display: flex; }
+.cal-d:hover, .cal-d:focus-visible { z-index: 30; }
+.cal-d:focus { z-index: 30; }
+.cal-d:focus-visible { outline: 1px solid var(--rule-2); outline-offset: -2px; }
+
+.cal-d:nth-child(7n + 1) .cal-tip { left: 0; transform: none; }
+.cal-d:nth-child(7n) .cal-tip { left: auto; right: 0; transform: none; }
+
+.ct-d {
+  font-family: var(--mono); font-size: 12.5px; font-weight: 700;
+  color: var(--ink); letter-spacing: 0; line-height: 1.4;
+}
+.ct-r { display: flex; align-items: baseline; gap: 7px; }
+.ct-k {
+  font-style: normal; font-family: var(--mono);
+  font-size: 11.5px; color: var(--ink-3); min-width: 27px;
+}
+.ct-v { font-weight: 700; color: var(--ink); }
+.ct-v.ct-off { color: var(--ink-3); font-weight: 400; }
+.ct-why { color: var(--ink-2); }
 
 .cal-lg {
   display: flex; flex-wrap: wrap; gap: 8px 20px;
@@ -597,24 +631,29 @@ a { color: inherit; text-decoration: none; }
   font-size: 12.5px; color: var(--ink-2);
 }
 .cal-lg-i { display: inline-flex; align-items: center; gap: 6px; }
-.gl-n, .gl-s {
+.gl-n {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 22px; height: 18px;
   font-family: var(--mono); font-size: 13px; font-weight: 500; line-height: 1;
 }
-.gl-s { color: var(--ink-3); text-decoration: line-through; text-decoration-thickness: 1px; }
-.gl-us {
-  color: var(--warn); font-weight: 600;
-  text-decoration: underline; text-decoration-color: var(--warn);
-  text-decoration-thickness: 2px; text-underline-offset: 4px;
-}
+.gl-off { color: var(--cal-off); font-weight: 400; }
 .gl-today { outline: 1px solid var(--ink); outline-offset: -1px; font-weight: 700; }
+.cal-lg-hint { color: var(--ink-3); }
 
 .cal-note { font-size: 12.5px; color: var(--ink-3); line-height: 1.9; margin: 14px 0 0; }
 
 /* 窄屏：三列会把格子压到 20px 以下，宁可变一列 */
 @media (max-width: 680px) {
-  .cal-months { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+  .cal-months { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .cal-d { font-size: 15px; }
+  /* 单列时格子约 48px，七列横排：左三列左对齐、右四列右对齐才不会顶出视口 */
+  .cal-d:nth-child(7n + 1) .cal-tip,
+  .cal-d:nth-child(7n + 2) .cal-tip,
+  .cal-d:nth-child(7n + 3) .cal-tip { left: 0; right: auto; transform: none; }
+  .cal-d:nth-child(7n + 4) .cal-tip,
+  .cal-d:nth-child(7n + 5) .cal-tip,
+  .cal-d:nth-child(7n + 6) .cal-tip,
+  .cal-d:nth-child(7n) .cal-tip { left: auto; right: 0; transform: none; }
 }
 
 /* ── 历史日报：只有横向细线 ── */

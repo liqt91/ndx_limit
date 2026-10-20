@@ -9,7 +9,7 @@
     "scrape": "node scripts/scrape.mjs",
     "check:data": "node scripts/check-freshness.mjs",
     "calendar:build": "node scripts/build-us-calendar.mjs",
-    "calendar:check": "node scripts/build-us-calendar.mjs --check",
+    "calendar:check": "node scripts/build-us-calendar.mjs --check && node scripts/check-cn-holidays.mjs",
     "build": "astro build",
     "ci:build": "node scripts/scrape.mjs && astro build",
     "preview": "astro preview",

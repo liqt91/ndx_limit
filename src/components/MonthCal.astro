@@ -1,11 +1,15 @@
 ---
 // 单个月份的交易日历网格。
 //
-// 只用三种视觉信号，避免图例变成说明书：
-//   墨色数字   = 两市开市，可申购
-//   划掉       = A 股休市（周末更淡，法定假日带删除线）
-//   赭色方点   = 美股休市 —— 平台开着也买不到的那几天，唯一需要提前知道的
-import type { MonthGrid } from '../data/trading-days';
+// 只有两档字色：
+//   墨色 = 两市都开，今晚可以申购
+//   灰色 = 买不到（周末 / A 股假日 / 美股假日 / 覆盖不到）
+//
+// 为什么不把「为什么买不到」编码成删除线、下划线、色点：格子只有 14px，
+// 四种标记必须配一张图例当说明书才看得懂。原因改成悬停时的三行字——
+// 第一行日期星期，第二行 A 股，第三行美股，各自带理由。
+import type { MonthGrid, DayInfo } from '../data/trading-days';
+import { openWord } from '../data/trading-days';
 
 interface Props {
   grid: MonthGrid;
@@ -15,14 +19,8 @@ interface Props {
 const { grid, today } = Astro.props;
 const WEEK_HEAD = ['一', '二', '三', '四', '五', '六', '日'];
 
-function cellClass(state: string, weekend: boolean, isToday: boolean) {
-  const cls = ['cal-d'];
-  // 周末一律最淡：它们同时也是「两市都不开」，若跟法定假日一样划掉，整张月历会吵得看不清
-  if (state === 'UNKNOWN') cls.push('is-unknown');
-  else if (weekend) cls.push('is-weekend');
-  else if (state === 'TRADING') cls.push('is-trade');
-  else if (state === 'US_CLOSED') cls.push('is-us'); // 唯一的高亮：赭色 + 方点
-  else cls.push('is-cn'); // 法定假日 / 两市同时休市
+function cellClass(d: DayInfo, isToday: boolean) {
+  const cls = ['cal-d', d.state === 'TRADING' ? 'is-trade' : 'is-off'];
   if (isToday) cls.push('is-today');
   return cls.join(' ');
 }
@@ -47,8 +45,23 @@ function cellClass(state: string, weekend: boolean, isToday: boolean) {
         ))}
         {grid.weeks.flat().map((d) =>
           d ? (
-            <span class={cellClass(d.state, d.weekend, d.date === today)} title={d.title}>
+            <span class={cellClass(d, d.date === today)} tabindex="0" aria-label={d.title}>
               {d.day}
+              <span class="cal-tip" aria-hidden="true">
+                <b class="ct-d">
+                  {d.md} {d.weekZh}
+                </b>
+                <span class="ct-r">
+                  <i class="ct-k">A 股</i>
+                  <b class:list={['ct-v', { 'ct-off': !d.cnOpen }]}>{openWord(d.cnOpen)}</b>
+                  <span class="ct-why">· {d.cnReason}</span>
+                </span>
+                <span class="ct-r">
+                  <i class="ct-k">美股</i>
+                  <b class:list={['ct-v', { 'ct-off': !d.usOpen }]}>{openWord(d.usOpen)}</b>
+                  <span class="ct-why">· {d.usReason}</span>
+                </span>
+              </span>
             </span>
           ) : (
             <span class="cal-d is-pad" />

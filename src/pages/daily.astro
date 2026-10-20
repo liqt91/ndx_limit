@@ -3,11 +3,12 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import SectionHead from '../components/SectionHead.astro';
 import MonthCal from '../components/MonthCal.astro';
 import { loadDailySummaries, getToday } from '../data/loader';
-import { monthGridsFrom, upcomingUsClosures, CALENDAR_META } from '../data/trading-days';
+import { monthGridsAround, upcomingUsClosures, CALENDAR_META } from '../data/trading-days';
 
 const today = getToday();
-const months = monthGridsFrom(today, 6);
-const closures = upcomingUsClosures(today, 6);
+// 上月 / 本月 / 下月：再往后排就是「预测」，而日历的价值是「眼下这几天能不能买」
+const months = monthGridsAround(today, 1, 1);
+const closures = upcomingUsClosures(today, 3);
 const summaries = loadDailySummaries(15);
 
 const cnYears = CALENDAR_META.cnYears.join('、');
@@ -28,10 +29,11 @@ const allUncovered = uncovered === months.length;
 
   <p class="cal-lead">
     申购纳指 QDII 要两地同时开门：A 股休市则平台不接单，美股休市则基金按境外收盘价估值、当日不开放申购。
-    下面把两件事画在同一格子里——<b>墨色可以买，划掉是休市，赭色下划线是最容易被忽略的那种：A 股开着门，但美股在放假。</b>
+    下面把两件事画在同一格子里——<b>墨色是今晚能下单的日子，灰的一律买不到。</b>
+    至于这一天是哪一边关了门、为什么关门，把鼠标移到格子上即可。
   </p>
 
-  <SectionHead index="01" title="交易日历" aside={`${months[0].label}起 6 个月`} />
+  <SectionHead index="01" title="交易日历" aside="上月 · 本月 · 下月" />
 
   <div class="cal-months">
     {months.map((g) => <MonthCal grid={g} today={today} />)}
@@ -39,21 +41,21 @@ const allUncovered = uncovered === months.length;
 
   <div class="cal-lg">
     <span class="cal-lg-i"><b class="gl-n">20</b>可申购</span>
-    <span class="cal-lg-i"><s class="gl-s">21</s>休市</span>
-    <span class="cal-lg-i"><b class="gl-n gl-us">26</b>美股休市</span>
+    <span class="cal-lg-i"><b class="gl-n gl-off">21</b>买不到</span>
     <span class="cal-lg-i"><b class="gl-n gl-today">20</b>今天</span>
+    <span class="cal-lg-hint">悬停任意一天，看两市的开门情况与原因</span>
   </div>
 
   <p class="cal-note">
     覆盖范围：A 股 {cnYears} 年（{provisional} 为预排，官方通知公布后核对）；美股 {usYears} 年，其中 {usVerified}之前逐日对照过
-    NYSE 公告，之后按规则外推。日历只回答「交易所开不开」，计划外休市（国葬、极端天气）无法预知——那几天页面只会照实显示
-    「全部分额暂停」，不会替它编原因。
+    NYSE 公告，之后按规则外推。悬停提示里的假日名称照抄 A 股放假通知与 NYSE 公告，不做推测；日历只回答「交易所开不开」，
+    计划外休市（国葬、极端天气）无法预知——那几天只会照实显示「全部分额暂停」，不会替它编原因。
   </p>
 
   <SectionHead
     index="02"
     title="A 股开着、美股休市"
-    aside={closures.length ? `未来 6 个月 ${closures.length} 天` : '未来 6 个月没有'}
+    aside={closures.length ? `未来 3 个月 ${closures.length} 天` : '未来 3 个月没有'}
   />
 
   {
@@ -81,8 +83,8 @@ const allUncovered = uncovered === months.length;
     ) : (
       <p class="cal-note">
         {allUncovered
-          ? '这 6 个月还没进日历覆盖范围（A 股放假安排要逐年公布，美股日历也已到边界），所以暂不列出。'
-          : '未来 6 个月内没有「A 股开市但美股休市」的日子。'}
+          ? '这 3 个月还没进日历覆盖范围（A 股放假安排要逐年公布，美股日历也已到边界），所以暂不列出。'
+          : '未来 3 个月内没有「A 股开市但美股休市」的日子。'}
       </p>
     )
   }

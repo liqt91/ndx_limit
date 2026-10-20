@@ -10,6 +10,7 @@
 // 数据来源（全部是仓库里的静态 JSON，构建期零联网、零依赖）：
 //   data/market-holidays.json          A 股法定休市日（日期唯一来源）
 //   data/calendars/cn-coverage.json    A 股覆盖到哪些年、哪年可靠
+//   data/calendars/cn-holiday-names.json  A 股休市日的名称（只用于回答「为什么休市」）
 //   data/calendars/us-nasdaq.json      美股交易日白名单 + 休市日名称（由 scripts/build-us-calendar.mjs 生成）
 //
 // 关键设计：白名单 + 三态。日历没覆盖到的日期返回 UNKNOWN，绝不默认「开市」——
@@ -49,8 +50,22 @@ interface CnCoverage {
   years: Record<string, { status: 'official' | 'provisional'; basis: string }>;
 }
 
+interface CnHolidayNames {
+  years: Record<string, { from: string; to: string; name: string }[]>;
+}
+
 const CN_HOLIDAYS = new Set<string>(readJson<string[]>('market-holidays.json', []));
 const CN_COVERAGE = readJson<CnCoverage>('calendars/cn-coverage.json', { years: {} });
+
+// 名称按连续区间存，这里展开成 日期→名称。
+// 只对 A 股真正休市的工作日有意义；周末落进假期区间时也按假期说（「春节假期」比「周末」更接近事实）。
+const CN_NAMES = readJson<CnHolidayNames>('calendars/cn-holiday-names.json', { years: {} });
+const CN_HOLIDAY_NAME = new Map<string, string>();
+for (const spans of Object.values(CN_NAMES.years)) {
+  for (const span of spans) {
+    for (let d = span.from; d <= span.to; d = shiftDate(d, 1)) CN_HOLIDAY_NAME.set(d, span.name);
+  }
+}
 const US = readJson<UsCalendar>('calendars/us-nasdaq.json', {
   coveredFrom: '',
   coveredTo: '',
@@ -99,18 +114,30 @@ export const STATE_LABEL: Record<DayState, string> = {
 export interface DayInfo {
   date: string;
   day: number; // 几号
+  md: string; // 「11月26日」
   dow: number; // 0=周日 … 6=周六
+  weekZh: string; // 「周四」
   weekend: boolean;
   state: DayState;
   cnOpen: boolean | null;
   usOpen: boolean | null;
   usHoliday: string | null; // 中文假日名（含「补休」）
   cnHoliday: boolean; // 是否落在 A 股法定休市日（区别于周末）
+  /** 沪市为什么开/不开：「正常交易」「周末」「春节假期」「日历未覆盖」 */
+  cnReason: string;
+  /** 纽市为什么开/不开：「正常交易」「感恩节」「圣诞节补休」「日历未覆盖」 */
+  usReason: string;
   provisional: boolean; // 该年 A 股日历是预排
-  title: string; // 悬浮/无障碍说明
+  /** 三段式说明，供 aria-label 与读屏；视觉提示由 MonthCal 渲染成三行 */
+  title: string;
 }
 
 const WEEK_ZH = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+
+/** 开 / 休 / 未知 —— 页面与提示共用同一套措辞，避免两处各写一套慢慢漂移 */
+export function openWord(open: boolean | null): string {
+  return open === null ? '未知' : open ? '开市' : '休市';
+}
 
 export function dayInfo(date: string): DayInfo {
   const dow = dowOf(date);
@@ -127,26 +154,42 @@ export function dayInfo(date: string): DayInfo {
 
   const day = Number(date.slice(8, 10));
   const md = `${Number(date.slice(5, 7))}月${day}日`;
+  const weekend = dow === 0 || dow === 6;
+  const cnName = CN_HOLIDAY_NAME.get(date) ?? null;
 
-  let detail: string;
-  if (state === 'UNKNOWN') detail = '日历未覆盖，不做判断';
-  else if (state === 'TRADING') detail = '两市开市，可申购';
-  else if (state === 'US_CLOSED') detail = `A 股开市，但美股休市（${usHol?.nameZh ?? '美股假日'}），QDII 当日不开放申购`;
-  else if (state === 'CN_CLOSED') detail = 'A 股休市，无日报';
-  else detail = `两市同时休市${usHol ? `（${usHol.nameZh}）` : ''}`;
+  // 原因只来自日历本身，不做推断：
+  //   A 股 —— 假期名优先于「周末」（周末落在春节里，说「春节假期」才是有用的信息）
+  //   美股 —— 只认休市日名称表，查不到就退成「假日」，绝不猜
+  let cnReason: string;
+  if (co === null) cnReason = '日历未覆盖';
+  else if (co) cnReason = '正常交易';
+  else if (cnName) cnReason = `${cnName}假期`;
+  else if (weekend) cnReason = '周末';
+  else cnReason = '法定假日';
+
+  let usReason: string;
+  if (uo === null) usReason = '日历未覆盖';
+  else if (uo) usReason = '正常交易';
+  else if (usHol) usReason = usHol.nameZh;
+  else if (weekend) usReason = '周末';
+  else usReason = '假日';
 
   return {
     date,
     day,
+    md,
     dow,
-    weekend: dow === 0 || dow === 6,
+    weekZh: WEEK_ZH[dow],
+    weekend,
     state,
     cnOpen: co,
     usOpen: uo,
     usHoliday: usHol?.nameZh ?? null,
     cnHoliday: CN_HOLIDAYS.has(date),
+    cnReason,
+    usReason,
     provisional: CN_COVERAGE.years[date.slice(0, 4)]?.status === 'provisional',
-    title: `${md} ${WEEK_ZH[dow]} · ${detail}`,
+    title: `${md} ${WEEK_ZH[dow]}：A 股${openWord(co)}·${cnReason}；美股${openWord(uo)}·${usReason}`,
   };
 }
 
@@ -200,18 +243,14 @@ export function monthGrid(year: number, month: number): MonthGrid {
   };
 }
 
-/** 从某天所在月起，连续 n 个自然月。 */
-export function monthGridsFrom(fromDate: string, n: number): MonthGrid[] {
-  let y = Number(fromDate.slice(0, 4));
-  let m = Number(fromDate.slice(5, 7));
+/** 以 date 所在月为中心，往前 before 个月、往后 after 个月。 */
+export function monthGridsAround(date: string, before: number, after: number): MonthGrid[] {
+  const y0 = Number(date.slice(0, 4));
+  const m0 = Number(date.slice(5, 7)) - 1; // 换成 0 基，跨年取模才不会出错
   const out: MonthGrid[] = [];
-  for (let i = 0; i < n; i++) {
-    out.push(monthGrid(y, m));
-    m++;
-    if (m > 12) {
-      m = 1;
-      y++;
-    }
+  for (let i = -before; i <= after; i++) {
+    const t = m0 + i;
+    out.push(monthGrid(y0 + Math.floor(t / 12), (((t % 12) + 12) % 12) + 1));
   }
   return out;
 }
