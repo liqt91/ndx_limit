@@ -24,14 +24,6 @@
   --warn: #8a6320;
   --stop: #a33a2f;
 
-  /* 份额流水行的「淡一档」状态色：状态色与纸底按 ≈88% 混合。
-     卡片头部的标题与额度要保持分量，份额那行只是明细，用同色同深会把视线拽下去。
-     两个值都卡在「刚好还够 AA 4.5:1」：ok 4.58、stop 4.63（纸底 #faf9f6）。
-     ★ 别再往浅调：0.86 就开始掉到 4.3（12px 正文过不了 AA），
-       验证脚本里有对比度断言盯着这条线。 */
-  --ok-soft: #437d61;
-  --stop-soft: #af554b;
-
   /* 柱状图配色：在纸感底上做一处有限的彩色突破 */
   --bar-open: #3f7d63;
   --bar-changed: #b5732a;
@@ -524,13 +516,10 @@ a { color: inherit; text-decoration: none; }
      省下来的正是「A类 → 10元」中间那两处空白，三个份额才挤得进一行 */
   word-spacing: -2.5px;
 }
-/* 整段一个颜色（.st-ok / .st-stop / .st-unknown 给在 a 上），整段不可拆 */
-.sh { display: inline-block; white-space: nowrap; transition: color 0.12s; }
-/* 明细行用淡一档的状态色：头部（家族名 + 额度 + 状态标签）才是要抢眼的那一行，
-   份额明细只是「哪只、多少钱」，同色同深会跟标题打平、整张卡糊成一片。
-   UNKNOWN 走 --ink-3，本来就是最浅的可用灰，不再另调。 */
-.fam-shares .sh.st-ok { color: var(--ok-soft); }
-.fam-shares .sh.st-stop { color: var(--stop-soft); }
+/* 份额明细整行墨色，不按状态染色：一行 12px 等宽铺开，绿一段红一段会跟卡片头部
+   抢视线，也让人以为「颜色本身」才是信息。哪只买得到由数字说话（10元 / 0元），
+   状态由头部那一个标签统一交代。整段不可拆。 */
+.sh { display: inline-block; white-space: nowrap; color: var(--ink); }
 /* 整段下划线：段内只有一个文本盒（.sh-txt），text-decoration 天然是连续的一条；
    位置交给 text-underline-offset（从基线算 3px），比用背景线贴盒底更贴字、不压笔画。
    注：如果以后再把段内拆成多个 inline 块，装饰会在块边界断开——verify-card-v5 的

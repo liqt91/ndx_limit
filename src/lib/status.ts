@@ -39,15 +39,3 @@ export function classRank(cls: string): number {
   const i = CLASS_ORDER.indexOf((cls || '').toUpperCase());
   return i < 0 ? 99 : i;
 }
-
-/**
- * 额度数字的配色：买得到就是绿的，买不到就是红的。
- * 与 statusClass 不同——封闭期在状态标签里用赭黄（还有"看公告"的意味），
- * 但它在"今天能买多少"这个语境下就是 0 元，跟暂停一样该红。
- * UNKNOWN 既不是能买也不是不能买，保持灰色，不冒充结果。
- */
-export function amountClass(s: PurchaseStatus): string {
-  if (s === 'OPEN' || s === 'LIMITED') return 'st-ok';
-  if (s === 'UNKNOWN') return 'st-unknown';
-  return 'st-stop';
-}
