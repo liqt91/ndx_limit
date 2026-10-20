@@ -484,18 +484,17 @@ a { color: inherit; text-decoration: none; }
 .st-closed { color: var(--warn); }
 .st-unknown { color: var(--ink-3); }
 
-/* 家族内份额行：基金名独占一行（中文名长，与额度挤一行会碎成三行），
-   代码与额度/状态并排在第二行 */
-.fam-rows { list-style: none; margin: 16px 0 0; padding: 10px 0 0; border-top: 1px solid var(--rule); }
-.fam-row { display: block; padding: 10px 0; }
-.fam-row + .fam-row { border-top: 1px solid color-mix(in srgb, var(--rule) 55%, transparent); }
-.fam-row .nm { display: block; font-size: 14.5px; color: var(--ink); line-height: 1.5; }
-.fam-row .nm:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
-.fam-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 5px; }
-.fam-meta .cd { font-family: var(--mono); font-size: 12px; color: var(--ink-3); letter-spacing: 0.02em; }
-.fam-row .rt { display: inline-flex; align-items: baseline; gap: 10px; flex: none; }
-.fam-row .lim { font-family: var(--mono); font-size: 14px; font-weight: 500; color: var(--ink); }
-.fam-row .lim b { font-weight: 400; color: var(--ink-3); font-size: 11.5px; margin-left: 1px; }
+/* 家族内份额行：只列「代码 · 类别」，整行是链接（详情页里有全名）。
+   卡片内的线只保留柱图基线一条——轴下方再拉分区线、份额之间再拉分隔线，
+   会变成三线夹两行的表格观感，同类数据靠间距区分即可。 */
+.fam-rows { list-style: none; margin: 18px 0 0; padding: 0; }
+.fam-row { display: block; }
+.fam-item { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 9px 0; }
+.fam-item .cd { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); letter-spacing: 0.02em; transition: color 0.12s; }
+.fam-item:hover .cd { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.fam-item .rt { display: inline-flex; align-items: baseline; gap: 10px; flex: none; }
+.fam-item .lim { font-family: var(--mono); font-size: 14px; font-weight: 500; color: var(--ink); }
+.fam-item .lim b { font-weight: 400; color: var(--ink-3); font-size: 11.5px; margin-left: 1px; }
 
 /* ── 30 天柱图：可投=墨绿，暂停=浅砂，变动=赭黄 ── */
 .bars {

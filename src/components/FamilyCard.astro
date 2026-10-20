@@ -106,8 +106,9 @@ const familyHistory: DayPoint[] = allDates.map((date) => {
     {
       shares.map((s) => (
         <li class="fam-row">
-          <a class="nm" href={`/f/${s.code}`}>{s.shortName}</a>
-          <div class="fam-meta">
+          {/* 份额行只留「代码 · 类别」：家族名已在上方，官方简称里的家族名+类别是重复信息；
+              整行是链接，点任意位置都能进详情页看全名 */}
+          <a class="fam-item" href={`/f/${s.code}`}>
             <span class="cd">{s.code} · {s.shareClass} 类</span>
             <span class="rt">
               {s.limitMissing ? (
@@ -117,7 +118,7 @@ const familyHistory: DayPoint[] = allDates.map((date) => {
               ) : null}
               <span class={`tag ${statusClass(s.purchaseStatus)}`}>{STATUS_LABEL[s.purchaseStatus]}</span>
             </span>
-          </div>
+          </a>
         </li>
       ))
     }
