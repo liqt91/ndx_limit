@@ -13,7 +13,9 @@ name: Daily Data Refresh
 
 on:
   schedule:
-    - cron: '0 0 * * *' # UTC 00:00 = 北京 08:00
+    # 不写 UTC 00:00（北京 08:00）——那是 GitHub Actions 全球最拥挤的时段，
+    # schedule 是尽力而为，实测延迟可达 2h44m+（2026-10-20）。错峰到 23:50。
+    - cron: '50 23 * * *' # UTC 23:50 = 北京 07:50
   workflow_dispatch:
 
 permissions:

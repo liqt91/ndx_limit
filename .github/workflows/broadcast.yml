@@ -7,11 +7,12 @@ name: Daily Broadcast
 #   独立 cron + check-freshness 门禁校验的是事实本身：抓取失败了就明确拒发并变红，
 #   而不是拿昨天的数据当今天推出去。顺带也不会被 GITHUB_TOKEN 的递归触发限制绊住。
 #
-# 时间差：抓取 08:00（北京），发信 08:20 —— 留 20 分钟给抓取和 EdgeOne 重建。
+# 时间差：抓取 07:50（北京，错峰避开 GitHub 00:00 UTC 拥挤时段，见 refresh.yml），
+# 发信 08:10 —— 留 20 分钟给抓取和 EdgeOne 重建。
 
 on:
   schedule:
-    - cron: '20 0 * * *' # UTC 00:20 = 北京 08:20
+    - cron: '10 0 * * *' # UTC 00:10 = 北京 08:10
   workflow_dispatch:
     inputs:
       mode:
