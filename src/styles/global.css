@@ -471,8 +471,10 @@ a { color: inherit; text-decoration: none; }
 }
 /* 份额明细整行墨色，不按状态染色：一行 12px 等宽铺开，绿一段红一段会跟卡片头部
    抢视线，也让人以为「颜色本身」才是信息。哪只买得到由数字说话（10元 / 0元），
-   状态由头部那一个标签统一交代。整段不可拆。 */
-.sh { display: inline-block; white-space: nowrap; color: var(--ink); }
+   状态由头部那一个标签统一交代。整段不可拆。
+   position:relative 是为了让悬停提示（.tip）以本段为定位父级——inline-block
+   并不自动成为绝对定位的包含块，缺了它提示会飘到 .fam 甚至页面上去。 */
+.sh { display: inline-block; position: relative; white-space: nowrap; color: var(--ink); }
 /* 整段下划线：段内只有一个文本盒（.sh-txt），text-decoration 天然是连续的一条；
    位置交给 text-underline-offset（从基线算 3px），比用背景线贴盒底更贴字、不压笔画。
    注：如果以后再把段内拆成多个 inline 块，装饰会在块边界断开——verify-card-v5 的
@@ -589,9 +591,17 @@ a { color: inherit; text-decoration: none; }
 /* 今天只加方框，不改字色 —— 今天若买不到，它依然是灰的 */
 .cal-d.is-today { outline: 1px solid var(--ink); outline-offset: -2px; font-weight: 700; }
 
-/* ── 悬停提示：三行（日期星期 / A 股 / 美股），纯 CSS 无 JS ──
+/* ── 悬停提示：全站唯一的 tooltip 皮肤 ─────────────────────────────────
    一张浮起来的纸片：白底 + 1px 细线，不用阴影圆角（与全站一致）。
-   默认居中于格子；首列左对齐、末列右对齐，防止顶出页面。 */
+   纯 CSS 无 JS：默认 display:none，hover/focus 时切到 flex。
+
+   为什么不用原生 title：原生提示的外观与弹出延迟由浏览器/操作系统决定
+   （Windows 上通常还要悬停约 1 秒才出现），既和这张纸片不是一套，也无法与
+   日历提示对齐。统一改成自绘后，全站 tooltip 的样式与出现速度完全一致。
+
+   .tip 是共享皮肤，挂在任何 position:relative 的容器内即可；
+   .cal-tip 保留原类名以免改动 MonthCal 的既有选择器。 */
+.tip,
 .cal-tip {
   position: absolute;
   left: 50%; bottom: calc(100% + 2px);
@@ -610,15 +620,38 @@ a { color: inherit; text-decoration: none; }
   font-family: var(--sans);
   font-size: 12.5px; font-weight: 400; line-height: 1.5;
 }
+
+/* 触发：hover 与 focus 都要写。iOS/Android 触摸会 focus 但不 hover，
+   只写 :hover 的话手机上永远看不到提示。 */
 .cal-d:hover .cal-tip,
+.cal-d:focus .cal-tip,
 .cal-d:focus-visible .cal-tip { display: flex; }
-/* 触摸屏没有 hover：iOS/Android 点击带 tabindex 的元素会 focus，靠 :focus 接住，
-   否则手机上永远看不到原因（:focus-visible 对触摸不生效，所以两条都要写） */
-.cal-d:focus .cal-tip { display: flex; }
 .cal-d:hover, .cal-d:focus-visible { z-index: 30; }
 .cal-d:focus { z-index: 30; }
 .cal-d:focus-visible { outline: 1px solid var(--rule-2); outline-offset: -2px; }
 
+/* 卡片上的热力方块 / 份额段：同一套皮肤 */
+.hc:hover .tip,
+.hc:focus-visible .tip,
+.sh:hover .tip,
+.sh:focus-visible .tip { display: flex; }
+/* 提示浮在卡片上方，悬停时把方块/份额段抬到相邻卡之上，否则会被后一张卡盖住 */
+.hc:hover { z-index: 30; }
+.sh:hover { z-index: 30; }
+/* 方块补焦点轮廓（键盘可见）；.sh 已有自己的轮廓，不覆盖。
+   .hc 自带 position:relative（热力方块需要它做绝对定位的包含块）。 */
+.hc:focus-visible { outline: 1px solid var(--ink-2); outline-offset: -1px; }
+/* .tip 是 out-of-flow 元素，装饰本不该传进去；显式关掉，
+   免得份额段的整段下划线在提示出现时多画一截。 */
+.tip { text-decoration: none; }
+
+/* 首尾元素贴边对齐：默认居中会让最左/最右的提示顶出容器。
+   热力方块与份额段都是各自独立定位，所以用 :first-child/:last-child 即可，
+   不像日历那样需要 7n 选择器。 */
+.hc:first-child .tip, .sh:first-of-type .tip { left: 0; transform: none; }
+.hc:last-child .tip, .sh:last-of-type .tip { left: auto; right: 0; transform: none; }
+
+/* 日历格子是七列网格，首列的提示要左对齐、末列的要右对齐，否则会顶出月份容器 */
 .cal-d:nth-child(7n + 1) .cal-tip { left: 0; transform: none; }
 .cal-d:nth-child(7n) .cal-tip { left: auto; right: 0; transform: none; }
 

@@ -53,6 +53,16 @@ const aria = `最近 ${history.length} 天额度热力方块：${openedDays} 天
 ---
 
 <div class="heat" role="img" aria-label={aria}>
-  {cells.map((c) => <i class={`hc ${c.kind}`} title={c.tip} />)}
+  {
+    cells.map((c) => (
+      // 提示用自绘的 .tip（与交易日历同一套纸片皮肤），不用原生 title：
+      // 原生的外观与弹出延迟由系统决定，无法与日历提示对齐。
+      // 不加 tabindex：容器是 role="img"，子元素一律按装饰处理，
+      // 焦点落上去读不到任何内容，只是白添一个键盘停靠点。
+      <i class={`hc ${c.kind}`}>
+        <span class="tip" aria-hidden="true">{c.tip}</span>
+      </i>
+    ))
+  }
 </div>
 <div class="heat-axis"><span>{firstDate}</span><span>{lastDate}</span></div>

@@ -109,10 +109,12 @@ const familyHistory: DayPoint[] = allDates.map((date) => {
         <a
           class="sh"
           href={`/f/${s.code}`}
-          title={`${s.shortName} · ${STATUS_LABEL[s.purchaseStatus]}`}
           aria-label={`${s.shareClass} 类 ${s.code}${s.dailyLimit != null ? ` 单日 ${s.dailyLimit} 元` : ''} · ${STATUS_LABEL[s.purchaseStatus]}`}
         >
           <span class="sh-txt">{s.shareClass}类 {s.code} {s.limitMissing ? '待核验' : `${s.dailyLimit ?? 0}元`}</span>
+          {/* 自绘提示，与交易日历同一套纸片皮肤；aria-label 已承担无障碍职责，
+              这里的 tip 纯视觉，标 aria-hidden 避免屏幕阅读器读两遍。 */}
+          <span class="tip" aria-hidden="true">{s.shortName} · {STATUS_LABEL[s.purchaseStatus]}</span>
         </a>
       ))
     }
