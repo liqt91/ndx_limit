@@ -470,7 +470,14 @@ a { color: inherit; text-decoration: none; }
 
 /* 状态：不加底色，一个方点 + 字色 */
 .tag {
-  display: inline-flex; align-items: center; gap: 6px;
+  /* 必须 baseline 而不是 center：这个标签是 .fam-right（baseline 对齐）的 flex 子项，
+     而 flex 容器自己的基线在「无参与者」时是从**第一个子项**的底边合成的——
+     也就是那个 5px 方点。align-items:center 会让容器的基线落在方点底边上，
+     整块文字因此比旁边的家族名/数字低 3px（实测 51–62 vs 46–59）。
+     改成 baseline：文字这个匿名子项参与基线对齐，容器基线=文字基线，
+     与左侧家族名、右侧数字落在同一条线上。方点再单独 align-self:center，
+     保持它在字高中间的光学位置，而不是蹲在基线上。 */
+  display: inline-flex; align-items: baseline; gap: 6px;
   font-family: var(--mono);
   font-size: 12px; font-weight: 400;
   letter-spacing: 0.04em;
@@ -479,6 +486,7 @@ a { color: inherit; text-decoration: none; }
 }
 .tag::before {
   content: ""; width: 5px; height: 5px; flex: none;
+  align-self: center;
   background: currentColor; opacity: .9;
 }
 .tag-ok { color: var(--ok); }
