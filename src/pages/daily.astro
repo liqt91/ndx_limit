@@ -1,16 +1,93 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { loadDailySummaries } from '../data/loader';
+import SectionHead from '../components/SectionHead.astro';
+import MonthCal from '../components/MonthCal.astro';
+import { loadDailySummaries, getToday } from '../data/loader';
+import { monthGridsFrom, upcomingUsClosures, CALENDAR_META } from '../data/trading-days';
 
+const today = getToday();
+const months = monthGridsFrom(today, 6);
+const closures = upcomingUsClosures(today, 6);
 const summaries = loadDailySummaries(15);
+
+const cnYears = CALENDAR_META.cnYears.join('、');
+const provisional = CALENDAR_META.cnProvisionalYears.join('、');
+const usYears = `${CALENDAR_META.usCoveredFrom.slice(0, 4)}–${CALENDAR_META.usCoveredTo.slice(0, 4)}`;
+const usVerified = `${CALENDAR_META.usVerifiedThrough.slice(0, 4)} 年底`;
+// 6 个月全都不在覆盖区间时，空表的原因不是「没有」，而是「还不知道」——措辞不能混
+const uncovered = months.filter((m) => m.unknown).length;
+const allUncovered = uncovered === months.length;
 ---
 
-<BaseLayout title="历史日报 - 纳指开门日报">
+<BaseLayout title="交易日历 - 纳指开门日报">
   <div class="ctx">
-    <span>每日快照 · 静态站每日重建刷新</span>
+    <span>沪 · 纽 双市场口径 · 静态站每日重建刷新</span>
     <a href="/">今日 →</a>
   </div>
-  <h1 class="section-title">历史日报</h1>
+  <h1 class="section-title">交易日历</h1>
+
+  <p class="cal-lead">
+    申购纳指 QDII 要两地同时开门：A 股休市则平台不接单，美股休市则基金按境外收盘价估值、当日不开放申购。
+    下面把两件事画在同一格子里——<b>墨色可以买，划掉是休市，赭色下划线是最容易被忽略的那种：A 股开着门，但美股在放假。</b>
+  </p>
+
+  <SectionHead index="01" title="交易日历" aside={`${months[0].label}起 6 个月`} />
+
+  <div class="cal-months">
+    {months.map((g) => <MonthCal grid={g} today={today} />)}
+  </div>
+
+  <div class="cal-lg">
+    <span class="cal-lg-i"><b class="gl-n">20</b>可申购</span>
+    <span class="cal-lg-i"><s class="gl-s">21</s>休市</span>
+    <span class="cal-lg-i"><b class="gl-n gl-us">26</b>美股休市</span>
+    <span class="cal-lg-i"><b class="gl-n gl-today">20</b>今天</span>
+  </div>
+
+  <p class="cal-note">
+    覆盖范围：A 股 {cnYears} 年（{provisional} 为预排，官方通知公布后核对）；美股 {usYears} 年，其中 {usVerified}之前逐日对照过
+    NYSE 公告，之后按规则外推。日历只回答「交易所开不开」，计划外休市（国葬、极端天气）无法预知——那几天页面只会照实显示
+    「全部分额暂停」，不会替它编原因。
+  </p>
+
+  <SectionHead
+    index="02"
+    title="A 股开着、美股休市"
+    aside={closures.length ? `未来 6 个月 ${closures.length} 天` : '未来 6 个月没有'}
+  />
+
+  {
+    closures.length ? (
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>日期</th>
+            <th>星期</th>
+            <th>假日</th>
+            <th class="num">距今</th>
+          </tr>
+        </thead>
+        <tbody>
+          {closures.map((c) => (
+            <tr>
+              <td>{c.md}</td>
+              <td>{c.week}</td>
+              <td>{c.nameZh}</td>
+              <td class="num">{c.daysAway === 0 ? '今天' : `${c.daysAway} 天后`}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    ) : (
+      <p class="cal-note">
+        {allUncovered
+          ? '这 6 个月还没进日历覆盖范围（A 股放假安排要逐年公布，美股日历也已到边界），所以暂不列出。'
+          : '未来 6 个月内没有「A 股开市但美股休市」的日子。'}
+      </p>
+    )
+  }
+
+  <SectionHead index="03" title="每日快照" aside={`最近 ${summaries.length} 个交易日`} />
 
   <ul class="daylist">
     {
@@ -18,9 +95,14 @@ const summaries = loadDailySummaries(15);
         <li class="dayrow">
           <div class="day-main">
             <span class="day-date">{s.label}</span>
-            <span class="day-sub"><b>{s.opened}</b> 家开门 · 共监控 {s.count} 家（人民币）</span>
+            <span class="day-sub">
+              <b>{s.opened}</b> 家开门 · 共监控 {s.count} 家（人民币）
+            </span>
           </div>
-          <div class="day-total">{s.total}<span class="day-unit">元</span></div>
+          <div class="day-total">
+            {s.total}
+            <span class="day-unit">元</span>
+          </div>
         </li>
       ))
     }

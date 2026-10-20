@@ -529,6 +529,94 @@ a { color: inherit; text-decoration: none; }
   margin: 34px 0 6px;
 }
 
+/* ── 交易日历（/daily）──────────────────────────────────────────────
+   月历本身已经是网格，所以不再给格子加边框——42 个带框的格子会变成电子表格。
+   层级只靠三样东西：字色、一条删除线、一条赭色下划线（不是色块）。
+   赭色下划线只给「A 股开市但美股休市」，一年 7 天，是唯一需要提前知道的日子。 */
+.cal-lead { font-size: 15px; line-height: 1.85; color: var(--ink-2); margin: 10px 0 0; }
+.cal-lead b { color: var(--ink); font-weight: 600; }
+
+.cal-months {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 26px 26px;
+  margin-top: 4px;
+}
+.cal-m-h {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  padding-bottom: 7px; margin-bottom: 3px;
+  border-bottom: 1px solid var(--rule);
+}
+.cal-m-t { font-size: 14.5px; font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; }
+.cal-m-n { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); white-space: nowrap; }
+.cal-m-p {
+  margin-left: 5px; padding: 0 3px;
+  border: 1px solid var(--rule-2); color: var(--warn); font-size: 11.5px;
+}
+.cal-empty { font-size: 12.5px; color: var(--ghost); line-height: 1.7; margin: 12px 0 0; }
+
+.cal-m-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.cal-w {
+  font-family: var(--mono); font-size: 11.5px; color: var(--ghost);
+  text-align: center; padding: 7px 0 4px; letter-spacing: 0.04em;
+}
+.cal-d {
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  aspect-ratio: 1 / 1;
+  font-family: var(--mono); font-size: 14px; line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+/* 可申购 */
+.cal-d.is-trade { color: var(--ink); font-weight: 500; }
+/* 周末：最淡，不划线（一整片周末都划掉会盖住真正重要的信息） */
+.cal-d.is-weekend { color: var(--ghost); }
+/* A 股法定休市 / 两市同时休市：划掉。删除线颜色必须跟着字色走，
+   用 --rule-2 那种浅灰在 14px 数字上等于没画（第一版就踩了这个坑）。 */
+.cal-d.is-cn {
+  color: var(--ink-3);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+/* 美股休市：唯一的彩色信号。用下划线而不是圆点——圆点在这个字号下读起来像标点，
+   下划线是排版里现成的强调手段，且与删除线位置相反，不会混淆。 */
+.cal-d.is-us {
+  color: var(--warn); font-weight: 600;
+  text-decoration: underline; text-decoration-color: var(--warn);
+  text-decoration-thickness: 2px; text-underline-offset: 4px;
+}
+.cal-d.is-unknown { color: var(--ghost); }
+.cal-d.is-pad { color: transparent; }
+.cal-d.is-today { outline: 1px solid var(--ink); outline-offset: -2px; color: var(--ink); font-weight: 700; }
+
+.cal-lg {
+  display: flex; flex-wrap: wrap; gap: 8px 20px;
+  margin-top: 20px; padding-top: 12px;
+  border-top: 1px solid var(--rule);
+  font-size: 12.5px; color: var(--ink-2);
+}
+.cal-lg-i { display: inline-flex; align-items: center; gap: 6px; }
+.gl-n, .gl-s {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 22px; height: 18px;
+  font-family: var(--mono); font-size: 13px; font-weight: 500; line-height: 1;
+}
+.gl-s { color: var(--ink-3); text-decoration: line-through; text-decoration-thickness: 1px; }
+.gl-us {
+  color: var(--warn); font-weight: 600;
+  text-decoration: underline; text-decoration-color: var(--warn);
+  text-decoration-thickness: 2px; text-underline-offset: 4px;
+}
+.gl-today { outline: 1px solid var(--ink); outline-offset: -1px; font-weight: 700; }
+
+.cal-note { font-size: 12.5px; color: var(--ink-3); line-height: 1.9; margin: 14px 0 0; }
+
+/* 窄屏：三列会把格子压到 20px 以下，宁可变一列 */
+@media (max-width: 680px) {
+  .cal-months { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+}
+
 /* ── 历史日报：只有横向细线 ── */
 .daylist {
   list-style: none; margin: 0; padding: 0;
@@ -706,7 +794,7 @@ a { color: inherit; text-decoration: none; }
 .foot-cta { font-size: 14px; margin-bottom: 14px; }
 .foot-cta a { border-bottom: 1px solid var(--ink-3); padding-bottom: 1px; }
 .foot-cta a:hover { border-bottom-color: var(--ink); }
-.foot-disc { color: var(--ink-3); font-size: 12.5px; line-height: 1.85; margin: 0 0 12px; max-width: 62ch; }
+.foot-disc { color: var(--ink-3); font-size: 12.5px; line-height: 1.85; margin: 0 0 12px; }
 /* 判定口径：比免责声明更实一层，但仍是常驻小字，不做横幅
    （横幅的语义是「现在出事了」，而这里的边界是永久存在的） */
 .foot-cal {
@@ -714,7 +802,6 @@ a { color: inherit; text-decoration: none; }
   font-size: 12.5px;
   line-height: 1.85;
   margin: 0 0 18px;
-  max-width: 62ch;
 }
 .foot-cal-k {
   font-family: var(--mono);

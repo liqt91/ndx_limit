@@ -77,24 +77,31 @@ export function computeCoverage(funds, meta) {
   return cnyTargets ? cnyOk / cnyTargets : 1;
 }
 
-// 交易日判定（与 src/data/dates.ts、scripts/scrape.mjs 同源：data/market-holidays.json）。
+// 交易日判定（与 src/data/dates.ts 同源：data/market-holidays.json）。
 // 交易日 = 工作日 且 非法定休市日；调休补班日若在周末市场仍休市，无需单独处理。
+//
+// 星期的算法只能用 UTC：`new Date(date + 'T00:00:00+08:00').getDay()` 在 UTC 构建机
+// （GitHub Actions 默认）上会把时刻回退 16 小时，「周一」判成「周日」——抓取侧表现为
+// 每周少一天、且周六反而照常抓。本地开发机在 UTC+8，永远看不出这个偏差。
+export function dowOf(date) {
+  const [y, m, d] = date.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+}
+export function shiftDate(date, days) {
+  const [y, m, d] = date.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
 export function loadHolidays() {
   return new Set(readJson('market-holidays.json', []));
 }
 export function isTradingDay(date, holidays) {
-  const dow = new Date(date + 'T00:00:00+08:00').getDay();
+  const dow = dowOf(date);
   if (dow === 0 || dow === 6) return false; // 周末
   return !holidays.has(date);
 }
 export function prevTradingDay(date, holidays) {
-  const dt = new Date(date + 'T00:00:00+08:00');
   for (let i = 1; i <= 30; i++) {
-    dt.setDate(dt.getDate() - 1);
-    const y = dt.getFullYear();
-    const m = String(dt.getMonth() + 1).padStart(2, '0');
-    const d = String(dt.getDate()).padStart(2, '0');
-    const cand = `${y}-${m}-${d}`;
+    const cand = shiftDate(date, -i);
     if (isTradingDay(cand, holidays)) return cand;
   }
   return null;

@@ -14,11 +14,12 @@
 //   node scripts/scrape.mjs 019736 000834   # 只抓指定代码（调试用）
 //   SCRAPE_MIN_COVERAGE=0.9 node scripts/scrape.mjs   # 自定义覆盖率阈值
 //
-// 依赖：仅 Node 22 内置（fetch / fs / Intl），无需安装任何 npm 包。
+// 依赖：仅 Node 22 内置（fetch / fs / Intl）+ 本地 digest.mjs（交易日判定），无需安装任何 npm 包。
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isTradingDay } from './digest.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -48,12 +49,8 @@ function readJson(name, fallback) {
 
 // 中国 A股休市日（法定节假日实际放假日期），来源 data/market-holidays.json。
 // 交易日 = 工作日 且 不在该集合；调休补班日若在周末市场仍休市，无需单独处理。
+// 判定函数从 digest.mjs 取，避免「星期怎么算」在三个脚本里各写一份（曾经三份都带时区 bug）。
 const HOLIDAYS = new Set(readJson('market-holidays.json', []));
-function isTradingDay(date) {
-  const dow = new Date(date + 'T00:00:00+08:00').getDay();
-  if (dow === 0 || dow === 6) return false; // 周末
-  return !HOLIDAYS.has(date);
-}
 
 // 原子写：先写临时文件，再 rename 覆盖，避免构建侧读到半截文件。
 function writeJsonAtomic(name, obj) {
@@ -169,7 +166,7 @@ async function main() {
   const only = process.argv.slice(2);
   // 非交易日（周末/法定节假日）：不抓取、不写数据，避免 history.json 混入休市日记录。
   // CI 仍每日触发，但今日无有效数据可抓 → 直接成功退出，不污染数据、也不产生空 commit。
-  if (!isTradingDay(today)) {
+  if (!isTradingDay(today, HOLIDAYS)) {
     console.log(`今日 ${today} 为非交易日（休市），跳过抓取，不写入任何数据。`);
     process.exit(0);
   }

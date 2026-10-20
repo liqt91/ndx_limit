@@ -41,6 +41,12 @@ jobs:
         with:
           node-version: 22
 
+      # 日历产物自检：data/calendars/us-nasdaq.json 必须与「规则自算 + 官方金标准逐日比对」结果
+      # 完全一致。零网络、两秒钟，挡的是「有人手改产物」这一类错误——手改会让日历静默错一天，
+      # 而页面会一本正经地把它显示成「可申购」。产物由 npm run calendar:build 生成，别手改。
+      - name: Verify calendar artifacts
+        run: node scripts/build-us-calendar.mjs --check
+
       # 健康门禁：人民币覆盖率 < 阈值（默认 90%）→ 退出码 2，job 中止。
       # 于是不回写、EdgeOne 保留上次好构建，绝不会出现「今日全暂停」的假象。
       - name: Scrape today's data

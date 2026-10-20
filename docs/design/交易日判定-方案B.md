@@ -869,3 +869,56 @@ S7 只改文案与数据绑定，与 S1 无依赖，可并行。
 - **不自己维护「美股休市 = 不能买」的映射**：以基金公司年度公告为准（见 2.3.4），
   日历只负责推 `US_CLOSED`，公告负责校验这个推导。
 - **不删除 `market-holidays.json`**：`DEGRADED` 档仍需它作为黑名单兜底；等 2027 覆盖确认后再议。
+
+---
+
+## 9. 落地记录（2026-10-20）：S1 的日历文件 + `/daily` 月历
+
+这一轮只落了「日历 + 展示」，**没有动抓取与发信链路**（S2/S4/S5 仍待做）。
+
+### 9.1 新增文件
+
+| 文件 | 作用 |
+|---|---|
+| `data/calendars/nyse-official.json` | 手抄 NYSE 2026–2028 官方休市日（带来源 URL、抄录日期、边界的文字说明） |
+| `data/calendars/us-nasdaq.json` | 生成产物：2026–2035 交易日白名单（2510 天）+ 休市日名称（98 天），**不要手改** |
+| `data/calendars/cn-coverage.json` | A 股日历的覆盖年份与口径（2026 官方 / 2027 预排）。日期本身仍只在 `market-holidays.json` |
+| `scripts/build-us-calendar.mjs` | 自算 2026–2035 → 断言 2026–2028 与官方逐日相等 → 写产物；`--check` 只校验不写 |
+| `src/data/trading-days.ts` | 四态内核：`TRADING / US_CLOSED / CN_CLOSED / BOTH_CLOSED / UNKNOWN` |
+| `src/components/MonthCal.astro` | 单月网格组件 |
+
+命令：`npm run calendar:build` 生成、`npm run calendar:check` 校验（已接进 `refresh.yml`，零网络两秒钟）。
+
+### 9.2 与方案的偏差（都是收窄，不是妥协）
+
+- **没建 `cn-sse.json`**：A 股日期继续只在 `market-holidays.json` 存一份，只用 `cn-coverage.json`
+  补「哪几年可靠」。两份日期表必然漂移，宁缺勿滥。
+- **没建 `cn-fund-announced.json`**：那份 7 天金标准是给 S1 完整验收用的，这轮不涉及发信口径。
+- **判定内核叫 `trading-days.ts`**（方案里写 `calendar.ts`），只读静态 JSON，不联网。
+- **页面是 `/daily` 的 6 个月月历**，不是 S3 要求的首页四态首屏。首页那部分等 S2 接完再做，
+  否则会出现「日历说休市、抓取照抓」的不一致。
+
+### 9.3 顺带修掉的时区 bug（重要）
+
+`new Date(date + 'T00:00:00+08:00').getDay()` 在 **UTC 构建机**上会把时刻回退 16 小时：
+周一判成周日（抓取侧表现为**每周少一天**）、周六判成周五（**周六照常抓**）、
+`10月20日 周二` 渲染成 `10月19日 周一`。本地开发机在 UTC+8，永远看不出这个偏差。
+现在三处统一为 `dowOf()` / `shiftDate()`（纯字符串 + `Date.UTC`），
+`scripts/digest.mjs` 与 `src/data/dates.ts` 各一份、互为镜像，`scrape.mjs` 直接 import 前者。
+
+### 9.4 验收（实跑，2026-10-20）
+
+- 自算 vs 官方：`2026 10 天 / 2027 10 天 / 2028 9 天`，逐日零差异
+- 渲染 29 项断言全绿：6 个月网格、5 个 `US_CLOSED` 格、恰一个「今天」、
+  8 处字号下限、三色互异、删除线颜色 = 字色（浅灰那条踩过坑）、赭色下划线、
+  东八区今天与星期、桌面/移动端 `overflowX ≤ 0`、移动端格子 ≥ 40px
+- 负向注入 4 例全部精确变红、还原后恢复全绿：改色彩 / 让美股永远开市 /
+  删官方日历里的感恩节（生成脚本 exit 1 且不写产物）/ 删除线改回浅灰
+- 覆盖不足降级：`N8X_TODAY=2028-06-15` → 6 个月全部渲染「未覆盖」，
+  且空表文案改成「还没进覆盖范围」而不是「未来没有」
+
+### 9.5 维护
+
+每年秋季 NYSE 发新三年公告后：把 `nyse-official.json` 往前推一年 → `npm run calendar:build`。
+A 股则在国务院 11 月通知发布后更新 `market-holidays.json`，并把 `cn-coverage.json` 里该年的
+`status` 从 `provisional` 改成 `official`。

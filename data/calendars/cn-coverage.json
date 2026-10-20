@@ -1,0 +1,14 @@
+{
+  "_说明": "A 股日历的【覆盖范围与口径】元数据。日期本身仍只存在 data/market-holidays.json（单一事实来源），本文件只回答「哪几年是可靠的、依据是什么」。判定内核遇到不在 years 里的年份一律返回 UNKNOWN，宁可不说，也不猜。",
+  "source": "data/market-holidays.json",
+  "years": {
+    "2026": {
+      "status": "official",
+      "basis": "国务院办公厅 2026 年部分节假日安排（已公布）"
+    },
+    "2027": {
+      "status": "provisional",
+      "basis": "按公开预排口径整理，官方通知尚未发布，公布后需逐日核对"
+    }
+  }
+}

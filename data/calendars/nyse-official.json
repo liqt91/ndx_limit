@@ -1,0 +1,47 @@
+{
+  "_说明": "从 NYSE 官网手工抄录的官方休市日，仅作生成脚本的金标准与测试夹具，不参与运行时判定。抄录时官网同时公布 2026/2027/2028 三年（ICC 公告一次发三年）。改这里之前先看 docs/design/交易日判定-方案B.md 第 2.3 节。",
+  "source": "https://www.nyse.com/markets/hours-calendars",
+  "transcribedAt": "2026-10-20",
+  "years": {
+    "2026": [
+      { "date": "2026-01-01", "name": "New Year's Day" },
+      { "date": "2026-01-19", "name": "Martin Luther King, Jr. Day" },
+      { "date": "2026-02-16", "name": "Washington's Birthday" },
+      { "date": "2026-04-03", "name": "Good Friday" },
+      { "date": "2026-05-25", "name": "Memorial Day" },
+      { "date": "2026-06-19", "name": "Juneteenth National Independence Day" },
+      { "date": "2026-07-03", "name": "Independence Day (observed)" },
+      { "date": "2026-09-07", "name": "Labor Day" },
+      { "date": "2026-11-26", "name": "Thanksgiving Day" },
+      { "date": "2026-12-25", "name": "Christmas Day" }
+    ],
+    "2027": [
+      { "date": "2027-01-01", "name": "New Year's Day" },
+      { "date": "2027-01-18", "name": "Martin Luther King, Jr. Day" },
+      { "date": "2027-02-15", "name": "Washington's Birthday" },
+      { "date": "2027-03-26", "name": "Good Friday" },
+      { "date": "2027-05-31", "name": "Memorial Day" },
+      { "date": "2027-06-18", "name": "Juneteenth National Independence Day (observed)" },
+      { "date": "2027-07-05", "name": "Independence Day (observed)" },
+      { "date": "2027-09-06", "name": "Labor Day" },
+      { "date": "2027-11-25", "name": "Thanksgiving Day" },
+      { "date": "2027-12-24", "name": "Christmas Day (observed)" }
+    ],
+    "2028": [
+      { "date": "2028-01-17", "name": "Martin Luther King, Jr. Day" },
+      { "date": "2028-02-21", "name": "Washington's Birthday" },
+      { "date": "2028-04-14", "name": "Good Friday" },
+      { "date": "2028-05-29", "name": "Memorial Day" },
+      { "date": "2028-06-19", "name": "Juneteenth National Independence Day" },
+      { "date": "2028-07-04", "name": "Independence Day" },
+      { "date": "2028-09-04", "name": "Labor Day" },
+      { "date": "2028-11-23", "name": "Thanksgiving Day" },
+      { "date": "2028-12-25", "name": "Christmas Day" }
+    ]
+  },
+  "notes": [
+    "2028 只有 9 天：2028-01-01 是周六，NYSE 明确不补（no New Year's Day holiday is observed）。这条与圣诞/六月节「遇周六提前到周五」的处理相反。",
+    "2027 有 10 天：元旦周五正常休，六月节 6-19 周六提前到 6-18，独立日 7-4 周日顺延到 7-5，圣诞 12-25 周六提前到 12-24。",
+    "只判开/闭市，不含 13:00 早收盘。早收盘日仍算交易日，不影响当日能否申购。"
+  ]
+}
