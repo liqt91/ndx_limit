@@ -1,0 +1,58 @@
+---
+import type { DayPoint } from '../data/types';
+import { heatLevel } from '../lib/amount-scale';
+import { prettyDateCST } from '../data/dates';
+
+interface Props {
+  history: DayPoint[];
+}
+const { history } = Astro.props;
+
+/**
+ * 21 天额度热力方块：只有颜色深浅，没有高度。
+ *
+ * 颜色只表示「那天单日能买多少」，其余状态交给纹理：
+ *   暂停 / 封闭 → 空心细框
+ *   能买、但额度没公布 → 斜纹
+ *   状态未公布 → 虚线框
+ * 悬停只交代「哪天、多少钱」——「当日变动」不再单独标注，额度一变颜色就变，
+ * 同一个颜色突然换深换浅本身就是那天的标记。
+ */
+const cells = history.map((d) => {
+  const open = d.status === 'OPEN' || d.status === 'LIMITED';
+
+  const level = heatLevel(d.limit);
+  const kind = open
+    ? level != null
+      ? `l${level}`
+      : 'miss'
+    : d.status === 'UNKNOWN'
+      ? 'unk'
+      : 'off';
+
+  const state = open
+    ? level != null
+      ? `${d.limit}元`
+      : '可申购，额度未公布'
+    : d.status === 'CLOSED'
+      ? '封闭期'
+      : d.status === 'UNKNOWN'
+        ? '状态未公布'
+        : '暂停申购';
+
+  return { kind, tip: `${prettyDateCST(d.date)} ${state}` };
+});
+
+const firstDate = history[0]?.date;
+const lastDate = history[history.length - 1]?.date;
+const openedDays = history.filter((d) => d.status === 'OPEN' || d.status === 'LIMITED').length;
+const deepest = history.reduce((max, d) => Math.max(max, heatLevel(d.limit) ?? 0), 0);
+const aria = `最近 ${history.length} 天额度热力方块：${openedDays} 天可申购、${
+  history.length - openedDays
+} 天暂停${deepest ? `，最深一档为第 ${deepest} 档` : ''}`;
+---
+
+<div class="heat" role="img" aria-label={aria}>
+  {cells.map((c) => <i class={`hc ${c.kind}`} title={c.tip} />)}
+</div>
+<div class="heat-axis"><span>{firstDate}</span><span>{lastDate}</span></div>

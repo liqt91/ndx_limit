@@ -24,11 +24,18 @@
   --warn: #8a6320;
   --stop: #a33a2f;
 
-  /* 柱状图配色：在纸感底上做一处有限的彩色突破 */
-  --bar-open: #3f7d63;
-  --bar-changed: #b5732a;
-  --bar-stop: #ded9cb;
-  --bar-unknown: #c6c1b1;
+  /* 额度热力条：松绿一支走到底，四档按 L* 均匀取样（相邻阶梯 14–18，
+     灰度下仍分得开）。深＝额度大，浅＝额度小；没有数字的日子不用颜色，交给纹理。 */
+  --heat-1: #c4dacc;
+  --heat-2: #92b6a2;
+  --heat-3: #63947c;
+  --heat-4: #2f6650;
+
+  /* 状态小方点：可投 / 当日变动 / 未知。与热力条是两套语言——
+     热力条说「多少钱」，方点说「什么状态」，别混用同一个绿。 */
+  --accent-open: #3f7d63;
+  --accent-changed: #b5732a;
+  --accent-faint: #c6c1b1;
 
   /* 兼容旧变量名（页面既有 class 引用） */
   --bg: var(--paper);
@@ -228,7 +235,7 @@ a { color: inherit; text-decoration: none; }
   display: inline-block;
   background: var(--ink-3);
 }
-.dot-open { background: var(--bar-open); }
+.dot-open { background: var(--accent-open); }
 .dot-warn { background: var(--warn); }
 .dot-stop { background: var(--stop); }
 
@@ -280,8 +287,8 @@ a { color: inherit; text-decoration: none; }
   color: var(--ink-2);
   margin-top: 4px;
 }
-.verdict.is-change { border-left-color: var(--bar-changed); }
-.verdict.is-change .verdict-k { color: color-mix(in srgb, var(--bar-changed) 72%, var(--ink)); }
+.verdict.is-change { border-left-color: var(--accent-changed); }
+.verdict.is-change .verdict-k { color: color-mix(in srgb, var(--accent-changed) 72%, var(--ink)); }
 
 .mast-num {
   display: flex;
@@ -386,6 +393,18 @@ a { color: inherit; text-decoration: none; }
   color: var(--ink-3);
   white-space: nowrap;
 }
+/* 小注走 slot 时用它：允许小注里放两段东西（数量 + 色阶图例），
+   比 .sec-a 多一个 inline-flex 与 gap，其余字色字号一致。 */
+.sec-extra {
+  display: inline-flex;
+  align-items: center;
+  gap: 18px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--ink-3);
+}
+.sec-extra > .grid-legend { gap: 12px; }
 /* 兼容旧的 grid-head / grid-title 结构 */
 .grid-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 44px 0 14px; }
 .grid-title { font-size: 15.5px; font-weight: 700; letter-spacing: 0.01em; margin: 0; }
@@ -398,11 +417,6 @@ a { color: inherit; text-decoration: none; }
   align-items: center;
   gap: 14px;
   flex-wrap: wrap;
-}
-.legend-under {
-  display: flex;
-  justify-content: flex-end;
-  margin: -4px 0 12px;
 }
 
 /* ── 兼容旧 banner（已不在首页使用，保留以免旧 markup 裸奔） ── */
@@ -535,30 +549,49 @@ a { color: inherit; text-decoration: none; }
   .fam-shares { font-size: 11px; column-gap: 12px; }
 }
 
-/* ── 30 天柱图：可投=墨绿，暂停=浅砂，变动=赭黄 ── */
-.bars {
-  display: flex; align-items: flex-end; gap: 3px;
-  height: 46px; margin-top: 12px;
-  border-bottom: 1px solid var(--rule);
-  padding-bottom: 0;
+/* ── 21 天额度热力方块：只有颜色深浅 ───────────────────────────────────
+   阈值固定在 lib/amount-scale.ts（30 / 300 / 600，左开右闭：30 元还算第一档），
+   所以 20 元和 400 元在首页、详情页、任何一天都是同一个颜色，不需要看图例换算。
+   能买但没数字的日子不占颜色轴：暂停=空心细框，额度未公布=斜纹，状态未知=虚线框。
+   当日变动不画标记：额度一变颜色就变，颜色本身就是那天的标记。 */
+.heat { display: flex; gap: 3px; margin-top: 12px; }
+/* 正方形格子：宽由 flex 均分决定，高跟着宽走。固定 26px 高时它是竖直长条，
+   读者会下意识把「高」当数量读，于是又回到柱状图的误读上。
+   边框一律用 outline 画：border 会让带框的格子比实心格子大 2px（aspect-ratio 算的是
+   内容盒），一行里就出现大小不一的方块，还会把整行拉伸——outline 不参与布局。 */
+.hc { flex: 1 1 0; min-width: 0; aspect-ratio: 1 / 1; position: relative; background: var(--rule); }
+.hc.l1 { background: var(--heat-1); }
+.hc.l2 { background: var(--heat-2); }
+.hc.l3 { background: var(--heat-3); }
+.hc.l4 { background: var(--heat-4); }
+.hc.off { background: transparent; outline: 1px solid var(--rule-2); outline-offset: -1px; }
+.hc.unk { background: transparent; outline: 1px dashed var(--rule-2); outline-offset: -1px; }
+.hc.miss {
+  background: transparent;
+  outline: 1px solid var(--rule); outline-offset: -1px;
+  background-image: repeating-linear-gradient(45deg, var(--heat-2) 0 1.5px, transparent 1.5px 4px);
 }
-/* 只有几天历史时不至于变成两根巨型方块 */
-.bar { flex: 1 1; min-width: 0; max-width: 22px; border-radius: 0; background: var(--rule); min-height: 2px; }
-.bar-open, .bar-limited { background: var(--bar-open); }
-.bar-stop { background: var(--bar-stop); }
-.bar-unknown { background: var(--bar-unknown); }
-.bar-changed { background: var(--bar-changed); }
-.bars-axis {
+.heat-axis {
   display: flex; justify-content: space-between;
-  margin-top: 8px;
+  margin-top: 9px;
   font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.02em; color: var(--ink-3);
 }
 
-/* 图例方点 */
+/* 图例方点：四档连起来读成一把尺，其余是纹理 */
 .lg { display: inline-block; width: 8px; height: 8px; vertical-align: middle; margin-right: 5px; }
-.lg-open { background: var(--bar-open); }
-.lg-stop { background: var(--bar-stop); }
-.lg-changed { background: var(--bar-changed); }
+.lg.l1 { background: var(--heat-1); }
+.lg.l2 { background: var(--heat-2); }
+.lg.l3 { background: var(--heat-3); }
+.lg.l4 { background: var(--heat-4); }
+.lg.off { background: transparent; border: 1px solid var(--rule-2); }
+.lg.miss {
+  background: transparent;
+  border: 1px solid var(--rule-2);
+  background-image: repeating-linear-gradient(45deg, var(--heat-2) 0 1px, transparent 1px 3px);
+}
+.ramp-legend { display: inline-flex; align-items: center; }
+.ramp-legend .lg { margin-right: 0; }
+.ramp-legend em { font-style: normal; margin-left: 7px; }
 
 /* ── 章节标题（旧结构） ── */
 .section-title {
@@ -948,9 +981,9 @@ a { color: inherit; text-decoration: none; }
 }
 .cl-name { font-size: 14.5px; color: var(--ink); min-width: 0; display: flex; align-items: baseline; gap: 8px; }
 .cl-dot { flex: none; width: 5px; height: 5px; background: var(--ink-3); transform: translateY(-2px); }
-.cl-dot-opened, .cl-dot-limit-up { background: var(--bar-open); }
-.cl-dot-stopped, .cl-dot-limit-down, .cl-dot-limit-set, .cl-dot-limit-clear { background: var(--bar-changed); }
-.cl-dot-unknown { background: var(--bar-unknown); }
+.cl-dot-opened, .cl-dot-limit-up { background: var(--accent-open); }
+.cl-dot-stopped, .cl-dot-limit-down, .cl-dot-limit-set, .cl-dot-limit-clear { background: var(--accent-changed); }
+.cl-dot-unknown { background: var(--accent-faint); }
 .cl-transition { display: inline-flex; align-items: center; gap: 8px; flex: none; font-family: var(--mono); font-size: 13px; }
 .cl-from { color: var(--ink-3); }
 .cl-arrow { color: var(--rule-2); }
@@ -992,7 +1025,9 @@ a { color: inherit; text-decoration: none; }
   .total { flex-direction: column; align-items: flex-start; gap: 10px; }
   .total-value { font-size: 26px; }
   .sec { margin: 36px 0 12px; flex-wrap: wrap; }
-  .sec-a { width: 100%; text-align: right; margin-top: 2px; }
+  /* 小注整行落到标题下方：右侧对齐；slot 版是 inline-flex，要用 justify-content 而不是 text-align */
+  .sec-a, .sec-extra { width: 100%; text-align: right; margin-top: 2px; }
+  .sec-extra { justify-content: flex-end; flex-wrap: wrap; row-gap: 6px; }
   .site-brand { font-size: 14px; }
   .site-nav { gap: 12px; }
   .site-nav a { font-size: 13px; }

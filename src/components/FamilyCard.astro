@@ -1,16 +1,14 @@
 ---
 import type { FundShare, PurchaseStatus, DayPoint } from '../data/types';
 import { STATUS_LABEL } from '../lib/status';
-import Bars from './Bars.astro';
+import LimitHeat from './LimitHeat.astro';
 
 interface Props {
   shares: FundShare[];
   dataCodes?: string;
   hidden?: boolean;
-  /** 柱图标尺（元），由页面统一传入，保证跨卡片可比 */
-  limitCap?: number;
 }
-const { shares, dataCodes, hidden, limitCap = 100 } = Astro.props;
+const { shares, dataCodes, hidden } = Astro.props;
 
 const first = shares[0];
 const name = `${first.company}${first.baseName}${first.currency === 'USD' ? '美元' : ''}`;
@@ -61,7 +59,7 @@ const famHasMissing = shares.some(
   (s) => (s.purchaseStatus === 'LIMITED' || s.purchaseStatus === 'OPEN') && s.limitMissing
 );
 
-// 合并家族历史（用于 30 天柱图）：任一可买即视为当日开门
+// 合并家族历史（用于 21 天热力方块）：任一可买即视为当日开门
 const dateSet = new Set<string>();
 for (const s of shares) for (const d of s.history) dateSet.add(d.date);
 const allDates = [...dateSet].sort();
@@ -76,7 +74,7 @@ const familyHistory: DayPoint[] = allDates.map((date) => {
   const closed = entries.find((e) => e.status === 'CLOSED');
   const unknown = entries.find((e) => e.status === 'UNKNOWN');
   const status: PurchaseStatus = open.length ? 'LIMITED' : closed ? 'CLOSED' : unknown ? 'UNKNOWN' : 'STOPPED';
-  // 柱高用「当日家族合计额度」，与卡片右上角的数字同口径
+  // 热力方块用「当日家族合计额度」，与卡片右上角的数字同口径
   const sum = open.reduce((a, e) => a + (e.limit ?? 0), 0);
   return { date, status, limit: open.length && sum > 0 ? sum : null };
 });
@@ -120,5 +118,5 @@ const familyHistory: DayPoint[] = allDates.map((date) => {
     }
   </div>
 
-  <Bars history={familyHistory} cap={limitCap} />
+  <LimitHeat history={familyHistory} />
 </div>

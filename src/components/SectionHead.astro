@@ -7,11 +7,23 @@ interface Props {
   aside?: string;
 }
 const { index, title, aside } = Astro.props;
+// 小注除了纯文本，也可以塞 markup（首页把「N 家可买」和色阶图例并到同一行）。
+const hasSlot = Astro.slots.has('aside');
 ---
 
 <div class="sec">
   <span class="sec-i">{index}</span>
   <h2 class="sec-t">{title}</h2>
   <span class="sec-line"></span>
-  {aside && <span class="sec-a">{aside}</span>}
+  {
+    aside ? (
+      <span class="sec-a">{aside}</span>
+    ) : (
+      hasSlot && (
+        <span class="sec-extra">
+          <slot name="aside" />
+        </span>
+      )
+    )
+  }
 </div>

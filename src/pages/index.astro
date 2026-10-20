@@ -39,18 +39,6 @@ const totalAgency = snap.shares
   )
   .reduce((a, s) => a + (s.dailyLimit as number), 0);
 
-// 柱图标尺：按「家族当日合计额度」的最大值取整到 10 的倍数（最低 30），
-// 这样柱子能真正拉开差距，而不是所有额度都被固定分母压成一样高的小方块。
-const famTotals = cny.map((g) =>
-  g.shares
-    .filter(
-      (s) =>
-        (s.purchaseStatus === 'LIMITED' || s.purchaseStatus === 'OPEN') && s.dailyLimit != null
-    )
-    .reduce((a, s) => a + (s.dailyLimit as number), 0)
-);
-const limitCap = Math.max(30, Math.ceil(Math.max(0, ...famTotals) / 10) * 10);
-
 // 开篇陈述：全开门 / 部分 / 全暂停
 const level = stoppedCny === 0 ? 'open' : stoppedCny < cny.length ? 'warn' : 'stop';
 
@@ -167,16 +155,21 @@ const tradingMap = tradingWindowMap(10, 30);
   <SectionHead
     index={ctx.isTrading && hasChanges ? '02' : '01'}
     title={ctx.isTrading ? `${dayRef}能买多少` : `最近交易日额度（${ctx.lastTrading?.date ?? ''}）`}
-    aside={`${openedCny} 家可买 · 柱高 ${limitCap} 元满格`}
-  />
-  <div class="grid-legend legend-under">
-    <span><i class="lg lg-open"></i>可投 / 限大额</span>
-    <span><i class="lg lg-stop"></i>暂停</span>
-    <span><i class="lg lg-changed"></i>当日变动</span>
-  </div>
+  >
+    {/* 数量与图例同处一行：图例就是那把尺，四档颜色连读，读者拿它去对格子，不必换算任何数值 */}
+    <span slot="aside">{openedCny} 家可买</span>
+    <span slot="aside" class="grid-legend">
+      <span class="ramp-legend">
+        <i class="lg l1"></i><i class="lg l2"></i><i class="lg l3"></i><i class="lg l4"></i>
+        <em>申购额度</em>
+      </span>
+      <span><i class="lg off"></i>暂停</span>
+      <span><i class="lg miss"></i>额度未公布</span>
+    </span>
+  </SectionHead>
 
   <ul class="grid">
-    {cny.map((g) => <FamilyCard shares={g.shares} limitCap={limitCap} />)}
+    {cny.map((g) => <FamilyCard shares={g.shares} />)}
   </ul>
 
   {/* 放在页面最末尾：脚本要改 H1 和下方小节标题，必须在这些节点解析完之后执行 */}
