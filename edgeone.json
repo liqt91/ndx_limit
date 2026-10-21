@@ -11,6 +11,7 @@
       "method": "POST",
       "payload": {
         "job": "refresh",
+        "slot": "morning",
         "nonce": "1440685b9dca09d0c26840248fdfac205ed0b4f1ddbe1ac4"
       }
     },
@@ -23,6 +24,32 @@
       "payload": {
         "job": "broadcast",
         "mode": "send",
+        "edition": "morning",
+        "nonce": "1440685b9dca09d0c26840248fdfac205ed0b4f1ddbe1ac4"
+      }
+    },
+    {
+      "name": "refresh-1430",
+      "cron": "30 14 * * *",
+      "timezone": "Asia/Shanghai",
+      "path": "/api/jobs/dispatch",
+      "method": "POST",
+      "payload": {
+        "job": "refresh",
+        "slot": "close",
+        "nonce": "1440685b9dca09d0c26840248fdfac205ed0b4f1ddbe1ac4"
+      }
+    },
+    {
+      "name": "broadcast-1445",
+      "cron": "45 14 * * *",
+      "timezone": "Asia/Shanghai",
+      "path": "/api/jobs/dispatch",
+      "method": "POST",
+      "payload": {
+        "job": "broadcast",
+        "mode": "send",
+        "edition": "close",
         "nonce": "1440685b9dca09d0c26840248fdfac205ed0b4f1ddbe1ac4"
       }
     }

@@ -115,8 +115,8 @@ function lastGhBody() {
     return {};
   }
 }
-function guardKey(job) {
-  return `job_sent_${job}_${CST_TODAY}`;
+function guardKey(job, slot = 'morning') {
+  return `job_sent_${job}_${slot}_${CST_TODAY}`;
 }
 function events() {
   const raw = globalThis.SUBS_KV._m.get('job_events');
@@ -141,24 +141,37 @@ async function main() {
     const sent = lastGhBody();
     check('dispatch body：ref=main 且不带 inputs（refresh 无输入）', sent.ref === 'main' && !('inputs' in sent));
     check('authorization 头带 PAT', githubCalls()[0].init.headers.authorization === 'Bearer ghp_test_token');
-    check('每日闸 key 已写', globalThis.SUBS_KV._m.has(guardKey('refresh')));
-    const rawGuard = globalThis.SUBS_KV._m.get(guardKey('refresh'));
+    check('响应带 slot=morning（默认）', j.slot === 'morning', JSON.stringify(j));
+    check('每日闸 key 已写（带 slot）', globalThis.SUBS_KV._m.has(guardKey('refresh', 'morning')));
+    const rawGuard = globalThis.SUBS_KV._m.get(guardKey('refresh', 'morning'));
     const gv = rawGuard ? JSON.parse(rawGuard) : {};
     check('闸 key 记录 via=nonce', gv.via === 'nonce');
     const evs = events();
     check('事件流水写了 1 条', evs.length === 1, JSON.stringify(evs));
-    check('事件字段齐全（job/via/status/ok/alert）', evs[0] && evs[0].job === 'refresh' && evs[0].via === 'nonce' && evs[0].status === 204 && evs[0].ok === true && evs[0].alert === null && typeof evs[0].at === 'string', JSON.stringify(evs[0]));
+    check('事件字段齐全（job/slot/via/status/ok/alert）', evs[0] && evs[0].job === 'refresh' && evs[0].slot === 'morning' && evs[0].via === 'nonce' && evs[0].status === 204 && evs[0].ok === true && evs[0].alert === null && typeof evs[0].at === 'string', JSON.stringify(evs[0]));
   }
 
-  // ---- 栈 2：同一任务当天第二次（nonce）被闸拦下 ----
+  // ---- 栈 2a：同一 job 同一 slot 当天第二次（nonce）被闸拦下 ----
   {
     const r = await onRequestPost({ request: makeReq({ job: 'refresh', nonce: EO_NONCE }), env: makeEnv() });
     const j = await r.json();
     check('refresh 当天第二次：409', r.status === 409 && j.error === 'already_triggered_today', `status=${r.status}`);
+    check('409 响应带 slot', j.slot === 'morning', JSON.stringify(j));
     check('被拦下时不再调 GitHub', githubCalls().length === 1);
   }
 
-  // ---- 栈 3：broadcast 正常链路，默认 mode=send ----
+  // ---- 栈 2b：同一 job 换 slot（收盘前抓取）不受早间闸限制 ----
+  // 这正是「双时点」的核心：闸键不带 slot 时，14:30 的 refresh 会被 409 静默挡掉
+  {
+    const r = await onRequestPost({ request: makeReq({ job: 'refresh', slot: 'close', nonce: EO_NONCE }), env: makeEnv() });
+    const j = await r.json();
+    check('refresh slot=close 放行：200', r.status === 200 && j.ok === true && j.slot === 'close', `status=${r.status}`);
+    check('close 抓取又调了一次 GitHub', githubCalls().length === 2);
+    check('close 闸 key 独立已写', globalThis.SUBS_KV._m.has(guardKey('refresh', 'close')));
+    check('早间闸 key 未被改写', globalThis.SUBS_KV._m.has(guardKey('refresh', 'morning')));
+  }
+
+  // ---- 栈 3：broadcast 正常链路，默认 mode=send、edition=morning ----
   reset();
   {
     const r = await onRequestPost({ request: makeReq({ job: 'broadcast', nonce: EO_NONCE }), env: makeEnv() });
@@ -166,17 +179,30 @@ async function main() {
     check('broadcast 受理：200 ok', r.status === 200 && j.ok === true);
     const sent = lastGhBody();
     check('broadcast inputs.mode=send', sent.inputs && sent.inputs.mode === 'send');
-    check('broadcast 闸 key 已写', globalThis.SUBS_KV._m.has(guardKey('broadcast')));
+    check('broadcast 透传 inputs.edition=morning（默认）', sent.inputs && sent.inputs.edition === 'morning', JSON.stringify(sent.inputs));
+    check('broadcast 闸 key 已写', globalThis.SUBS_KV._m.has(guardKey('broadcast', 'morning')));
     const r2 = await onRequestPost({ request: makeReq({ job: 'broadcast', nonce: EO_NONCE }), env: makeEnv() });
-    check('broadcast 当天第二次：409', r2.status === 409);
-    check('refresh 与 broadcast 闸互不干扰', !globalThis.SUBS_KV._m.has(guardKey('refresh')));
+    check('broadcast 同 slot 当天第二次：409', r2.status === 409);
+    check('refresh 与 broadcast 闸互不干扰', !globalThis.SUBS_KV._m.has(guardKey('refresh', 'morning')) && !globalThis.SUBS_KV._m.has(guardKey('refresh', 'close')));
+  }
+
+  // ---- 栈 3b：下午报（edition=close）独立触发并透传 ----
+  reset();
+  {
+    const r = await onRequestPost({ request: makeReq({ job: 'broadcast', mode: 'send', edition: 'close', nonce: EO_NONCE }), env: makeEnv() });
+    const j = await r.json();
+    check('下午报受理：200', r.status === 200 && j.ok === true && j.slot === 'close', `status=${r.status}`);
+    const sent = lastGhBody();
+    check('下午报透传 inputs.edition=close', sent.inputs && sent.inputs.edition === 'close' && sent.inputs.mode === 'send', JSON.stringify(sent.inputs));
+    check('下午报闸 key 独立已写', globalThis.SUBS_KV._m.has(guardKey('broadcast', 'close')));
+    check('下午报事件带 slot=close', events()[0] && events()[0].slot === 'close', JSON.stringify(events()[0]));
   }
 
   // ---- 栈 4：CRON_SECRET 鉴权（body）绕过每日闸 ----
   reset();
-  globalThis.SUBS_KV.put(guardKey('refresh'), '{"seeded":true}');
+  globalThis.SUBS_KV.put(guardKey('refresh', 'morning'), '{"seeded":true}');
   {
-    const before = globalThis.SUBS_KV._m.get(guardKey('refresh'));
+    const before = globalThis.SUBS_KV._m.get(guardKey('refresh', 'morning'));
     const r = await onRequestPost({
       request: makeReq({ job: 'refresh', cron_secret: 'cron-secret-123' }),
       env: makeEnv(),
@@ -184,7 +210,7 @@ async function main() {
     const j = await r.json();
     check('带 cron_secret 绕过闸：200', r.status === 200 && j.ok === true, `status=${r.status}`);
     check('绕过时仍调 GitHub', githubCalls().length === 1);
-    check('绕过不改写已有闸 key', globalThis.SUBS_KV._m.get(guardKey('refresh')) === before);
+    check('绕过不改写已有闸 key', globalThis.SUBS_KV._m.get(guardKey('refresh', 'morning')) === before);
   }
 
   // ---- 栈 5：Bearer 头鉴权 ----
@@ -237,7 +263,7 @@ async function main() {
     const mail = JSON.parse(brevoCalls()[0].init.body);
     check('告警信收件人是 ALERT_EMAIL', mail.to[0].email === 'q@example.com');
     check('告警信主题带任务与状态', String(mail.subject).includes('refresh') && String(mail.subject).includes('401'));
-    check('失败不落闸（当天可重试）', !globalThis.SUBS_KV._m.has(guardKey('refresh')));
+    check('失败不落闸（当天可重试）', !globalThis.SUBS_KV._m.has(guardKey('refresh', 'morning')));
     const evs = events();
     check('失败也写事件流水（面板可见）', evs.length === 1 && evs[0].ok === false && evs[0].status === 401 && evs[0].alert === 'sent', JSON.stringify(evs));
   }
@@ -354,20 +380,25 @@ async function main() {
 
   // ---- 栈 15：edgeone.json 与代码/运行时不变量 ----
   {
-    check('edgeone.json 有 2 条 schedule', SCHEDULES.length === 2, `实际 ${SCHEDULES.length}`);
+    check('edgeone.json 有 4 条 schedule（早晚各两跳）', SCHEDULES.length === 4, `实际 ${SCHEDULES.length}`);
     const byName = Object.fromEntries(SCHEDULES.map((s) => [s.name, s]));
-    check('schedule 名：refresh-0750 / broadcast-0810', !!byName['refresh-0750'] && !!byName['broadcast-0810']);
+    check(
+      'schedule 名：refresh-0750 / broadcast-0810 / refresh-1430 / broadcast-1445',
+      !!byName['refresh-0750'] && !!byName['broadcast-0810'] && !!byName['refresh-1430'] && !!byName['broadcast-1445']
+    );
     const rf = byName['refresh-0750'] || {};
     const bc = byName['broadcast-0810'] || {};
-    check('两条都指向 /api/jobs/dispatch', rf.path === '/api/jobs/dispatch' && bc.path === '/api/jobs/dispatch');
-    check('两条都是 POST', rf.method === 'POST' && bc.method === 'POST');
-    check('cron 都是 5 段', /^\S+ \S+ \S+ \S+ \S+$/.test(rf.cron || '') && /^\S+ \S+ \S+ \S+ \S+$/.test(bc.cron || ''));
-    check('cron 时刻 = 07:50 / 08:10', (rf.cron || '').startsWith('50 7 ') && (bc.cron || '').startsWith('10 8 '));
-    check('时区显式 Asia/Shanghai', rf.timezone === 'Asia/Shanghai' && bc.timezone === 'Asia/Shanghai');
-    check('refresh payload.job=refresh', rf.payload && rf.payload.job === 'refresh');
-    check('broadcast payload.job=broadcast 且 mode=send', bc.payload && bc.payload.job === 'broadcast' && bc.payload.mode === 'send');
+    const rf2 = byName['refresh-1430'] || {};
+    const bc2 = byName['broadcast-1445'] || {};
+    check('四条都指向 /api/jobs/dispatch', [rf, bc, rf2, bc2].every((s) => s.path === '/api/jobs/dispatch'));
+    check('四条都是 POST', [rf, bc, rf2, bc2].every((s) => s.method === 'POST'));
+    check('cron 都是 5 段', [rf, bc, rf2, bc2].every((s) => /^\S+ \S+ \S+ \S+ \S+$/.test(s.cron || '')));
+    check('cron 时刻 = 07:50 / 08:10 / 14:30 / 14:45', (rf.cron || '').startsWith('50 7 ') && (bc.cron || '').startsWith('10 8 ') && (rf2.cron || '').startsWith('30 14 ') && (bc2.cron || '').startsWith('45 14 '));
+    check('时区显式 Asia/Shanghai', [rf, bc, rf2, bc2].every((s) => s.timezone === 'Asia/Shanghai'));
+    check('refresh payload.job=refresh 且显式带 slot', rf.payload && rf.payload.job === 'refresh' && rf.payload.slot === 'morning' && rf2.payload && rf2.payload.job === 'refresh' && rf2.payload.slot === 'close');
+    check('broadcast payload.job=broadcast 且 mode=send、显式 edition', bc.payload && bc.payload.job === 'broadcast' && bc.payload.mode === 'send' && bc.payload.edition === 'morning' && bc2.payload && bc2.payload.job === 'broadcast' && bc2.payload.mode === 'send' && bc2.payload.edition === 'close');
     check('nonce 非空', typeof EO_NONCE === 'string' && EO_NONCE.length >= 32, `len=${EO_NONCE.length}`);
-    check('两条 schedule nonce 一致', rf.payload && bc.payload && rf.payload.nonce === bc.payload.nonce);
+    check('四条 schedule nonce 一致', [rf, bc, rf2, bc2].every((s) => s.payload && s.payload.nonce === EO_NONCE));
     check('cloudFunctions region 含 ap-guangzhou', Array.isArray(EO.cloudFunctions && EO.cloudFunctions.mainlandRegions) && EO.cloudFunctions.mainlandRegions.includes('ap-guangzhou'));
     const raw = readFileSync(new URL('../edgeone.json', import.meta.url), 'utf8');
     check('edgeone.json 不含非空 cron_secret（公开仓库禁带真 secret）', !/"cron_secret"\s*:\s*"[^"]+"/.test(raw));
@@ -383,7 +414,7 @@ async function main() {
     check('401 写入事件（via=anonymous）', evs.length === 1 && evs[0].via === 'anonymous' && evs[0].error === 'unauthorized', JSON.stringify(evs));
 
     // 16b 每日闸拦下（409）也记事件，且事件排在流水最前
-    globalThis.SUBS_KV.put(guardKey('refresh'), '{"seeded":true}');
+    globalThis.SUBS_KV.put(guardKey('refresh', 'morning'), '{"seeded":true}');
     const r2 = await onRequestPost({ request: makeReq({ job: 'refresh', nonce: EO_NONCE }), env: makeEnv() });
     check('闸拦下：409', r2.status === 409);
     evs = events();
@@ -399,14 +430,15 @@ async function main() {
     check('最新事件在最前', evs[0].job === 'broadcast' && evs[0].via === 'cron_secret' && evs[0].mode === 'send', JSON.stringify(evs[0]));
   }
 
-  // 16d status 端点：KV 有闸 key + 流水时全量返回
+  // 16d status 端点：KV 有闸 key + 流水时全量返回（jobs 按 job×slot 双层结构）
   reset();
-  globalThis.SUBS_KV.put(guardKey('refresh'), JSON.stringify({ at: '2026-10-21T07:50:01Z', via: 'nonce', mode: null }));
+  globalThis.SUBS_KV.put(guardKey('refresh', 'morning'), JSON.stringify({ at: '2026-10-21T07:50:01Z', via: 'nonce', mode: null, slot: 'morning' }));
+  globalThis.SUBS_KV.put(guardKey('refresh', 'close'), JSON.stringify({ at: '2026-10-21T14:31:00Z', via: 'nonce', mode: null, slot: 'close' }));
   globalThis.SUBS_KV.put(
     'job_events',
     JSON.stringify([
-      { at: new Date().toISOString(), job: 'refresh', mode: null, via: 'nonce', status: 204, ok: true, error: null, alert: null },
-      { at: new Date(Date.now() - 3600e3).toISOString(), job: 'refresh', mode: null, via: 'nonce', status: 401, ok: false, error: 'github_error', alert: 'sent' },
+      { at: new Date().toISOString(), job: 'refresh', slot: 'close', mode: null, via: 'nonce', status: 204, ok: true, error: null, alert: null },
+      { at: new Date(Date.now() - 3600e3).toISOString(), job: 'refresh', slot: 'morning', mode: null, via: 'nonce', status: 401, ok: false, error: 'github_error', alert: 'sent' },
     ])
   );
   {
@@ -414,9 +446,10 @@ async function main() {
     const j = await r.json();
     check('status GET：200 ok', r.status === 200 && j.ok === true);
     check('cstToday 与测试同源', j.cstToday === CST_TODAY, j.cstToday);
-    check('refresh 今日已触发', j.jobs.refresh.dispatchedToday === true && j.jobs.refresh.via === 'nonce' && j.jobs.refresh.at === '2026-10-21T07:50:01Z', JSON.stringify(j.jobs));
-    check('broadcast 今日未触发', j.jobs.broadcast.dispatchedToday === false && j.jobs.broadcast.at === null);
-    check('事件流水按原序返回（最新在前）', Array.isArray(j.events) && j.events.length === 2 && j.events[0].job === 'refresh' && j.events[0].ok === true);
+    check('refresh 晨间今日已触发', j.jobs.refresh.morning.dispatchedToday === true && j.jobs.refresh.morning.via === 'nonce' && j.jobs.refresh.morning.at === '2026-10-21T07:50:01Z', JSON.stringify(j.jobs));
+    check('refresh 午间今日已触发', j.jobs.refresh.close.dispatchedToday === true && j.jobs.refresh.close.at === '2026-10-21T14:31:00Z', JSON.stringify(j.jobs));
+    check('broadcast 两个时点今日都未触发', j.jobs.broadcast.morning.dispatchedToday === false && j.jobs.broadcast.close.dispatchedToday === false && j.jobs.broadcast.morning.at === null, JSON.stringify(j.jobs));
+    check('事件流水按原序返回（最新在前）', Array.isArray(j.events) && j.events.length === 2 && j.events[0].job === 'refresh' && j.events[0].slot === 'close' && j.events[0].ok === true, JSON.stringify(j.events));
     check('告警摘要取最近一条带 alert 的事件', j.alerts && j.alerts.last && j.alerts.last.alert === 'sent' && j.alerts.last.status === 401, JSON.stringify(j.alerts));
     check('config 只暴露布尔', j.config && j.config.ghToken === true && j.config.cronSecret === true && j.config.alertEmail === true && Object.values(j.config).every((v) => typeof v === 'boolean'), JSON.stringify(j.config));
     check('config 不含任何 secret 值', !JSON.stringify(j).includes('ghp_test_token') && !JSON.stringify(j).includes('cron-secret-123'));

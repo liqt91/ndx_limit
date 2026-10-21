@@ -1,15 +1,18 @@
 name: Daily Broadcast
 
-# 每天早上把日报群发给所有订阅人。**不抓数据，只发信**（抓取见 refresh.yml）。
+# 每天早上/收盘前把日报群发给所有订阅人。**不抓数据，只发信**（抓取见 refresh.yml）。
 #
 # 为什么用独立 cron 而不是 workflow_run 串在抓取后面：
 #   workflow_run 校验的是「另一个 job 是否成功」，而真正该校验的是「数据是不是今天的」。
 #   独立 cron + check-freshness 门禁校验的是事实本身：抓取失败了就明确拒发并变红，
 #   而不是拿昨天的数据当今天推出去。顺带也不会被 GITHUB_TOKEN 的递归触发限制绊住。
 #
-# 定时由外部 cron 触发（腾讯轻量云 lhins-0ky4jsqs 的 crontab，见运维文档），
-# 发信 08:10（北京），抓取 07:50（北京），留 20 分钟给抓取和 EdgeOne 重建。
+# 定时由 EdgeOne schedules 触发（edgeone.json，北京 08:10 早报 / 14:45 下午报），
+# 抓取同源调度在 07:50 / 14:30，各留 20 / 15 分钟给抓取和 EdgeOne 重建。
 # 不再依赖 GitHub 自带 schedule——实测延迟可达 2h44m（2026-10-20）。
+#
+# edition 必须与 dispatch.js 的透传一起上线：workflow_dispatch 的 inputs 只认已声明
+# 的 input，broadcast 不带 edition 声明时，dispatch 传 edition=close 会被 GitHub 422 拒。
 
 on:
   workflow_dispatch:
@@ -21,6 +24,13 @@ on:
           - dry-run
           - send
         default: dry-run
+      edition:
+        description: 'morning 早报（默认）；close 下午报（收盘前最终额度）'
+        type: choice
+        options:
+          - morning
+          - close
+        default: morning
 
 permissions:
   contents: read
@@ -65,9 +75,10 @@ jobs:
           SUBSCRIBERS_URL: ${{ secrets.SUBSCRIBERS_URL }}
           SUBSCRIBERS_TOKEN: ${{ secrets.SUBSCRIBERS_TOKEN }}
           RATE_DELAY_MS: '200'
+          DIGEST_EDITION: ${{ inputs.edition }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.mode }}" = "dry-run" ]; then
-            echo "== 手动触发，mode=dry-run：只打印不发信 =="
+            echo "== 手动触发，mode=dry-run（edition=${{ inputs.edition }}）：只打印不发信 =="
             node scripts/send.mjs --dry-run
           else
             node scripts/send.mjs

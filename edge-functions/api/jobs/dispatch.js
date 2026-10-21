@@ -3,9 +3,9 @@
 // 整条数据链路自此不依赖任何自有服务器；服务器上只剩运维面板（只听回环）。
 //
 // 两种触发方式，面向不同调用方：
-//   1) EdgeOne schedules：POST + payload { job, nonce }。schedule 不能带 Authorization
-//      头，且 edgeone.json 在公开仓库里、放不下真 secret——nonce 只是防扫描的隐匿层，
-//      不是鉴权。对它的实际约束是下面的「每日一次」KV 闸。
+//   1) EdgeOne schedules：POST + payload { job, nonce, slot|edition }。schedule 不能带
+//      Authorization 头，且 edgeone.json 在公开仓库里、放不下真 secret——nonce 只是防扫描
+//      的隐匿层，不是鉴权。对它的实际约束是下面的「每日一次」KV 闸。
 //   2) 面板 / curl / 当天重跑：body.cron_secret 或 Authorization: Bearer 带 CRON_SECRET
 //      （只存在于 EdgeOne 控制台环境变量，不进仓库）。鉴权调用不受每日闸限制。
 //
@@ -33,12 +33,22 @@
 //   KV：SUBS_KV 已绑定（订阅链路在用），本函数复用；key 前缀 job_ 与 sub_ 不冲突。
 
 const JOBS = {
-  refresh: { workflow: 'refresh.yml', inputs: {} },
-  broadcast: { workflow: 'broadcast.yml', inputs: { mode: 'send' } },
+  refresh: { workflow: 'refresh.yml' },
+  broadcast: { workflow: 'broadcast.yml' },
 };
 
 const MAX_BODY = 4096;
 const MODE_ALIAS = { send: 'send', dry: 'dry-run', 'dry-run': 'dry-run' };
+
+// 时点（slot）：broadcast 用 payload.edition（早报 morning / 下午报 close），
+// refresh 用 payload.slot（抓取时刻由 scrape.mjs 自己判定，这里只用于分闸）。
+// 为什么键里必须带 slot：一天两抓两报（07:50/08:10 + 14:30/14:45），闸不按时点分键，
+// 第二次调用会被 409 already_triggered_today 静默挡掉，下午报永远发不出去
+// （2026-10-21《双时点抓取与下午报接入.md》第五节第 2 项）。
+function resolveSlot(job, data) {
+  if (job === 'broadcast') return data.edition === 'close' ? 'close' : 'morning';
+  return data.slot === 'close' ? 'close' : 'morning';
+}
 // 调度事件流水：KV 单 key 存数组，最新在前，最多 50 条。给 /api/jobs/status（运维
 // 面板聚合用）当数据源。读-改-写在最终一致性窗口内有丢更新风险，但本函数一天就
 // 两三次调用，可接受；写失败绝不影响 dispatch 本身的结果。
@@ -106,6 +116,7 @@ function parseSender(raw) {
 function alertText(info) {
   return [
     `任务：${info.job}（${info.workflow}）`,
+    `时点：${info.slot === 'close' ? '收盘前 close' : '早间 morning'}`,
     `时间：${new Date().toISOString()}（CST ${cstDate()}）`,
     `GitHub 响应：HTTP ${info.status}`,
     info.detail ? `详情：${info.detail}` : null,
@@ -152,13 +163,15 @@ function hintFor(status) {
   if (status === 401)
     return 'PAT 可能已过期或权限不足。重新生成细粒度 PAT（Actions: write），同步更新两处：服务器 /root/.gh_dispatch_token 与 EdgeOne 控制台 GH_DISPATCH_TOKEN。';
   if (status === 404) return '仓库名或 workflow 文件名不对（检查 GH_REPO 与 JOBS 表）。';
-  if (status === 422) return 'ref 或 inputs 不合法（分支名 / mode 取值）。';
+  if (status === 422) return 'ref 或 inputs 不合法（分支名 / mode / edition 取值；edition 需 broadcast.yml 已声明该 input）。';
   return '看 EdgeOne 日志分析与 GitHub Status 页确认。';
 }
 
-async function callGitHub(env, job, mode) {
+async function callGitHub(env, job, mode, slot) {
   const spec = JOBS[job];
-  const inputs = job === 'broadcast' ? { mode } : {};
+  // workflow_dispatch 的 inputs 只认已声明的 input：broadcast.yml 必须已声明 edition，
+  // 否则这里透传会被 GitHub 以 422 拒掉（两处必须一起上线，见迁移文档第五节第 3 项）。
+  const inputs = job === 'broadcast' ? { mode, edition: slot } : {};
   const body = Object.keys(inputs).length > 0 ? { ref: 'main', inputs } : { ref: 'main' };
   const url = `https://api.github.com/repos/${env.GH_REPO || 'liqt91/ndx_limit'}/actions/workflows/${spec.workflow}/dispatches`;
   const res = await fetch(url, {
@@ -194,6 +207,7 @@ export async function onRequestPost({ request, env }) {
   if (!Object.prototype.hasOwnProperty.call(JOBS, job)) {
     return json({ ok: false, error: 'bad_job', hint: 'job 取值：refresh | broadcast' }, 400);
   }
+  const slot = resolveSlot(job, data);
 
   let mode = 'send';
   if (job === 'broadcast') {
@@ -211,10 +225,11 @@ export async function onRequestPost({ request, env }) {
     (secretEqual(data.cron_secret, env.CRON_SECRET) || secretEqual(bearer, env.CRON_SECRET));
 
   if (!authed && (!env.DISPATCH_NONCE || !secretEqual(data.nonce, env.DISPATCH_NONCE))) {
-    console.error('[dispatch] 鉴权失败：nonce 不匹配且未提供有效 CRON_SECRET', JSON.stringify({ job }));
+    console.error('[dispatch] 鉴权失败：nonce 不匹配且未提供有效 CRON_SECRET', JSON.stringify({ job, slot }));
     await recordEvent(getKV(env), {
       at: new Date().toISOString(),
       job,
+      slot,
       mode: job === 'broadcast' ? mode : null,
       via: 'anonymous',
       status: 401,
@@ -226,7 +241,7 @@ export async function onRequestPost({ request, env }) {
   }
 
   const kv = getKV(env);
-  const guardKey = `job_sent_${job}_${cstDate()}`;
+  const guardKey = `job_sent_${job}_${slot}_${cstDate()}`;
   if (!authed) {
     if (!kv) {
       // fail closed：没有闸就不能放未鉴权调用进来，而不是悄悄跳过
@@ -238,6 +253,7 @@ export async function onRequestPost({ request, env }) {
       await recordEvent(kv, {
         at: new Date().toISOString(),
         job,
+        slot,
         mode: job === 'broadcast' ? mode : null,
         via: 'nonce',
         status: 409,
@@ -250,8 +266,9 @@ export async function onRequestPost({ request, env }) {
           ok: false,
           error: 'already_triggered_today',
           job,
+          slot,
           date: cstDate(),
-          hint: '未鉴权调用每任务每天仅一次；当天重跑请带 CRON_SECRET',
+          hint: '未鉴权调用每任务每天每时点仅一次；当天重跑请带 CRON_SECRET',
         },
         409
       );
@@ -260,13 +277,14 @@ export async function onRequestPost({ request, env }) {
 
   let out;
   try {
-    out = await callGitHub(env, job, mode);
+    out = await callGitHub(env, job, mode, slot);
   } catch (e) {
     const detail = String((e && e.message) || e).slice(0, 300);
     const hint = 'EdgeOne 出口到 api.github.com 不通？先用探针函数验证（见部署文档冒烟清单）。';
     console.error('[dispatch] GitHub 请求异常：', detail);
     const alert = await sendAlert(env, {
       job,
+      slot,
       workflow: JOBS[job].workflow,
       status: 'network_error',
       detail,
@@ -275,6 +293,7 @@ export async function onRequestPost({ request, env }) {
     await recordEvent(getKV(env), {
       at: new Date().toISOString(),
       job,
+      slot,
       mode: job === 'broadcast' ? mode : null,
       via: authed ? 'cron_secret' : 'nonce',
       status: null,
@@ -290,6 +309,7 @@ export async function onRequestPost({ request, env }) {
     console.error('[dispatch] GitHub 非 204：', out.res.status, detail);
     const alert = await sendAlert(env, {
       job,
+      slot,
       workflow: JOBS[job].workflow,
       status: out.res.status,
       detail,
@@ -298,6 +318,7 @@ export async function onRequestPost({ request, env }) {
     await recordEvent(getKV(env), {
       at: new Date().toISOString(),
       job,
+      slot,
       mode: job === 'broadcast' ? mode : null,
       via: authed ? 'cron_secret' : 'nonce',
       status: out.res.status,
@@ -311,16 +332,17 @@ export async function onRequestPost({ request, env }) {
   if (!authed) {
     try {
       // 只在 GitHub 真的受理后落闸；失败重试不被卡
-      await kv.put(guardKey, JSON.stringify({ at: new Date().toISOString(), via: 'nonce', mode }));
+      await kv.put(guardKey, JSON.stringify({ at: new Date().toISOString(), via: 'nonce', mode, slot }));
     } catch (e) {
       // dispatch 已成功，落闸失败不能把成功报成失败；日志留痕，最坏是当天可多重跑一次
       console.error('[dispatch] 每日闸落 key 失败（dispatch 已成功）：', e.message || e);
     }
   }
-  console.log(`[dispatch] ${job} → ${JOBS[job].workflow} HTTP 204（${authed ? 'CRON_SECRET 鉴权' : 'nonce，已记每日闸'}）`);
+  console.log(`[dispatch] ${job}/${slot} → ${JOBS[job].workflow} HTTP 204（${authed ? 'CRON_SECRET 鉴权' : 'nonce，已记每日闸'}）`);
   await recordEvent(getKV(env), {
     at: new Date().toISOString(),
     job,
+    slot,
     mode: job === 'broadcast' ? mode : null,
     via: authed ? 'cron_secret' : 'nonce',
     status: 204,
@@ -328,7 +350,7 @@ export async function onRequestPost({ request, env }) {
     error: null,
     alert: null,
   });
-  return json({ ok: true, job, workflow: JOBS[job].workflow, mode: job === 'broadcast' ? mode : undefined, status: 204 });
+  return json({ ok: true, job, slot, workflow: JOBS[job].workflow, mode: job === 'broadcast' ? mode : undefined, status: 204 });
 }
 
 export async function onRequestGet() {

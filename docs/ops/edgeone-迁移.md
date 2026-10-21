@@ -88,32 +88,37 @@ Sandbox 100K GB-s（跑不可信代码）；Models 500K tokens/月。
 
 ## L1：定时触发器代发（2026-10-21 已落地，未 push）
 
-**架构**：`edgeone.json` schedules（北京 07:50 / 08:10，`Asia/Shanghai`）→ POST
-`/api/jobs/dispatch`（Edge Function）→ GitHub `workflow_dispatch`。workflow 逻辑零改动，
-轻量云 crontab 退役，整条数据链路不再依赖自有服务器。
+**架构**：`edgeone.json` schedules（北京 07:50 / 08:10 / 14:30 / 14:45 四跳，
+`Asia/Shanghai`）→ POST `/api/jobs/dispatch`（Edge Function）→ GitHub `workflow_dispatch`。
+workflow 逻辑近零改动（broadcast.yml 多声明一个 `edition` input），轻量云 crontab 退役，
+整条数据链路不再依赖自有服务器。后两跳是下午报（收盘前最终额度），详见
+《双时点抓取与下午报接入.md》。
 
 **可观测（2026-10-21 补）**：dispatch 每次终态（204 / GitHub 错 / 网络错 / 401 / 409）都写
-KV 事件流水 `job_events`（≤50 条，最新在前），GET `/api/jobs/status` 只读暴露「今日两跳
-触发没有 + 事件流 + 告警发没发 + 关键环境变量配没配（布尔）」。轻量云运维面板聚合这个
-端点，crontab 退役后服务器本地无日志可看的缺口由此补上（详见《管理面板.md》）。
+KV 事件流水 `job_events`（≤50 条，最新在前，事件带 `slot`），GET `/api/jobs/status` 只读暴露
+「今日四跳（job × 晨/午）触发没有 + 事件流 + 告警发没发 + 关键环境变量配没配（布尔）」。
+轻量云运维面板聚合这个端点，crontab 退役后服务器本地无日志可看的缺口由此补上
+（详见《管理面板.md》）。
 
 文件：
 
 | 文件 | 职责 |
 |---|---|
-| `edgeone.json` | 两条 schedule + Cloud Functions region（ap-guangzhou，为 L2 预备） |
-| `edge-functions/api/jobs/dispatch.js` | 代发 + 两层鉴权 + 每日一次闸 + 失败告警邮件 + 事件流水 |
+| `edgeone.json` | 四条 schedule（早晚各两跳）+ Cloud Functions region（ap-guangzhou，为 L2 预备） |
+| `edge-functions/api/jobs/dispatch.js` | 代发 + 两层鉴权 + 每日每时点闸 + 失败告警邮件 + 事件流水 |
 | `edge-functions/api/jobs/status.js` | 只读状态端点（无鉴权，无 secret），面板数据源 |
-| `scripts/jobs-dispatch-smoke.mjs` | 冒烟测试 86 断言（`npm run jobs:smoke`），零外网 |
+| `scripts/jobs-dispatch-smoke.mjs` | 冒烟测试 98 断言（`npm run jobs:smoke`），零外网 |
 | `scripts/notify.mjs` | 新增 `email` 渠道（Brevo API），默认渠道；飞书/Server酱留作兼容 |
 
 **安全模型**（为什么这么设计）：
 
 - schedules 不能带 Authorization 头，且 `edgeone.json` 在公开仓库里放不下真 secret →
   payload 里的 `nonce` 只是**防扫描的隐匿层，不是鉴权**；
-- 对未鉴权（nonce）调用的实际约束是**「每日一次」KV 闸**（key：`job_sent_<job>_<CST日期>`，
-  复用 SUBS_KV，前缀 `job_` 与 `sub_` 不冲突）：只在 GitHub 真的受理（204）后才落 key，
-  失败重试不被卡。最坏情况从「随便刷」变成「当天提前发一封日报」；
+- 对未鉴权（nonce）调用的实际约束是**「每日每时点一次」KV 闸**（key：
+  `job_sent_<job>_<slot>_<CST日期>`，`slot` = `morning`/`close`，复用 SUBS_KV，前缀 `job_`
+  与 `sub_` 不冲突）：只在 GitHub 真的受理（204）后才落 key，失败重试不被卡。最坏情况从
+  「随便刷」变成「当天提前发一封日报」。**键里必须带 slot**——一天两抓两报，不带 slot
+  第二次调用会被 409 静默挡掉，下午报永远发不出去（2026-10-21 踩过，冒烟有专项断言）；
 - **CRON_SECRET 鉴权**（body 或 Bearer 头，只存 EdgeOne 控制台环境变量）不受闸限制——
   面板、curl、当天重跑都用它。KV 未绑定时未鉴权调用 **fail closed**（500），鉴权调用放行；
 - KV 最终一致性最长 60s，60s 内的连发理论上能漏一两次，可接受（记录在案）。
@@ -133,8 +138,8 @@ KV 事件流水 `job_events`（≤50 条，最新在前），GET `/api/jobs/stat
    函数在；401/404 都说明映射有问题，看日志分析）；
    `curl -s https://ndx.liqt91.top/api/jobs/status` → 期望 200 JSON（含 `cstToday`、`jobs`、
    `events`；KV 没绑定时是 500 `kv_not_configured`，那也是「函数在」的证据）。
-4. 观察首个 07:50 schedule 触发：日志分析里应有 `[dispatch] refresh → refresh.yml HTTP 204`；
-   KV 里出现 `job_sent_refresh_<日期>`。
+4. 观察首个 07:50 schedule 触发：日志分析里应有 `[dispatch] refresh/morning → refresh.yml HTTP 204`；
+   KV 里出现 `job_sent_refresh_morning_<日期>`；14:30 / 14:45 两条同理会多出 `_close` 键。
 5. **删除服务器 crontab 两行**（保留 `gh-dispatch.sh`：运维面板与手动兜底还在用）。
    注意必须删——crontab 与 schedule 双跑会让 broadcast 给订阅者发两遍。
 6. PAT 续期时**同步两处**：服务器文件 + EdgeOne 控制台环境变量。
@@ -142,14 +147,15 @@ KV 事件流水 `job_events`（≤50 条，最新在前），GET `/api/jobs/stat
 **回滚**（一分钟）：把 crontab 两行加回去即可，workflow 侧无需任何改动； EdgeOne 侧的
 schedule 从 `edgeone.json` 删掉再 push 一次。
 
-**已验证**：`npm run jobs:smoke` 86 断言零外网全绿；负向验证 6 个方向（拆每日闸、拆鉴权、
-成功不落闸、出错不发告警、停掉事件流水、拆 status 的 KV fail-closed）全部精准红在该红的
-位置，还原后逐字节一致。
+**已验证**：`npm run jobs:smoke` 98 断言零外网全绿；负向验证 9 个方向（拆每日闸、拆鉴权、
+成功不落闸、出错不发告警、停掉事件流水、拆 status 的 KV fail-closed、闸键不带 slot、
+broadcast 不透传 edition、面板事件匹配无视 slot）全部精准红在该红的位置，还原后逐字节一致。
 
 **待验证（部署后才能闭环）**：
 
-1. git push 后 `schedules` 是否自动注册；若没有，用 `npx edgeone makers deploy` 补一次，
-   或看控制台是否支持可视化配置（可视化配置还能把 payload 整体移出公开仓库）；
+1. git push 后 `schedules` 是否自动注册（下午报两条新增 schedule 同理）；若没有，用
+   `npx edgeone makers deploy` 补一次，或看控制台是否支持可视化配置（可视化配置还能把
+   payload 整体移出公开仓库）；
 2. `edge-functions/api/jobs/` 下两个嵌套路径是否分别映射为 `/api/jobs/dispatch` 与
    `/api/jobs/status`（上面第 3 步的两条 curl 就是判据）；
 3. ap-guangzhou 出口到 `api.github.com` / `api.brevo.com` 的可达性——首次触发即验证，

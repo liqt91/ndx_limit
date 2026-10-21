@@ -173,25 +173,36 @@ async function startStack(opts = {}) {
   return { dir, baseUrl, panel, panelExit, panelErr: () => panelErr, authSeen: () => ({ gh: ghAuthSeen, subs: subsAuthSeen }), srvs: [gh, raw, site], argsFile, dispatchLog, auditLog: join(dir, 'audit.log'), mockFail, eoDispatchSeen: () => eoDispatchSeen };
 }
 
-// EdgeOne /api/jobs/status 的桩载荷：今天两跳都成功、一条未鉴权 401、昨天一次
-// github_error 且告警已发（alerts.last 指向它）。over 供各栈按需覆盖。
+// EdgeOne /api/jobs/status 的桩载荷：今天四跳都成功（晨/午各两跳）、一条未鉴权 401、
+// 昨天一次 github_error 且告警已发（alerts.last 指向它）。over 供各栈按需覆盖。
+// jobs 为 job×slot 双层结构，与 status.js 一致；事件带 slot，与 dispatch.js 一致。
 function eoPayload(over = {}) {
   const at1 = new Date(Date.now() - 30 * 60000).toISOString();
   const at2 = new Date(Date.now() - 90 * 60000).toISOString();
+  const at3 = new Date(Date.now() - 200 * 60000).toISOString();
+  const at4 = new Date(Date.now() - 190 * 60000).toISOString();
   const atOld = new Date(Date.now() - 26 * 3600e3).toISOString();
   const atFail = new Date(Date.now() - 25 * 3600e3).toISOString();
   return {
     ok: true,
     cstToday: cstToday(),
     jobs: {
-      refresh: { dispatchedToday: true, at: at1, via: 'nonce', mode: null },
-      broadcast: { dispatchedToday: true, at: at2, via: 'nonce', mode: 'send' },
+      refresh: {
+        morning: { dispatchedToday: true, at: at1, via: 'nonce', mode: null },
+        close: { dispatchedToday: true, at: at3, via: 'nonce', mode: null },
+      },
+      broadcast: {
+        morning: { dispatchedToday: true, at: at2, via: 'nonce', mode: 'send' },
+        close: { dispatchedToday: true, at: at4, via: 'nonce', mode: 'send' },
+      },
     },
     events: [
-      { at: at2, job: 'broadcast', mode: 'send', via: 'nonce', status: 204, ok: true, error: null, alert: null },
-      { at: at1, job: 'refresh', mode: null, via: 'nonce', status: 204, ok: true, error: null, alert: null },
-      { at: atOld, job: 'refresh', mode: null, via: 'anonymous', status: 401, ok: false, error: 'unauthorized', alert: null },
-      { at: atFail, job: 'refresh', mode: null, via: 'nonce', status: 502, ok: false, error: 'github_error', alert: 'sent' },
+      { at: at4, job: 'broadcast', slot: 'close', mode: 'send', via: 'nonce', status: 204, ok: true, error: null, alert: null },
+      { at: at3, job: 'refresh', slot: 'close', mode: null, via: 'nonce', status: 204, ok: true, error: null, alert: null },
+      { at: at2, job: 'broadcast', slot: 'morning', mode: 'send', via: 'nonce', status: 204, ok: true, error: null, alert: null },
+      { at: at1, job: 'refresh', slot: 'morning', mode: null, via: 'nonce', status: 204, ok: true, error: null, alert: null },
+      { at: atOld, job: 'refresh', slot: 'morning', mode: null, via: 'anonymous', status: 401, ok: false, error: 'unauthorized', alert: null },
+      { at: atFail, job: 'refresh', slot: 'morning', mode: null, via: 'nonce', status: 502, ok: false, error: 'github_error', alert: 'sent' },
     ],
     alerts: { last: { at: atFail, job: 'refresh', status: 502, alert: 'sent' } },
     config: { ghToken: true, cronSecret: true, alertEmail: true },
@@ -301,8 +312,10 @@ async function main() {
     check('overall === ok', s.overall === 'ok', s.overall);
     check('dispatch.source === edgeone（EO 优先）', s.dispatch && s.dispatch.source === 'edgeone', s.dispatch && s.dispatch.source);
     check('dispatch.state === ok', s.dispatch && s.dispatch.state === 'ok', JSON.stringify(s.dispatch && s.dispatch.state));
-    check('两个槽位都是 ok/204', Array.isArray(s.dispatch.slots) && s.dispatch.slots.length === 2 && s.dispatch.slots.every((x) => x.state === 'ok' && x.code === 204), JSON.stringify(s.dispatch.slots));
+    check('四个槽位都是 ok/204', Array.isArray(s.dispatch.slots) && s.dispatch.slots.length === 4 && s.dispatch.slots.every((x) => x.state === 'ok' && x.code === 204), JSON.stringify(s.dispatch.slots));
+    check('槽位覆盖晨/午 × refresh/broadcast', s.dispatch.slots.map((x) => x.job + ':' + x.slot).join(',') === 'refresh:morning,broadcast:morning,refresh:close,broadcast:close', JSON.stringify(s.dispatch.slots.map((x) => x.job + ':' + x.slot)));
     check('槽位标注触发方式 via=nonce', s.dispatch.slots.every((x) => x.via === 'nonce'), JSON.stringify(s.dispatch.slots.map((x) => x.via)));
+    check('事件流可见午间槽位', s.dispatch.recent.some((e) => e.slot === 'close' && e.ok === true), JSON.stringify(s.dispatch.recent));
     check('事件流水进入面板（含今日与昨日）', Array.isArray(s.dispatch.recent) && s.dispatch.recent.length >= 3 && s.dispatch.recent.some((e) => e.cstDate === cstToday() && e.ok === true), JSON.stringify(s.dispatch.recent));
     check('未鉴权调用也在事件流里可见', s.dispatch.recent.some((e) => e.via === 'anonymous' && e.code === 401), JSON.stringify(s.dispatch.recent));
     check('最近告警=已发送', s.dispatch.alerts && s.dispatch.alerts.last && s.dispatch.alerts.last.alert === 'sent', JSON.stringify(s.dispatch.alerts));
@@ -350,27 +363,36 @@ async function main() {
     await stopStack(ok);
   }
 
-  // ---- 栈 2：EO 报告今日 refresh 硬失败（GitHub 502）→ overall=bad ----
+  // ---- 栈 2：EO 报告今日早间 refresh 硬失败（GitHub 502）→ overall=bad ----
   {
     const failAt = new Date(Date.now() - 45 * 60000).toISOString();
     const bad = await startStack({
       eoStatus: eoPayload({
         jobs: {
-          refresh: { dispatchedToday: false, at: null, via: null, mode: null },
-          broadcast: { dispatchedToday: true, at: new Date(Date.now() - 90 * 60000).toISOString(), via: 'nonce', mode: 'send' },
+          refresh: {
+            morning: { dispatchedToday: false, at: null, via: null, mode: null },
+            close: { dispatchedToday: true, at: new Date(Date.now() - 200 * 60000).toISOString(), via: 'nonce', mode: null },
+          },
+          broadcast: {
+            morning: { dispatchedToday: true, at: new Date(Date.now() - 90 * 60000).toISOString(), via: 'nonce', mode: 'send' },
+            close: { dispatchedToday: true, at: new Date(Date.now() - 190 * 60000).toISOString(), via: 'nonce', mode: 'send' },
+          },
         },
         events: [
-          { at: failAt, job: 'refresh', mode: null, via: 'nonce', status: 502, ok: false, error: 'github_error', alert: 'sent' },
-          { at: new Date(Date.now() - 90 * 60000).toISOString(), job: 'broadcast', mode: 'send', via: 'nonce', status: 204, ok: true, error: null, alert: null },
+          { at: new Date(Date.now() - 190 * 60000).toISOString(), job: 'broadcast', slot: 'close', mode: 'send', via: 'nonce', status: 204, ok: true, error: null, alert: null },
+          { at: new Date(Date.now() - 200 * 60000).toISOString(), job: 'refresh', slot: 'close', mode: null, via: 'nonce', status: 204, ok: true, error: null, alert: null },
+          { at: new Date(Date.now() - 90 * 60000).toISOString(), job: 'broadcast', slot: 'morning', mode: 'send', via: 'nonce', status: 204, ok: true, error: null, alert: null },
+          { at: failAt, job: 'refresh', slot: 'morning', mode: null, via: 'nonce', status: 502, ok: false, error: 'github_error', alert: 'sent' },
         ],
         alerts: { last: { at: failAt, job: 'refresh', status: 502, alert: 'sent' } },
       }),
     });
     try {
       const s = (await getJson(bad.baseUrl + '/api/status')).body;
-      check('EO 报今日 refresh 失败 → overall=bad', s.overall === 'bad', s.overall);
+      check('EO 报今日早间 refresh 失败 → overall=bad', s.overall === 'bad', s.overall);
       check('dispatch.state === fail', s.dispatch.state === 'fail', s.dispatch.state);
-      check('失败槽位带 502 与时间', s.dispatch.slots[0].state === 'fail' && s.dispatch.slots[0].code === 502 && !!s.dispatch.slots[0].at, JSON.stringify(s.dispatch.slots[0]));
+      check('失败槽位带 502 与时间（仅早间 refresh）', s.dispatch.slots[0].state === 'fail' && s.dispatch.slots[0].code === 502 && !!s.dispatch.slots[0].at && s.dispatch.slots[0].slot === 'morning', JSON.stringify(s.dispatch.slots[0]));
+      check('午间 refresh 槽位不受早间失败影响', s.dispatch.slots[2].state === 'ok', JSON.stringify(s.dispatch.slots[2]));
       const la2 = s.dispatch.alerts && s.dispatch.alerts.last;
       check('告警摘要指向这次失败', !!la2 && la2.status === 502 && la2.alert === 'sent', JSON.stringify(s.dispatch.alerts));
     } finally {
@@ -396,7 +418,8 @@ async function main() {
       const s = (await getJson(down.baseUrl + '/api/status')).body;
       check('EO 不可达 → source=local-log', s.dispatch.source === 'local-log', s.dispatch.source);
       check('降级时 note 说明来源', String(s.dispatch.note || '').includes('EdgeOne 状态端点不可达'), s.dispatch.note);
-      check('本地日志槽位仍可读（今天 204）', s.dispatch.slots.every((x) => x.state === 'ok'), JSON.stringify(s.dispatch.slots));
+      check('本地日志早间两槽仍可读（今天 204）', s.dispatch.slots[0].state === 'ok' && s.dispatch.slots[1].state === 'ok', JSON.stringify(s.dispatch.slots));
+      check('午间槽位无记录 → unknown（不伪装成 missing）', s.dispatch.slots[2].state === 'unknown' && s.dispatch.slots[3].state === 'unknown', JSON.stringify(s.dispatch.slots));
       check('EO 不可达 → overall=warn', s.overall === 'warn', s.overall);
     } finally {
       await stopStack(down);
@@ -428,6 +451,7 @@ async function main() {
       const seen1 = eo.eoDispatchSeen();
       check('EO 端点收到 job=refresh 与 cron_secret', !!seen1 && seen1.body.job === 'refresh' && seen1.body.cron_secret === 'smoke-eo-secret', JSON.stringify(seen1 && seen1.body));
       check('refresh 不带 mode 字段', !!seen1 && !('mode' in seen1.body), JSON.stringify(seen1 && seen1.body));
+      check('refresh 带 slot（按面板当前时刻判晨/午）', !!seen1 && ['morning', 'close'].includes(seen1.body.slot), JSON.stringify(seen1 && seen1.body));
       const st = await getJson(eo.baseUrl + '/api/status');
       check('审计记录 via=edgeone', Array.isArray(st.body.audit) && st.body.audit.length === 1 && st.body.audit[0].via === 'edgeone', JSON.stringify(st.body.audit));
 
@@ -439,6 +463,7 @@ async function main() {
       const r4 = await postJson(eo.baseUrl + '/api/dispatch', { job: 'broadcast', mode: 'send', confirm: 'send' });
       check('EO 路径真发信带确认 ok', r4.status === 200 && r4.body.ok === true);
       check('真发信映射为 mode=send', seenBody().mode === 'send', JSON.stringify(seenBody()));
+      check('真发信带 edition（下午手点发下午报）', ['morning', 'close'].includes(seenBody().edition), JSON.stringify(seenBody()));
     } finally {
       await stopStack(eo);
       rmSync(eo.dir, { recursive: true, force: true });

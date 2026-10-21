@@ -220,10 +220,16 @@ function parseDispatchLog(text) {
   return out;
 }
 
+// 一天四跳：早间抓 07:50 → 早报 08:10；收盘前抓 14:30 → 下午报 14:45（北京时间）。
+// slot 与 dispatch.js 的 resolveSlot / KV 闸键一一对应：refresh 用 payload.slot、
+// broadcast 用 payload.edition，两者都归一到 morning/close。
 const SLOTS = [
-  { job: 'refresh', wf: 'refresh.yml', hhmm: '07:50' },
-  { job: 'broadcast', wf: 'broadcast.yml', hhmm: '08:10' },
+  { job: 'refresh', wf: 'refresh.yml', hhmm: '07:50', slot: 'morning' },
+  { job: 'broadcast', wf: 'broadcast.yml', hhmm: '08:10', slot: 'morning' },
+  { job: 'refresh', wf: 'refresh.yml', hhmm: '14:30', slot: 'close' },
+  { job: 'broadcast', wf: 'broadcast.yml', hhmm: '14:45', slot: 'close' },
 ];
+const SLOT_LABEL = { morning: '晨', close: '午' };
 
 // EdgeOne 调度层状态（GET /api/jobs/status，只读、无鉴权）。拿不到不猜：
 // 返回 { ok:false, error }，由 collectDispatch 决定回退到本地日志。
@@ -252,26 +258,28 @@ function collectLocalDispatch() {
 }
 
 function slotStateFromEO(eo, slot) {
-  const j = (eo.jobs && eo.jobs[slot.job]) || null;
+  const j = (eo.jobs && eo.jobs[slot.job] && eo.jobs[slot.job][slot.slot]) || null;
   const expectedMin = Number(slot.hhmm.slice(0, 2)) * 60 + Number(slot.hhmm.slice(3));
   const pastDue = cstParts().minutes >= expectedMin;
-  // 今天该任务的事件：成功（204）算触发；502 级失败（GitHub 错/网络错）算失败；
+  // 今天该任务该时点的事件：成功（204）算触发；502 级失败（GitHub 错/网络错）算失败；
   // 401/409 是扫描噪音和每日闸，只进事件流，不改变槽位结论。
+  // 必须同时匹配 job 与 slot——否则 14:30 的 refresh 事件会把 07:50 的槽位也点亮。
   const todayEvt = (eo.events || []).find((e) => {
-    if (!e || e.job !== slot.job) return false;
+    if (!e || e.job !== slot.job || e.slot !== slot.slot) return false;
     const d = new Date(e.at).getTime();
     if (!Number.isFinite(d)) return false;
     return cstParts(d).date === eo.cstToday;
   });
   const hardFail = todayEvt && todayEvt.ok === false && todayEvt.error !== 'unauthorized' && todayEvt.error !== 'already_triggered_today';
   if (hardFail) {
-    return { job: slot.job, wf: slot.wf, hhmm: slot.hhmm, state: 'fail', at: cstParts(new Date(todayEvt.at).getTime()).time, code: todayEvt.status, via: todayEvt.via, note: todayEvt.error };
+    return { job: slot.job, wf: slot.wf, hhmm: slot.hhmm, slot: slot.slot, state: 'fail', at: cstParts(new Date(todayEvt.at).getTime()).time, code: todayEvt.status, via: todayEvt.via, note: todayEvt.error };
   }
   if (j && j.dispatchedToday) {
     return {
       job: slot.job,
       wf: slot.wf,
       hhmm: slot.hhmm,
+      slot: slot.slot,
       state: 'ok',
       at: j.at ? cstParts(new Date(j.at).getTime()).time : null,
       code: 204,
@@ -279,15 +287,16 @@ function slotStateFromEO(eo, slot) {
       note: null,
     };
   }
-  if (pastDue) return { job: slot.job, wf: slot.wf, hhmm: slot.hhmm, state: 'missing', at: null, code: null, via: null, note: null };
-  return { job: slot.job, wf: slot.wf, hhmm: slot.hhmm, state: 'pending', at: null, code: null, via: null, note: null };
+  if (pastDue) return { job: slot.job, wf: slot.wf, hhmm: slot.hhmm, slot: slot.slot, state: 'missing', at: null, code: null, via: null, note: null };
+  return { job: slot.job, wf: slot.wf, hhmm: slot.hhmm, slot: slot.slot, state: 'pending', at: null, code: null, via: null, note: null };
 }
 
 function slotStateFromLog(entry, slot) {
-  const expectedMin = Number(slot.hhmm.slice(0, 2)) * 60 + Number(slot.hhmm.slice(3));
-  if (entry) return { job: slot.job, wf: slot.wf, hhmm: slot.hhmm, state: entry.code === 204 ? 'ok' : 'fail', at: entry.cstTime, code: entry.code, via: 'cron', note: null };
-  if (cstParts().minutes >= expectedMin) return { job: slot.job, wf: slot.wf, hhmm: slot.hhmm, state: 'missing', at: null, code: null, via: null, note: null };
-  return { job: slot.job, wf: slot.wf, hhmm: slot.hhmm, state: 'pending', at: null, code: null, via: null, note: null };
+  // 本地日志没有 slot 字段（crontab 时代只记 wf 名），且退役后已停更：
+  // 无条目的槽位记 unknown 而非 missing——「没有记录」不等于「没有触发」，
+  // 降级视图不能假装给出坏消息；真要判 missing 是 EO 正版视图的职责。
+  if (entry) return { job: slot.job, wf: slot.wf, hhmm: slot.hhmm, slot: slot.slot, state: entry.code === 204 ? 'ok' : 'fail', at: entry.cstTime, code: entry.code, via: 'cron', note: null };
+  return { job: slot.job, wf: slot.wf, hhmm: slot.hhmm, slot: slot.slot, state: 'unknown', at: null, code: null, via: null, note: null };
 }
 
 // 调度卡片数据。EO 端点可达 → source='edgeone'（crontab 退役后的正版视图）；
@@ -303,6 +312,7 @@ function collectDispatch(eo) {
       cstDate: Number.isFinite(new Date(e.at).getTime()) ? cstParts(new Date(e.at).getTime()).date : null,
       cstTime: Number.isFinite(new Date(e.at).getTime()) ? cstParts(new Date(e.at).getTime()).time : null,
       wf: e.job === 'broadcast' ? 'broadcast.yml' : 'refresh.yml',
+      slot: e.slot || null,
       code: e.status,
       via: e.via,
       ok: e.ok,
@@ -314,15 +324,29 @@ function collectDispatch(eo) {
   if (entries) {
     const today = cstToday();
     const todayEntries = entries.filter((e) => e.cstDate === today);
-    const slots = SLOTS.map((s) => slotStateFromLog(todayEntries.find((e) => e.wf === s.wf), s));
+    // 本地日志没有 slot 字段（crontab 时代只记 wf 名）：同 job 的多条按时间升序，
+    // 依次分配给晨/午槽位。退役前若真一天跑过两次，这个语义成立；退役后日志停更，
+    // 降级视图本来就会停在旧记录，靠 note 告知，不装作是今天的成绩。
+    const byJob = {};
+    for (const e of todayEntries) {
+      (byJob[e.wf] = byJob[e.wf] || []).push(e);
+    }
+    for (const k of Object.keys(byJob)) byJob[k].sort((a, b) => (a.atUtc < b.atUtc ? -1 : a.atUtc > b.atUtc ? 1 : 0));
+    const seen = {};
+    const slots = SLOTS.map((s) => {
+      const i = seen[s.job] || 0;
+      seen[s.job] = i + 1;
+      return slotStateFromLog((byJob[s.wf] || [])[i] || null, s);
+    });
+    // 降级视图只把「日志证明的失败」升级为 fail；unknown 不参与汇总——
+    // 它只表示「本地没留记录」，而 computeOverall 里 source!=='edgeone' 的 warn 已兜底。
     let state = 'ok';
     if (slots.some((s) => s.state === 'fail')) state = 'fail';
-    else if (slots.some((s) => s.state === 'missing')) state = 'missing';
     return {
       source: 'local-log',
       state,
       slots,
-      recent: entries.slice(-6).reverse().map((e) => ({ cstDate: e.cstDate, cstTime: e.cstTime, wf: e.wf, code: e.code, via: 'cron', ok: e.code === 204, alert: null })),
+      recent: entries.slice(-6).reverse().map((e) => ({ cstDate: e.cstDate, cstTime: e.cstTime, wf: e.wf, slot: null, code: e.code, via: 'cron', ok: e.code === 204, alert: null })),
       alerts: { last: null },
       config: null,
       note: `EdgeOne 状态端点不可达（${eo ? eo.error : '未查询'}）；已回退本地脚本日志。crontab 已退役，该日志可能停在退役前，仅作降级视图。`,
@@ -331,7 +355,7 @@ function collectDispatch(eo) {
   return {
     source: 'none',
     state: 'unknown',
-    slots: SLOTS.map((s) => ({ job: s.job, wf: s.wf, hhmm: s.hhmm, state: 'unknown', at: null, code: null, via: null, note: null })),
+    slots: SLOTS.map((s) => ({ job: s.job, wf: s.wf, hhmm: s.hhmm, slot: s.slot, state: 'unknown', at: null, code: null, via: null, note: null })),
     recent: [],
     alerts: { last: null },
     config: null,
@@ -455,12 +479,18 @@ async function runDispatch(job, mode) {
     // 优先走 EdgeOne 端点（DISPATCH_VIA=local 可强制回退本地脚本）：
     // 服务器 PAT 过期不影响面板触发，且每次点击都是对 EO 调度路径的活体验证。
     if (CFG.eoCronSecret && CFG.dispatchVia !== 'local') {
+      // 手动触发也带时点：过午（CST 12:00）算 close，与调度同款判定。
+      // 鉴权调用不受每日闸限制，这里传 slot/edition 是为了语义正确——
+      // 下午手点 broadcast 发的应是下午报，不是早报重发。
+      const slot = cstParts().minutes >= 12 * 60 ? 'close' : 'morning';
       const r = await fetch(`${CFG.siteOrigin}/api/jobs/dispatch`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           job,
           mode: job === 'broadcast' ? (mode === 'dry-run' ? 'dry' : 'send') : undefined,
+          slot: job === 'refresh' ? slot : undefined,
+          edition: job === 'broadcast' ? slot : undefined,
           cron_secret: CFG.eoCronSecret,
         }),
         signal: AbortSignal.timeout(90000),
@@ -678,7 +708,7 @@ function evtLine(e) {
   // 换行必须用 fromCharCode(10)：整页嵌在服务端模板字符串里，任何反斜杠转义
   // （连注释里的也算）都会被外层吃掉，浏览器收到裸换行会报 SyntaxError。
   // 2026-10-21 实测踩过两次；smoke.mjs 的「内联脚本可编译」断言专防这个。
-  var left = (e.cstDate || '??') + ' ' + (e.cstTime || '--') + '  ' + String(e.wf || '').replace('.yml', '');
+  var left = (e.cstDate || '??') + ' ' + (e.cstTime || '--') + '  ' + String(e.wf || '').replace('.yml', '') + (e.slot ? '·' + (e.slot === 'close' ? '午' : '晨') : '');
   var right = e.code == null ? '网络异常' : 'HTTP ' + e.code;
   if (e.ok) {
     right += ' ok';
@@ -725,7 +755,7 @@ function render(s) {
   (d.slots || []).forEach(function (sl) {
     var right = sl.code != null ? ('HTTP ' + sl.code + (sl.at ? ' · ' + sl.at : '')) : (SLOT_TEXT[sl.state] || sl.state);
     if (sl.via) right += ' · ' + (VIA_TEXT[sl.via] || sl.via);
-    html += '<div class="row"><span class="k">' + dot(slotDot(sl.state)) + esc(sl.job + ' ' + sl.hhmm) + '</span><span class="v">' + esc(right) + '</span></div>';
+    html += '<div class="row"><span class="k">' + dot(slotDot(sl.state)) + esc(sl.job + ' ' + sl.hhmm + ' ' + (SLOT_LABEL[sl.slot] || '')) + '</span><span class="v">' + esc(right) + '</span></div>';
   });
   if (d.note) html += row('备注', esc(d.note));
   var la = d.alerts && d.alerts.last;

@@ -4,13 +4,14 @@
 // 为什么单独一个端点：crontab 退役后，「今天调度到底触没触发」只存在于 EdgeOne 侧
 // （KV 每日闸 + 事件流水），服务器本地再也没有日志可看。面板打这个端点补上视野。
 //
-// 无鉴权：只暴露「今天两跳各触发没有、最近 50 条事件、告警邮件发没发、关键环境变量
+// 无鉴权：只暴露「今天四跳各触发没有、最近 50 条事件、告警邮件发没发、关键环境变量
 // 配没配」，不含任何 secret 值。这与首页公开信息同级， Scanner 扫到也没有可操作的
 // 东西；要触发动作得去 POST /api/jobs/dispatch（那边有 nonce / CRON_SECRET / 每日闸）。
 //
 // 数据来源（全部 KV，与 dispatch.js 同一命名空间 SUBS_KV）：
-//   job_sent_<job>_<CST日期>   每日闸 key，存在即「该任务今天已由调度触发且 GitHub 受理」
-//   job_events                 事件流水数组（最新在前，≤50），dispatch.js 每次终态都写
+//   job_sent_<job>_<slot>_<CST日期>   每日闸 key（slot=morning|close，一天两抓两报），
+//                                     存在即「该任务该时点今天已由调度触发且 GitHub 受理」
+//   job_events                        事件流水数组（最新在前，≤50），dispatch.js 每次终态都写
 //
 // 注意：KV 最终一致性最长 60s，刚触发完立刻查可能查不到，属预期；面板 30s 轮询兜底。
 // 本文件保持自包含（不 import dispatch.js）：边缘函数按入口独立打包，跨文件相对导入
@@ -34,6 +35,7 @@ function getKV(env) {
 }
 
 const JOBS = ['refresh', 'broadcast'];
+const SLOTS = ['morning', 'close'];
 
 export async function onRequestGet({ env }) {
   const kv = getKV(env);
@@ -56,26 +58,29 @@ export async function onRequestGet({ env }) {
   const today = cstDate();
   const jobs = {};
   for (const job of JOBS) {
-    let guard = null;
-    try {
-      guard = await kv.get(`job_sent_${job}_${today}`);
-    } catch (e) {
-      return json({ ok: false, error: 'kv_read_failed', detail: String((e && e.message) || e).slice(0, 200) }, 500);
-    }
-    let parsed = null;
-    if (guard) {
+    jobs[job] = {};
+    for (const slot of SLOTS) {
+      let guard = null;
       try {
-        parsed = JSON.parse(guard);
-      } catch {
-        parsed = { at: String(guard) };
+        guard = await kv.get(`job_sent_${job}_${slot}_${today}`);
+      } catch (e) {
+        return json({ ok: false, error: 'kv_read_failed', detail: String((e && e.message) || e).slice(0, 200) }, 500);
       }
+      let parsed = null;
+      if (guard) {
+        try {
+          parsed = JSON.parse(guard);
+        } catch {
+          parsed = { at: String(guard) };
+        }
+      }
+      jobs[job][slot] = {
+        dispatchedToday: !!guard,
+        at: parsed && parsed.at ? parsed.at : null,
+        via: parsed && parsed.via ? parsed.via : null,
+        mode: parsed && parsed.mode ? parsed.mode : null,
+      };
     }
-    jobs[job] = {
-      dispatchedToday: !!guard,
-      at: parsed && parsed.at ? parsed.at : null,
-      via: parsed && parsed.via ? parsed.via : null,
-      mode: parsed && parsed.mode ? parsed.mode : null,
-    };
   }
 
   // 告警摘要：最近一条真发过告警的事件（alert 字段非空）。面板据此显示「告警渠道是否
