@@ -30,7 +30,8 @@ jobs:
     # secrets 不能直接进 if，也不能靠「步骤级 env 在其自身 if 里判断」（会静默跳过）。
     # 官方推荐：job 级算成布尔标记，步骤 if 判断它。
     env:
-      HAS_NOTIFY: ${{ secrets.NOTIFY_WEBHOOK != '' }}
+      # 有 NOTIFY_WEBHOOK（飞书/Server酱，留作兼容）或 ALERT_EMAIL（Brevo 邮件，默认）就跑通知
+      HAS_NOTIFY: ${{ secrets.NOTIFY_WEBHOOK != '' || secrets.ALERT_EMAIL != '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -67,11 +68,17 @@ jobs:
             git push origin "HEAD:${{ github.ref_name }}"
           fi
 
-      # 管理员自通知（可选，单收件人）：飞书/微信，只发给站长自己巡检用。
+      # 管理员自通知（可选，单收件人）：默认走 Brevo 事务邮件发到站长邮箱
+      # （Server酱/飞书未开通；与 /api/subscribe 复用 BREVO_API_KEY / MAIL_FROM）。
       # 放在这里而不是发信 job 里：数据抓完就能立刻知道变化，且不受发信失败影响。
+      # 注意：这一步只覆盖「抓取成功后的变化摘要」；dispatch 这一跳的失败告警在
+      # EdgeOne 边缘函数里（edge-functions/api/jobs/dispatch.js），两者互补。
       - name: Admin notify (optional)
         if: ${{ env.HAS_NOTIFY == 'true' }}
         env:
           NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK }}
           NOTIFY_CHANNEL: ${{ secrets.NOTIFY_CHANNEL }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
         run: node scripts/notify.mjs

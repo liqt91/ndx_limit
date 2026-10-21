@@ -1,0 +1,30 @@
+{
+  "cloudFunctions": {
+    "mainlandRegions": ["ap-guangzhou"]
+  },
+  "schedules": [
+    {
+      "name": "refresh-0750",
+      "cron": "50 7 * * *",
+      "timezone": "Asia/Shanghai",
+      "path": "/api/jobs/dispatch",
+      "method": "POST",
+      "payload": {
+        "job": "refresh",
+        "nonce": "1440685b9dca09d0c26840248fdfac205ed0b4f1ddbe1ac4"
+      }
+    },
+    {
+      "name": "broadcast-0810",
+      "cron": "10 8 * * *",
+      "timezone": "Asia/Shanghai",
+      "path": "/api/jobs/dispatch",
+      "method": "POST",
+      "payload": {
+        "job": "broadcast",
+        "mode": "send",
+        "nonce": "1440685b9dca09d0c26840248fdfac205ed0b4f1ddbe1ac4"
+      }
+    }
+  ]
+}
