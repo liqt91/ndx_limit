@@ -42,6 +42,12 @@ const CFG = {
     `https://raw.githubusercontent.com/${process.env.REPO || 'liqt91/ndx_limit'}/main`
   ).replace(/\/+$/, ''),
   siteOrigin: (process.env.SITE_ORIGIN || 'https://ndx.liqt91.top').replace(/\/+$/, ''),
+  // EdgeOne 调度层（2026-10-21 起主触发路径）：status 只读端点 + 手动触发走的
+  // CRON_SECRET。manual 优先走 EO 端点——服务器上的 PAT 过期不影响面板能触发，
+  // 每次点击还顺带验证 EO 这条路径是活的。
+  eoStatusUrl: (process.env.EO_STATUS_URL || `${process.env.SITE_ORIGIN || 'https://ndx.liqt91.top'}/api/jobs/status`).replace(/\/+$/, ''),
+  eoCronSecret: readSecret(process.env.EO_CRON_SECRET_FILE || '/root/.eo_cron_secret', 'EO_CRON_SECRET'),
+  dispatchVia: process.env.DISPATCH_VIA || 'auto',
   dispatchScript: process.env.DISPATCH_SCRIPT || '/usr/local/bin/gh-dispatch.sh',
   dispatchLog: process.env.DISPATCH_LOG || '/var/log/gh-dispatch.log',
   auditLog: process.env.AUDIT_LOG || '/var/log/ops-panel-audit.log',
@@ -219,29 +225,118 @@ const SLOTS = [
   { job: 'broadcast', wf: 'broadcast.yml', hhmm: '08:10' },
 ];
 
-function collectDispatch() {
+// EdgeOne 调度层状态（GET /api/jobs/status，只读、无鉴权）。拿不到不猜：
+// 返回 { ok:false, error }，由 collectDispatch 决定回退到本地日志。
+async function collectEO() {
+  try {
+    const j = await fetchJson(CFG.eoStatusUrl);
+    if (!j || j.ok !== true) return { ok: false, error: (j && j.error) || 'bad_response' };
+    return { ok: true, ...j };
+  } catch (e) {
+    return { ok: false, error: String(e.message || e) };
+  }
+}
+
+// 本地 dispatch 日志（crontab 退役前的历史；也是 EO 端点不可达时的降级视图）。
+// 退役后日志停更，所以只有 EO 不可达才会用它，且必须带 note 说明来源。
+function collectLocalDispatch() {
   let text;
   try {
     text = readFileSync(CFG.dispatchLog, 'utf8');
   } catch {
-    return { state: 'unknown', note: `日志不可读：${CFG.dispatchLog}`, slots: [], recent: [] };
+    return null;
   }
   const entries = parseDispatchLog(text);
-  const today = cstToday();
-  const todayEntries = entries.filter((e) => e.cstDate === today);
-  const slots = SLOTS.map((s) => {
-    const hit = todayEntries.find((e) => e.wf === s.wf);
-    const expectedMin = Number(s.hhmm.slice(0, 2)) * 60 + Number(s.hhmm.slice(3));
-    let state;
-    if (hit) state = hit.code === 204 ? 'ok' : 'fail';
-    else if (cstParts().minutes >= expectedMin) state = 'missing';
-    else state = 'pending';
-    return { job: s.job, wf: s.wf, hhmm: s.hhmm, state, at: hit ? hit.cstTime : null, code: hit ? hit.code : null };
+  if (entries.length === 0) return null;
+  return entries;
+}
+
+function slotStateFromEO(eo, slot) {
+  const j = (eo.jobs && eo.jobs[slot.job]) || null;
+  const expectedMin = Number(slot.hhmm.slice(0, 2)) * 60 + Number(slot.hhmm.slice(3));
+  const pastDue = cstParts().minutes >= expectedMin;
+  // 今天该任务的事件：成功（204）算触发；502 级失败（GitHub 错/网络错）算失败；
+  // 401/409 是扫描噪音和每日闸，只进事件流，不改变槽位结论。
+  const todayEvt = (eo.events || []).find((e) => {
+    if (!e || e.job !== slot.job) return false;
+    const d = new Date(e.at).getTime();
+    if (!Number.isFinite(d)) return false;
+    return cstParts(d).date === eo.cstToday;
   });
-  let state = 'ok';
-  if (slots.some((s) => s.state === 'fail')) state = 'fail';
-  else if (slots.some((s) => s.state === 'missing')) state = 'missing';
-  return { state, slots, recent: entries.slice(-6).reverse() };
+  const hardFail = todayEvt && todayEvt.ok === false && todayEvt.error !== 'unauthorized' && todayEvt.error !== 'already_triggered_today';
+  if (hardFail) {
+    return { job: slot.job, wf: slot.wf, hhmm: slot.hhmm, state: 'fail', at: cstParts(new Date(todayEvt.at).getTime()).time, code: todayEvt.status, via: todayEvt.via, note: todayEvt.error };
+  }
+  if (j && j.dispatchedToday) {
+    return {
+      job: slot.job,
+      wf: slot.wf,
+      hhmm: slot.hhmm,
+      state: 'ok',
+      at: j.at ? cstParts(new Date(j.at).getTime()).time : null,
+      code: 204,
+      via: j.via,
+      note: null,
+    };
+  }
+  if (pastDue) return { job: slot.job, wf: slot.wf, hhmm: slot.hhmm, state: 'missing', at: null, code: null, via: null, note: null };
+  return { job: slot.job, wf: slot.wf, hhmm: slot.hhmm, state: 'pending', at: null, code: null, via: null, note: null };
+}
+
+function slotStateFromLog(entry, slot) {
+  const expectedMin = Number(slot.hhmm.slice(0, 2)) * 60 + Number(slot.hhmm.slice(3));
+  if (entry) return { job: slot.job, wf: slot.wf, hhmm: slot.hhmm, state: entry.code === 204 ? 'ok' : 'fail', at: entry.cstTime, code: entry.code, via: 'cron', note: null };
+  if (cstParts().minutes >= expectedMin) return { job: slot.job, wf: slot.wf, hhmm: slot.hhmm, state: 'missing', at: null, code: null, via: null, note: null };
+  return { job: slot.job, wf: slot.wf, hhmm: slot.hhmm, state: 'pending', at: null, code: null, via: null, note: null };
+}
+
+// 调度卡片数据。EO 端点可达 → source='edgeone'（crontab 退役后的正版视图）；
+// 不可达 → 回退本地日志（source='local-log'，退役后可能停在旧记录，必须带 note）；
+// 两者皆无 → source='none'，槽位全 unknown，overall 至少 warn。
+function collectDispatch(eo) {
+  if (eo && eo.ok) {
+    const slots = SLOTS.map((s) => slotStateFromEO(eo, s));
+    let state = 'ok';
+    if (slots.some((s) => s.state === 'fail')) state = 'fail';
+    else if (slots.some((s) => s.state === 'missing')) state = 'missing';
+    const recent = (eo.events || []).slice(0, 6).map((e) => ({
+      cstDate: Number.isFinite(new Date(e.at).getTime()) ? cstParts(new Date(e.at).getTime()).date : null,
+      cstTime: Number.isFinite(new Date(e.at).getTime()) ? cstParts(new Date(e.at).getTime()).time : null,
+      wf: e.job === 'broadcast' ? 'broadcast.yml' : 'refresh.yml',
+      code: e.status,
+      via: e.via,
+      ok: e.ok,
+      alert: e.alert,
+    }));
+    return { source: 'edgeone', state, slots, recent, alerts: eo.alerts || { last: null }, config: eo.config || null, note: null };
+  }
+  const entries = collectLocalDispatch();
+  if (entries) {
+    const today = cstToday();
+    const todayEntries = entries.filter((e) => e.cstDate === today);
+    const slots = SLOTS.map((s) => slotStateFromLog(todayEntries.find((e) => e.wf === s.wf), s));
+    let state = 'ok';
+    if (slots.some((s) => s.state === 'fail')) state = 'fail';
+    else if (slots.some((s) => s.state === 'missing')) state = 'missing';
+    return {
+      source: 'local-log',
+      state,
+      slots,
+      recent: entries.slice(-6).reverse().map((e) => ({ cstDate: e.cstDate, cstTime: e.cstTime, wf: e.wf, code: e.code, via: 'cron', ok: e.code === 204, alert: null })),
+      alerts: { last: null },
+      config: null,
+      note: `EdgeOne 状态端点不可达（${eo ? eo.error : '未查询'}）；已回退本地脚本日志。crontab 已退役，该日志可能停在退役前，仅作降级视图。`,
+    };
+  }
+  return {
+    source: 'none',
+    state: 'unknown',
+    slots: SLOTS.map((s) => ({ job: s.job, wf: s.wf, hhmm: s.hhmm, state: 'unknown', at: null, code: null, via: null, note: null })),
+    recent: [],
+    alerts: { last: null },
+    config: null,
+    note: eo ? `EdgeOne 状态端点不可达（${eo.error}），本地也无 dispatch 日志。` : 'EdgeOne 状态端点未查询，本地无 dispatch 日志。',
+  };
 }
 
 function computeOverall(s) {
@@ -252,6 +347,10 @@ function computeOverall(s) {
       if (latest && latest.status === 'completed' && latest.conclusion !== 'success') return 'bad';
     }
   }
+  if (s.dispatch.source !== 'edgeone') return 'warn';
+  const lastAlert = s.dispatch.alerts && s.dispatch.alerts.last;
+  if (lastAlert && lastAlert.alert !== 'sent') return 'warn';
+  if (s.dispatch.config && s.dispatch.config.cronSecret === false) return 'warn';
   if (s.data && s.data.error === undefined && s.data.isToday === false) return 'warn';
   if (s.token && s.token.state === 'recorded' && s.token.daysLeft <= 30) return 'warn';
   if (s.subscribers && s.subscribers.error) return 'warn';
@@ -260,12 +359,12 @@ function computeOverall(s) {
 }
 
 async function collectStatus() {
-  const [runs, data, subscribers] = await Promise.all([collectRuns(), collectData(), collectSubs()]);
+  const [runs, data, subscribers, eo] = await Promise.all([collectRuns(), collectData(), collectSubs(), collectEO()]);
   const s = {
     now: new Date().toISOString(),
     cstToday: cstToday(),
     cstClock: cstParts().time,
-    dispatch: collectDispatch(),
+    dispatch: collectDispatch(eo),
     runs,
     data,
     subscribers,
@@ -353,6 +452,25 @@ async function runDispatch(job, mode) {
   dispatchBusy = true;
   const startedAt = new Date();
   try {
+    // 优先走 EdgeOne 端点（DISPATCH_VIA=local 可强制回退本地脚本）：
+    // 服务器 PAT 过期不影响面板触发，且每次点击都是对 EO 调度路径的活体验证。
+    if (CFG.eoCronSecret && CFG.dispatchVia !== 'local') {
+      const r = await fetch(`${CFG.siteOrigin}/api/jobs/dispatch`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          job,
+          mode: job === 'broadcast' ? (mode === 'dry-run' ? 'dry' : 'send') : undefined,
+          cron_secret: CFG.eoCronSecret,
+        }),
+        signal: AbortSignal.timeout(90000),
+      });
+      const j = await r.json().catch(() => null);
+      const ok = r.ok && !!j && j.ok === true;
+      const output = JSON.stringify(j);
+      audit({ at: startedAt.toISOString(), via: 'edgeone', job, mode, ok, exitCode: r.status, output: output.slice(0, 500) });
+      return { ok, job, mode, exitCode: r.status, output: output.slice(0, 1000), at: startedAt.toISOString(), via: 'edgeone' };
+    }
     const args = job === 'refresh' ? ['refresh'] : ['broadcast', mode === 'dry-run' ? 'dry' : 'send'];
     const res = await runScript(CFG.dispatchScript, args, 90000);
     const output = (res.stdout + res.stderr).trim();
@@ -373,6 +491,7 @@ async function runDispatch(job, mode) {
       exitCode: res.code,
       output: output.slice(0, 1000),
       at: startedAt.toISOString(),
+      via: 'script',
     };
   } finally {
     dispatchBusy = false;
@@ -446,6 +565,7 @@ server.listen(CFG.port, CFG.host, () => {
   console.log(`ndx_limit 运维面板：http://${CFG.host}:${CFG.port}（仅限本机/隧道访问，勿暴露公网）`);
   if (!CFG.ghToken) console.warn('提醒：未配置 GH_DISPATCH_TOKEN，workflow 运行状态将不可见');
   if (!CFG.subsToken) console.warn('提醒：未配置 SUBSCRIBERS_TOKEN，订阅数将不可见');
+  if (!CFG.eoCronSecret) console.warn('提醒：未配置 EO_CRON_SECRET，手动触发将回退本地 gh-dispatch.sh（依赖服务器 PAT）');
 });
 
 // ---------------------------------------------------------------- 页面（静态，数据全靠 /api/status）
@@ -498,7 +618,7 @@ a{color:var(--ink)}
   <span class="clock" id="clock"></span>
 </header>
 <div class="grid">
-  <section class="card"><h2>定时触发<span class="v" id="dispatch-state"></span></h2><div id="dispatch"></div><div class="log" id="dispatch-log"></div></section>
+  <section class="card"><h2>调度（EdgeOne）<span class="v" id="dispatch-state"></span></h2><div id="dispatch"></div><div class="log" id="dispatch-log"></div></section>
   <section class="card"><h2>workflow 最近运行</h2><div id="runs"></div></section>
   <section class="card"><h2>数据新鲜度</h2><div id="data"></div></section>
   <section class="card"><h2>订阅与凭据</h2><div id="misc"></div></section>
@@ -543,7 +663,35 @@ function link(u, t) { return u ? '<a href="' + esc(u) + '" target="_blank" rel="
 function dur(sec) { return sec == null ? '—' : (sec >= 60 ? Math.floor(sec / 60) + 'm' + (sec % 60) + 's' : sec + 's'); }
 
 var OVERALL_TEXT = { ok: '链路正常', warn: '需关注', bad: '异常' };
-var SLOT_TEXT = { ok: 'ok', fail: '失败', missing: '缺失', pending: '未到点' };
+var SLOT_TEXT = { ok: 'ok', fail: '失败', missing: '缺失', pending: '未到点', unknown: '未知' };
+var SOURCE_TEXT = { edgeone: 'EdgeOne 调度', 'local-log': '本地日志（降级）', none: '无数据源' };
+var VIA_TEXT = { nonce: '调度触发', cron_secret: '鉴权手动', cron: 'cron 时代', anonymous: '未鉴权' };
+
+function slotDot(state) {
+  if (state === 'ok') return 'ok';
+  if (state === 'pending') return 'pending';
+  if (state === 'unknown') return 'unknown';
+  return 'bad';
+}
+
+function evtLine(e) {
+  // 换行必须用 fromCharCode(10)：整页嵌在服务端模板字符串里，任何反斜杠转义
+  // （连注释里的也算）都会被外层吃掉，浏览器收到裸换行会报 SyntaxError。
+  // 2026-10-21 实测踩过两次；smoke.mjs 的「内联脚本可编译」断言专防这个。
+  var left = (e.cstDate || '??') + ' ' + (e.cstTime || '--') + '  ' + String(e.wf || '').replace('.yml', '');
+  var right = e.code == null ? '网络异常' : 'HTTP ' + e.code;
+  if (e.ok) {
+    right += ' ok';
+  } else if (e.alert === 'sent') {
+    right += ' 失败·告警已发';
+  } else if (e.alert) {
+    right += ' 失败·告警异常(' + e.alert + ')';
+  } else {
+    right += ' 拒绝';
+  }
+  if (e.via === 'anonymous') right += '（未鉴权调用）';
+  return left + '  ' + right;
+}
 
 function renderRuns(runs) {
   if (!runs || runs.error) {
@@ -572,20 +720,24 @@ function render(s) {
   $('clock').textContent = '北京 ' + s.cstClock + ' · ' + s.cstToday + ' · 页面 ' + fmtCst(s.now);
 
   var d = s.dispatch;
-  $('dispatch-state').textContent = d.state === 'ok' ? '今日两跳都通' : (d.state === 'unknown' ? '日志不可读' : '需处理');
+  $('dispatch-state').textContent = SOURCE_TEXT[d.source] || d.source;
   var html = '';
   (d.slots || []).forEach(function (sl) {
-    var right = sl.code != null ? ('HTTP ' + sl.code + ' · ' + sl.at) : SLOT_TEXT[sl.state];
-    html += '<div class="row"><span class="k">' + dot(sl.state === 'ok' ? 'ok' : sl.state) + esc(sl.job + ' ' + sl.hhmm) + '</span><span class="v">' + esc(right) + '</span></div>';
+    var right = sl.code != null ? ('HTTP ' + sl.code + (sl.at ? ' · ' + sl.at : '')) : (SLOT_TEXT[sl.state] || sl.state);
+    if (sl.via) right += ' · ' + (VIA_TEXT[sl.via] || sl.via);
+    html += '<div class="row"><span class="k">' + dot(slotDot(sl.state)) + esc(sl.job + ' ' + sl.hhmm) + '</span><span class="v">' + esc(right) + '</span></div>';
   });
   if (d.note) html += row('备注', esc(d.note));
+  var la = d.alerts && d.alerts.last;
+  html += row(
+    '最近告警',
+    la ? esc(fmtCst(la.at)) + ' · ' + esc(la.job) + ' · ' + esc(la.alert === 'sent' ? '已发送' : la.alert || '—') : '最近无告警'
+  );
+  html += d.config
+    ? row('调度鉴权', d.config.cronSecret ? 'CRON_SECRET 已配置' : '未配置（当天无法重跑）')
+    : row('调度鉴权', '不可见');
   $('dispatch').innerHTML = html;
-  $('dispatch-log').textContent = (d.recent || []).map(function (e) {
-    return e.cstDate + ' ' + e.cstTime + '  ' + e.wf + ' -> HTTP ' + e.code;
-    // 换行必须用 fromCharCode(10)：整页嵌在服务端模板字符串里，任何反斜杠转义
-    // （连注释里的也算）都会被外层吃掉，浏览器收到裸换行会报 SyntaxError。
-    // 2026-10-21 实测踩过两次；smoke.mjs 的「内联脚本可编译」断言专防这个。
-  }).join(String.fromCharCode(10));
+  $('dispatch-log').textContent = (d.recent || []).map(evtLine).join(String.fromCharCode(10));
 
   $('runs').innerHTML = renderRuns(s.runs);
 

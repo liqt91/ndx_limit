@@ -39,6 +39,11 @@ const JOBS = {
 
 const MAX_BODY = 4096;
 const MODE_ALIAS = { send: 'send', dry: 'dry-run', 'dry-run': 'dry-run' };
+// 调度事件流水：KV 单 key 存数组，最新在前，最多 50 条。给 /api/jobs/status（运维
+// 面板聚合用）当数据源。读-改-写在最终一致性窗口内有丢更新风险，但本函数一天就
+// 两三次调用，可接受；写失败绝不影响 dispatch 本身的结果。
+const EVENTS_KEY = 'job_events';
+const MAX_EVENTS = 50;
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -65,6 +70,29 @@ function secretEqual(a, b) {
 // 绑定命名空间后 KV 是全局变量（与 subscribe.js 同款两种取法）。
 function getKV(env) {
   return globalThis.SUBS_KV ?? (env && env.SUBS_KV);
+}
+
+// 事件落流水（best-effort）：面板的「调度」卡片完全靠它，写不进去也只是监控降级，
+// 不能把一次成功的 dispatch 报成失败。
+async function recordEvent(kv, evt) {
+  if (!kv) return;
+  try {
+    let arr = [];
+    const raw = await kv.get(EVENTS_KEY);
+    if (raw) {
+      try {
+        arr = JSON.parse(raw);
+      } catch {
+        arr = [];
+      }
+      if (!Array.isArray(arr)) arr = [];
+    }
+    arr.unshift(evt);
+    if (arr.length > MAX_EVENTS) arr = arr.slice(0, MAX_EVENTS);
+    await kv.put(EVENTS_KEY, JSON.stringify(arr));
+  } catch (e) {
+    console.error('[dispatch] 事件流水写入失败（不影响本次结果）：', e.message || e);
+  }
 }
 
 // "纳指开门日报 <digest@liqt91.top>" 或裸地址，两种写法都接（与 subscribe.js 一致）。
@@ -184,6 +212,16 @@ export async function onRequestPost({ request, env }) {
 
   if (!authed && (!env.DISPATCH_NONCE || !secretEqual(data.nonce, env.DISPATCH_NONCE))) {
     console.error('[dispatch] 鉴权失败：nonce 不匹配且未提供有效 CRON_SECRET', JSON.stringify({ job }));
+    await recordEvent(getKV(env), {
+      at: new Date().toISOString(),
+      job,
+      mode: job === 'broadcast' ? mode : null,
+      via: 'anonymous',
+      status: 401,
+      ok: false,
+      error: 'unauthorized',
+      alert: null,
+    });
     return json({ ok: false, error: 'unauthorized' }, 401);
   }
 
@@ -197,6 +235,16 @@ export async function onRequestPost({ request, env }) {
     }
     const sent = await kv.get(guardKey);
     if (sent) {
+      await recordEvent(kv, {
+        at: new Date().toISOString(),
+        job,
+        mode: job === 'broadcast' ? mode : null,
+        via: 'nonce',
+        status: 409,
+        ok: false,
+        error: 'already_triggered_today',
+        alert: null,
+      });
       return json(
         {
           ok: false,
@@ -224,6 +272,16 @@ export async function onRequestPost({ request, env }) {
       detail,
       hint,
     });
+    await recordEvent(getKV(env), {
+      at: new Date().toISOString(),
+      job,
+      mode: job === 'broadcast' ? mode : null,
+      via: authed ? 'cron_secret' : 'nonce',
+      status: null,
+      ok: false,
+      error: 'network_error',
+      alert,
+    });
     return json({ ok: false, error: 'dispatch_failed', detail, hint, alert }, 502);
   }
 
@@ -236,6 +294,16 @@ export async function onRequestPost({ request, env }) {
       status: out.res.status,
       detail,
       hint: hintFor(out.res.status),
+    });
+    await recordEvent(getKV(env), {
+      at: new Date().toISOString(),
+      job,
+      mode: job === 'broadcast' ? mode : null,
+      via: authed ? 'cron_secret' : 'nonce',
+      status: out.res.status,
+      ok: false,
+      error: 'github_error',
+      alert,
     });
     return json({ ok: false, error: 'github_error', status: out.res.status, detail, hint: hintFor(out.res.status), alert }, 502);
   }
@@ -250,6 +318,16 @@ export async function onRequestPost({ request, env }) {
     }
   }
   console.log(`[dispatch] ${job} → ${JOBS[job].workflow} HTTP 204（${authed ? 'CRON_SECRET 鉴权' : 'nonce，已记每日闸'}）`);
+  await recordEvent(getKV(env), {
+    at: new Date().toISOString(),
+    job,
+    mode: job === 'broadcast' ? mode : null,
+    via: authed ? 'cron_secret' : 'nonce',
+    status: 204,
+    ok: true,
+    error: null,
+    alert: null,
+  });
   return json({ ok: true, job, workflow: JOBS[job].workflow, mode: job === 'broadcast' ? mode : undefined, status: 204 });
 }
 

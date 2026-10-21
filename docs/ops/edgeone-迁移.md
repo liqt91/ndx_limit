@@ -92,13 +92,19 @@ Sandbox 100K GB-s（跑不可信代码）；Models 500K tokens/月。
 `/api/jobs/dispatch`（Edge Function）→ GitHub `workflow_dispatch`。workflow 逻辑零改动，
 轻量云 crontab 退役，整条数据链路不再依赖自有服务器。
 
+**可观测（2026-10-21 补）**：dispatch 每次终态（204 / GitHub 错 / 网络错 / 401 / 409）都写
+KV 事件流水 `job_events`（≤50 条，最新在前），GET `/api/jobs/status` 只读暴露「今日两跳
+触发没有 + 事件流 + 告警发没发 + 关键环境变量配没配（布尔）」。轻量云运维面板聚合这个
+端点，crontab 退役后服务器本地无日志可看的缺口由此补上（详见《管理面板.md》）。
+
 文件：
 
 | 文件 | 职责 |
 |---|---|
 | `edgeone.json` | 两条 schedule + Cloud Functions region（ap-guangzhou，为 L2 预备） |
-| `edge-functions/api/jobs/dispatch.js` | 代发 + 两层鉴权 + 每日一次闸 + 失败告警邮件 |
-| `scripts/jobs-dispatch-smoke.mjs` | 冒烟测试 65 断言（`npm run jobs:smoke`），零外网 |
+| `edge-functions/api/jobs/dispatch.js` | 代发 + 两层鉴权 + 每日一次闸 + 失败告警邮件 + 事件流水 |
+| `edge-functions/api/jobs/status.js` | 只读状态端点（无鉴权，无 secret），面板数据源 |
+| `scripts/jobs-dispatch-smoke.mjs` | 冒烟测试 86 断言（`npm run jobs:smoke`），零外网 |
 | `scripts/notify.mjs` | 新增 `email` 渠道（Brevo API），默认渠道；飞书/Server酱留作兼容 |
 
 **安全模型**（为什么这么设计）：
@@ -122,9 +128,11 @@ Sandbox 100K GB-s（跑不可信代码）；Models 500K tokens/月。
    - `ALERT_EMAIL`：站长邮箱（告警收件人）
    - `BREVO_API_KEY` / `MAIL_FROM`：已存在（订阅链路在用），确认即可
 2. `git push` → EdgeOne 自动重建，`edge-functions/` 与 `edgeone.json` 一起部署。
-3. 验证路由可达（嵌套路径映射需实测）：
+3. 验证路由可达（嵌套路径映射需实测，两个嵌套路由都要验）：
    `curl -i -X POST https://ndx.liqt91.top/api/jobs/dispatch -d '{}'` → 期望 400（证明路由通、
-   函数在；401/404 都说明映射有问题，看日志分析）。
+   函数在；401/404 都说明映射有问题，看日志分析）；
+   `curl -s https://ndx.liqt91.top/api/jobs/status` → 期望 200 JSON（含 `cstToday`、`jobs`、
+   `events`；KV 没绑定时是 500 `kv_not_configured`，那也是「函数在」的证据）。
 4. 观察首个 07:50 schedule 触发：日志分析里应有 `[dispatch] refresh → refresh.yml HTTP 204`；
    KV 里出现 `job_sent_refresh_<日期>`。
 5. **删除服务器 crontab 两行**（保留 `gh-dispatch.sh`：运维面板与手动兜底还在用）。
@@ -134,18 +142,19 @@ Sandbox 100K GB-s（跑不可信代码）；Models 500K tokens/月。
 **回滚**（一分钟）：把 crontab 两行加回去即可，workflow 侧无需任何改动； EdgeOne 侧的
 schedule 从 `edgeone.json` 删掉再 push 一次。
 
-**已验证**：`npm run jobs:smoke` 65 断言零外网全绿；负向验证 4 个方向（拆每日闸、拆鉴权、
-成功不落闸、出错不发告警）全部精准红在该红的位置，还原后逐字节一致。
+**已验证**：`npm run jobs:smoke` 86 断言零外网全绿；负向验证 6 个方向（拆每日闸、拆鉴权、
+成功不落闸、出错不发告警、停掉事件流水、拆 status 的 KV fail-closed）全部精准红在该红的
+位置，还原后逐字节一致。
 
 **待验证（部署后才能闭环）**：
 
 1. git push 后 `schedules` 是否自动注册；若没有，用 `npx edgeone makers deploy` 补一次，
    或看控制台是否支持可视化配置（可视化配置还能把 payload 整体移出公开仓库）；
-2. `edge-functions/api/jobs/dispatch.js` 嵌套路径是否映射为 `/api/jobs/dispatch`
-   （上面第 3 步的 curl 就是判据）；
+2. `edge-functions/api/jobs/` 下两个嵌套路径是否分别映射为 `/api/jobs/dispatch` 与
+   `/api/jobs/status`（上面第 3 步的两条 curl 就是判据）；
 3. ap-guangzhou 出口到 `api.github.com` / `api.brevo.com` 的可达性——首次触发即验证，
    不通时告警邮件里会带「查出口」的提示；
-4. KV 60s 一致性对每日闸的影响（已知可接受，记录在案）。
+4. KV 60s 一致性对每日闸与事件流水的影响（已知可接受，记录在案）。
 
 ## L2：抓取与发信进 Cloud Functions（待 L1 稳定后）
 

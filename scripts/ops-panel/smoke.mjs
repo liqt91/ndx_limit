@@ -114,12 +114,29 @@ async function startStack(opts = {}) {
     }
     j(res, { error: 'stub 404' }, 404);
   });
-  // 桩：站点（订阅数）
+  // 桩：站点（订阅数 + EdgeOne 调度层两个端点）
   let subsAuthSeen = '';
+  let eoDispatchSeen = null;
   const site = await startStub((req, res) => {
-    if (req.url.endsWith('/api/subscribers')) {
+    const u = new URL(req.url, 'http://x');
+    if (u.pathname === '/api/subscribers') {
       subsAuthSeen = req.headers.authorization || '';
       return j(res, { ok: true, count: 7, emails: [] });
+    }
+    if (u.pathname === '/api/jobs/status') {
+      if (opts.eoDown) return j(res, { ok: false, error: 'kv_not_configured' }, 500);
+      return j(res, eoPayload(opts.eoStatus || {}));
+    }
+    if (u.pathname === '/api/jobs/dispatch' && req.method === 'POST') {
+      let body = '';
+      req.on('data', (c) => {
+        body += c;
+      });
+      req.on('end', () => {
+        eoDispatchSeen = { body: JSON.parse(body || '{}'), auth: req.headers.authorization || '' };
+        j(res, { ok: true, job: 'refresh', workflow: 'refresh.yml', status: 204 });
+      });
+      return;
     }
     j(res, { error: 'stub 404' }, 404);
   });
@@ -140,6 +157,8 @@ async function startStack(opts = {}) {
       GH_DISPATCH_TOKEN: 'smoke-token',
       SUBSCRIBERS_TOKEN: 'smoke-subs',
       MOCK_ARGS_FILE: argsFile,
+      // 手动触发走 EO 端点的开关：配了就走 https 站点端点（桩），没配走本地脚本
+      ...(opts.eoCron ? { EO_CRON_SECRET: 'smoke-eo-secret' } : {}),
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -151,7 +170,33 @@ async function startStack(opts = {}) {
 
   const baseUrl = `http://127.0.0.1:${port}`;
   await waitReady(baseUrl);
-  return { dir, baseUrl, panel, panelExit, panelErr: () => panelErr, authSeen: () => ({ gh: ghAuthSeen, subs: subsAuthSeen }), srvs: [gh, raw, site], argsFile, dispatchLog, auditLog: join(dir, 'audit.log'), mockFail };
+  return { dir, baseUrl, panel, panelExit, panelErr: () => panelErr, authSeen: () => ({ gh: ghAuthSeen, subs: subsAuthSeen }), srvs: [gh, raw, site], argsFile, dispatchLog, auditLog: join(dir, 'audit.log'), mockFail, eoDispatchSeen: () => eoDispatchSeen };
+}
+
+// EdgeOne /api/jobs/status 的桩载荷：今天两跳都成功、一条未鉴权 401、昨天一次
+// github_error 且告警已发（alerts.last 指向它）。over 供各栈按需覆盖。
+function eoPayload(over = {}) {
+  const at1 = new Date(Date.now() - 30 * 60000).toISOString();
+  const at2 = new Date(Date.now() - 90 * 60000).toISOString();
+  const atOld = new Date(Date.now() - 26 * 3600e3).toISOString();
+  const atFail = new Date(Date.now() - 25 * 3600e3).toISOString();
+  return {
+    ok: true,
+    cstToday: cstToday(),
+    jobs: {
+      refresh: { dispatchedToday: true, at: at1, via: 'nonce', mode: null },
+      broadcast: { dispatchedToday: true, at: at2, via: 'nonce', mode: 'send' },
+    },
+    events: [
+      { at: at2, job: 'broadcast', mode: 'send', via: 'nonce', status: 204, ok: true, error: null, alert: null },
+      { at: at1, job: 'refresh', mode: null, via: 'nonce', status: 204, ok: true, error: null, alert: null },
+      { at: atOld, job: 'refresh', mode: null, via: 'anonymous', status: 401, ok: false, error: 'unauthorized', alert: null },
+      { at: atFail, job: 'refresh', mode: null, via: 'nonce', status: 502, ok: false, error: 'github_error', alert: 'sent' },
+    ],
+    alerts: { last: { at: atFail, job: 'refresh', status: 502, alert: 'sent' } },
+    config: { ghToken: true, cronSecret: true, alertEmail: true },
+    ...over,
+  };
 }
 
 function runs() {
@@ -254,8 +299,14 @@ async function main() {
     check('GET /api/status 返回 200', st.status === 200, st.status);
     const s = st.body;
     check('overall === ok', s.overall === 'ok', s.overall);
+    check('dispatch.source === edgeone（EO 优先）', s.dispatch && s.dispatch.source === 'edgeone', s.dispatch && s.dispatch.source);
     check('dispatch.state === ok', s.dispatch && s.dispatch.state === 'ok', JSON.stringify(s.dispatch && s.dispatch.state));
     check('两个槽位都是 ok/204', Array.isArray(s.dispatch.slots) && s.dispatch.slots.length === 2 && s.dispatch.slots.every((x) => x.state === 'ok' && x.code === 204), JSON.stringify(s.dispatch.slots));
+    check('槽位标注触发方式 via=nonce', s.dispatch.slots.every((x) => x.via === 'nonce'), JSON.stringify(s.dispatch.slots.map((x) => x.via)));
+    check('事件流水进入面板（含今日与昨日）', Array.isArray(s.dispatch.recent) && s.dispatch.recent.length >= 3 && s.dispatch.recent.some((e) => e.cstDate === cstToday() && e.ok === true), JSON.stringify(s.dispatch.recent));
+    check('未鉴权调用也在事件流里可见', s.dispatch.recent.some((e) => e.via === 'anonymous' && e.code === 401), JSON.stringify(s.dispatch.recent));
+    check('最近告警=已发送', s.dispatch.alerts && s.dispatch.alerts.last && s.dispatch.alerts.last.alert === 'sent', JSON.stringify(s.dispatch.alerts));
+    check('调度鉴权已配置可见', s.dispatch.config && s.dispatch.config.cronSecret === true, JSON.stringify(s.dispatch.config));
     check('refresh runs 最新 success', Array.isArray(s.runs.refresh) && s.runs.refresh[0].conclusion === 'success');
     check('broadcast runs 最新 success', Array.isArray(s.runs.broadcast) && s.runs.broadcast[0].conclusion === 'success');
     check('run 时长 900s', s.runs.refresh[0].durationSec === 900, s.runs.refresh[0].durationSec);
@@ -299,15 +350,33 @@ async function main() {
     await stopStack(ok);
   }
 
-  // ---- 栈 2：dispatch 出现 500 → overall=bad ----
-  const bad = await startStack({ failRefresh: true });
-  try {
-    const s = (await getJson(bad.baseUrl + '/api/status')).body;
-    check('dispatch 500 → overall=bad', s.overall === 'bad', s.overall);
-    check('dispatch 500 → state=fail', s.dispatch.state === 'fail', s.dispatch.state);
-    check('失败槽位标 fail', s.dispatch.slots[0].state === 'fail' && s.dispatch.slots[0].code === 500, JSON.stringify(s.dispatch.slots[0]));
-  } finally {
-    await stopStack(bad);
+  // ---- 栈 2：EO 报告今日 refresh 硬失败（GitHub 502）→ overall=bad ----
+  {
+    const failAt = new Date(Date.now() - 45 * 60000).toISOString();
+    const bad = await startStack({
+      eoStatus: eoPayload({
+        jobs: {
+          refresh: { dispatchedToday: false, at: null, via: null, mode: null },
+          broadcast: { dispatchedToday: true, at: new Date(Date.now() - 90 * 60000).toISOString(), via: 'nonce', mode: 'send' },
+        },
+        events: [
+          { at: failAt, job: 'refresh', mode: null, via: 'nonce', status: 502, ok: false, error: 'github_error', alert: 'sent' },
+          { at: new Date(Date.now() - 90 * 60000).toISOString(), job: 'broadcast', mode: 'send', via: 'nonce', status: 204, ok: true, error: null, alert: null },
+        ],
+        alerts: { last: { at: failAt, job: 'refresh', status: 502, alert: 'sent' } },
+      }),
+    });
+    try {
+      const s = (await getJson(bad.baseUrl + '/api/status')).body;
+      check('EO 报今日 refresh 失败 → overall=bad', s.overall === 'bad', s.overall);
+      check('dispatch.state === fail', s.dispatch.state === 'fail', s.dispatch.state);
+      check('失败槽位带 502 与时间', s.dispatch.slots[0].state === 'fail' && s.dispatch.slots[0].code === 502 && !!s.dispatch.slots[0].at, JSON.stringify(s.dispatch.slots[0]));
+      const la2 = s.dispatch.alerts && s.dispatch.alerts.last;
+      check('告警摘要指向这次失败', !!la2 && la2.status === 502 && la2.alert === 'sent', JSON.stringify(s.dispatch.alerts));
+    } finally {
+      await stopStack(bad);
+      rmSync(bad.dir, { recursive: true, force: true });
+    }
   }
 
   // ---- 栈 3：数据非今日 → overall=warn ----
@@ -318,6 +387,62 @@ async function main() {
     check('数据非今日 → isToday=false', s.data.isToday === false && s.data.date === cstShiftDays(-1), JSON.stringify(s.data));
   } finally {
     await stopStack(stale);
+  }
+
+  // ---- 栈 4：EO 端点不可达 → 回退本地日志，source=local-log，overall=warn ----
+  {
+    const down = await startStack({ eoDown: true });
+    try {
+      const s = (await getJson(down.baseUrl + '/api/status')).body;
+      check('EO 不可达 → source=local-log', s.dispatch.source === 'local-log', s.dispatch.source);
+      check('降级时 note 说明来源', String(s.dispatch.note || '').includes('EdgeOne 状态端点不可达'), s.dispatch.note);
+      check('本地日志槽位仍可读（今天 204）', s.dispatch.slots.every((x) => x.state === 'ok'), JSON.stringify(s.dispatch.slots));
+      check('EO 不可达 → overall=warn', s.overall === 'warn', s.overall);
+    } finally {
+      await stopStack(down);
+      rmSync(down.dir, { recursive: true, force: true });
+    }
+  }
+
+  // ---- 栈 5：告警渠道异常（alert=failed）→ warn ----
+  {
+    const af = await startStack({ eoStatus: eoPayload({ alerts: { last: { at: new Date().toISOString(), job: 'refresh', status: 502, alert: 'failed' } } }) });
+    try {
+      const s = (await getJson(af.baseUrl + '/api/status')).body;
+      check('告警发送失败 → overall=warn', s.overall === 'warn', s.overall);
+      check('页面数据里告警状态是 failed', (s.dispatch.alerts.last || {}).alert === 'failed', JSON.stringify(s.dispatch.alerts));
+    } finally {
+      await stopStack(af);
+      rmSync(af.dir, { recursive: true, force: true });
+    }
+  }
+
+  // ---- 栈 6：手动触发走 EO 端点（EO_CRON_SECRET 已配）----
+  {
+    const eo = await startStack({ eoCron: true });
+    try {
+      const r1 = await postJson(eo.baseUrl + '/api/dispatch', { job: 'refresh' });
+      check('EO 路径 refresh 触发 ok', r1.status === 200 && r1.body && r1.body.ok === true && r1.body.via === 'edgeone', JSON.stringify(r1.body));
+      // 防呆：EO 路径被破坏时桩根本没被调用，seen 是 null——取不到要让检查项自然失败，而不是崩
+      const seenBody = () => (eo.eoDispatchSeen() && eo.eoDispatchSeen().body) || {};
+      const seen1 = eo.eoDispatchSeen();
+      check('EO 端点收到 job=refresh 与 cron_secret', !!seen1 && seen1.body.job === 'refresh' && seen1.body.cron_secret === 'smoke-eo-secret', JSON.stringify(seen1 && seen1.body));
+      check('refresh 不带 mode 字段', !!seen1 && !('mode' in seen1.body), JSON.stringify(seen1 && seen1.body));
+      const st = await getJson(eo.baseUrl + '/api/status');
+      check('审计记录 via=edgeone', Array.isArray(st.body.audit) && st.body.audit.length === 1 && st.body.audit[0].via === 'edgeone', JSON.stringify(st.body.audit));
+
+      const r2 = await postJson(eo.baseUrl + '/api/dispatch', { job: 'broadcast', mode: 'dry-run' });
+      check('EO 路径 dry-run ok', r2.status === 200 && r2.body.ok === true);
+      check('dry-run 映射为 mode=dry', seenBody().mode === 'dry', JSON.stringify(seenBody()));
+      const r3 = await postJson(eo.baseUrl + '/api/dispatch', { job: 'broadcast', mode: 'send' });
+      check('EO 路径真发信无确认 → 400', r3.status === 400 && r3.body.error === 'confirm_required', `status=${r3.status}`);
+      const r4 = await postJson(eo.baseUrl + '/api/dispatch', { job: 'broadcast', mode: 'send', confirm: 'send' });
+      check('EO 路径真发信带确认 ok', r4.status === 200 && r4.body.ok === true);
+      check('真发信映射为 mode=send', seenBody().mode === 'send', JSON.stringify(seenBody()));
+    } finally {
+      await stopStack(eo);
+      rmSync(eo.dir, { recursive: true, force: true });
+    }
   }
 
   // ---- 栈 4：主机守卫 ----
@@ -359,7 +484,7 @@ async function main() {
     console.error('冒烟测试未通过：' + failed.map((f) => f.name).join('；'));
     process.exit(1);
   }
-  for (const s of [ok, bad, stale]) rmSync(s.dir, { recursive: true, force: true });
+  for (const s of [ok, stale]) rmSync(s.dir, { recursive: true, force: true });
   console.log('全部通过');
 }
 

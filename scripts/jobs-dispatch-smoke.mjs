@@ -9,6 +9,7 @@
 // 判据变更后必须重做负向验证（插破坏 → 确认红在对的位置 → 逐字节还原）。
 
 import { readFileSync } from 'node:fs';
+import { onRequestGet as statusGet, onRequestPost as statusPost } from '../edge-functions/api/jobs/status.js';
 import { onRequestGet, onRequestPost } from '../edge-functions/api/jobs/dispatch.js';
 
 let pass = 0;
@@ -117,6 +118,13 @@ function lastGhBody() {
 function guardKey(job) {
   return `job_sent_${job}_${CST_TODAY}`;
 }
+function events() {
+  const raw = globalThis.SUBS_KV._m.get('job_events');
+  return raw ? JSON.parse(raw) : [];
+}
+function makeStatusEnv(over = {}) {
+  return { SUBS_KV: globalThis.SUBS_KV, GH_DISPATCH_TOKEN: 'ghp_test_token', CRON_SECRET: 'cron-secret-123', ALERT_EMAIL: 'q@example.com', ...over };
+}
 
 async function main() {
   // ---- 栈 1：refresh 正常链路（nonce 鉴权） ----
@@ -137,6 +145,9 @@ async function main() {
     const rawGuard = globalThis.SUBS_KV._m.get(guardKey('refresh'));
     const gv = rawGuard ? JSON.parse(rawGuard) : {};
     check('闸 key 记录 via=nonce', gv.via === 'nonce');
+    const evs = events();
+    check('事件流水写了 1 条', evs.length === 1, JSON.stringify(evs));
+    check('事件字段齐全（job/via/status/ok/alert）', evs[0] && evs[0].job === 'refresh' && evs[0].via === 'nonce' && evs[0].status === 204 && evs[0].ok === true && evs[0].alert === null && typeof evs[0].at === 'string', JSON.stringify(evs[0]));
   }
 
   // ---- 栈 2：同一任务当天第二次（nonce）被闸拦下 ----
@@ -227,6 +238,8 @@ async function main() {
     check('告警信收件人是 ALERT_EMAIL', mail.to[0].email === 'q@example.com');
     check('告警信主题带任务与状态', String(mail.subject).includes('refresh') && String(mail.subject).includes('401'));
     check('失败不落闸（当天可重试）', !globalThis.SUBS_KV._m.has(guardKey('refresh')));
+    const evs = events();
+    check('失败也写事件流水（面板可见）', evs.length === 1 && evs[0].ok === false && evs[0].status === 401 && evs[0].alert === 'sent', JSON.stringify(evs));
   }
 
   // ---- 栈 9：GitHub 500 / 网络异常 ----
@@ -358,6 +371,73 @@ async function main() {
     check('cloudFunctions region 含 ap-guangzhou', Array.isArray(EO.cloudFunctions && EO.cloudFunctions.mainlandRegions) && EO.cloudFunctions.mainlandRegions.includes('ap-guangzhou'));
     const raw = readFileSync(new URL('../edgeone.json', import.meta.url), 'utf8');
     check('edgeone.json 不含非空 cron_secret（公开仓库禁带真 secret）', !/"cron_secret"\s*:\s*"[^"]+"/.test(raw));
+  }
+
+  // ---- 栈 16：事件流水细节 + /api/jobs/status 只读端点 ----
+  reset();
+  {
+    // 16a 匿名 401 也记事件（via=anonymous），供面板识别扫描噪音
+    const r = await onRequestPost({ request: makeReq({ job: 'refresh', nonce: 'wrong' }), env: makeEnv() });
+    check('匿名失败：401', r.status === 401);
+    let evs = events();
+    check('401 写入事件（via=anonymous）', evs.length === 1 && evs[0].via === 'anonymous' && evs[0].error === 'unauthorized', JSON.stringify(evs));
+
+    // 16b 每日闸拦下（409）也记事件，且事件排在流水最前
+    globalThis.SUBS_KV.put(guardKey('refresh'), '{"seeded":true}');
+    const r2 = await onRequestPost({ request: makeReq({ job: 'refresh', nonce: EO_NONCE }), env: makeEnv() });
+    check('闸拦下：409', r2.status === 409);
+    evs = events();
+    check('409 写入事件且最新在前', evs.length === 2 && evs[0].error === 'already_triggered_today' && evs[0].status === 409, JSON.stringify(evs.slice(0, 2)));
+
+    // 16c 流水上限 50：塞满 50 条旧事件后再成功一次，长度不变、最新在最前
+    const seeded = Array.from({ length: 50 }, (_, i) => ({ at: new Date(Date.now() - (i + 1) * 60000).toISOString(), job: 'refresh', via: 'nonce', status: 204, ok: true, alert: null }));
+    globalThis.SUBS_KV.put('job_events', JSON.stringify(seeded));
+    const r3 = await onRequestPost({ request: makeReq({ job: 'broadcast', cron_secret: 'cron-secret-123' }), env: makeEnv() });
+    check('鉴权重跑：200', r3.status === 200);
+    evs = events();
+    check('流水截断在 50 条', evs.length === 50, `len=${evs.length}`);
+    check('最新事件在最前', evs[0].job === 'broadcast' && evs[0].via === 'cron_secret' && evs[0].mode === 'send', JSON.stringify(evs[0]));
+  }
+
+  // 16d status 端点：KV 有闸 key + 流水时全量返回
+  reset();
+  globalThis.SUBS_KV.put(guardKey('refresh'), JSON.stringify({ at: '2026-10-21T07:50:01Z', via: 'nonce', mode: null }));
+  globalThis.SUBS_KV.put(
+    'job_events',
+    JSON.stringify([
+      { at: new Date().toISOString(), job: 'refresh', mode: null, via: 'nonce', status: 204, ok: true, error: null, alert: null },
+      { at: new Date(Date.now() - 3600e3).toISOString(), job: 'refresh', mode: null, via: 'nonce', status: 401, ok: false, error: 'github_error', alert: 'sent' },
+    ])
+  );
+  {
+    const r = await statusGet({ env: makeStatusEnv() });
+    const j = await r.json();
+    check('status GET：200 ok', r.status === 200 && j.ok === true);
+    check('cstToday 与测试同源', j.cstToday === CST_TODAY, j.cstToday);
+    check('refresh 今日已触发', j.jobs.refresh.dispatchedToday === true && j.jobs.refresh.via === 'nonce' && j.jobs.refresh.at === '2026-10-21T07:50:01Z', JSON.stringify(j.jobs));
+    check('broadcast 今日未触发', j.jobs.broadcast.dispatchedToday === false && j.jobs.broadcast.at === null);
+    check('事件流水按原序返回（最新在前）', Array.isArray(j.events) && j.events.length === 2 && j.events[0].job === 'refresh' && j.events[0].ok === true);
+    check('告警摘要取最近一条带 alert 的事件', j.alerts && j.alerts.last && j.alerts.last.alert === 'sent' && j.alerts.last.status === 401, JSON.stringify(j.alerts));
+    check('config 只暴露布尔', j.config && j.config.ghToken === true && j.config.cronSecret === true && j.config.alertEmail === true && Object.values(j.config).every((v) => typeof v === 'boolean'), JSON.stringify(j.config));
+    check('config 不含任何 secret 值', !JSON.stringify(j).includes('ghp_test_token') && !JSON.stringify(j).includes('cron-secret-123'));
+    const rp = await statusPost();
+    check('status POST：405', rp.status === 405);
+  }
+
+  // 16e KV 未绑定 → 500，不把「看不见」伪装成「没触发」
+  delete globalThis.SUBS_KV;
+  {
+    const r = await statusGet({ env: {} });
+    const j = await r.json();
+    check('无 KV：500 kv_not_configured', r.status === 500 && j.error === 'kv_not_configured', `status=${r.status}`);
+  }
+  // 16f 流水损坏（非 JSON 数组）不崩，按空处理
+  reset();
+  globalThis.SUBS_KV.put('job_events', '{"not":"array"}');
+  {
+    const r = await statusGet({ env: makeStatusEnv() });
+    const j = await r.json();
+    check('流水损坏按空处理', r.status === 200 && j.ok === true && Array.isArray(j.events) && j.events.length === 0, JSON.stringify(j.events));
   }
 
   // ---- 汇总 ----
