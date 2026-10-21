@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1520 920" width="1520" height="920">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<rect x="0" y="0" width="1520" height="920" fill="#ffffff"/>
+<rect x="40.0" y="26.0" width="900.0" height="34.0" fill="#ffffff" stroke="#666666" stroke-width="1.0"/>
+<text x="50.0" y="46.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="22.0" font-weight="400" fill="#1a1a1a">ndx_limit · 部署与运行链路</text>
+<rect x="40.0" y="62.0" width="900.0" height="22.0" fill="#ffffff" stroke="#666666" stroke-width="1.0"/>
+<text x="50.0" y="74.7" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="12.0" font-weight="400" fill="#666666">纳斯达克100 QDII 场外申购额度看板　·　2026-10-21　·　全部 cron 时区 Asia/Shanghai　·　主链路已不依赖自有服务器</text>
+<rect x="40.0" y="140.0" width="210.0" height="248.0" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.0"/>
+<text x="50.0" y="265.6" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#1a1a1a">EdgeOne Schedules · 3 抓 1 报</text>
+<rect x="54.0" y="178.0" width="182.0" height="48.0" fill="#ffffff" stroke="#6c8ebf" stroke-width="1.0"/>
+<text x="62.0" y="195.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">07:50　refresh</text>
+<text x="62.0" y="212.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">50 7 * * * · preopen</text>
+<rect x="54.0" y="226.0" width="182.0" height="48.0" fill="#ffffff" stroke="#6c8ebf" stroke-width="1.0"/>
+<text x="62.0" y="243.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">09:40　refresh</text>
+<text x="62.0" y="260.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">40 9 * * * · intraday</text>
+<rect x="54.0" y="274.0" width="182.0" height="48.0" fill="#ffffff" stroke="#6c8ebf" stroke-width="1.0"/>
+<text x="62.0" y="291.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">14:30　refresh</text>
+<text x="62.0" y="308.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">30 14 * * * · close</text>
+<rect x="54.0" y="322.0" width="182.0" height="48.0" fill="#ffffff" stroke="#6c8ebf" stroke-width="1.0"/>
+<text x="62.0" y="339.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">14:45　broadcast</text>
+<text x="62.0" y="356.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">45 14 * * * · close</text>
+<rect x="340.0" y="140.0" width="210.0" height="248.0" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.0"/>
+<text x="350.0" y="158.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">POST /api/jobs/dispatch</text>
+<text x="350.0" y="175.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">Edge Function · V8</text>
+<text x="350.0" y="209.3" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#1a1a1a">nonce 只作隐匿层</text>
+<text x="350.0" y="226.3" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#1a1a1a">CRON_SECRET 跳闸放行</text>
+<text x="350.0" y="243.4" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#1a1a1a">闸 job_sent_{job}_{slot}_日期</text>
+<text x="350.0" y="260.4" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#1a1a1a">→ 仅 GitHub 受理 204 后落 key</text>
+<text x="350.0" y="277.5" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#1a1a1a">透传 slot / edition</text>
+<text x="350.0" y="311.6" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#1a1a1a">每次终态写 KV 事件流水</text>
+<text x="350.0" y="328.6" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#1a1a1a">非 204 → 告警邮件</text>
+<rect x="640.0" y="140.0" width="210.0" height="90.0" fill="#d5e8d4" stroke="#82b366" stroke-width="1.0"/>
+<text x="650.0" y="156.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">refresh.yml</text>
+<text x="650.0" y="173.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">Actions · 无自带 schedule</text>
+<text x="650.0" y="190.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#1a1a1a">scrape → 覆盖率门禁 → 写 data/</text>
+<rect x="940.0" y="140.0" width="210.0" height="90.0" fill="#ffe6cc" stroke="#d79b00" stroke-width="1.0"/>
+<text x="950.0" y="156.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">天天基金（上游）</text>
+<text x="950.0" y="173.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">fund.eastmoney.com/{code}.html</text>
+<text x="950.0" y="190.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#1a1a1a">交易状态 + 限购额度</text>
+<rect x="1240.0" y="140.0" width="210.0" height="90.0" fill="#fff2cc" stroke="#d6b656" stroke-width="1.0"/>
+<text x="1250.0" y="156.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">data/*.json</text>
+<text x="1250.0" y="173.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">funds · history · fund-meta</text>
+<text x="1250.0" y="190.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#1a1a1a">人民币覆盖率 ≥0.9 才写</text>
+<rect x="1240.0" y="290.0" width="210.0" height="90.0" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.0"/>
+<text x="1250.0" y="306.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">EdgeOne Pages 构建</text>
+<text x="1250.0" y="323.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">npm run build · Astro</text>
+<text x="1250.0" y="340.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#1a1a1a">41 页 / 11.5s</text>
+<rect x="1240.0" y="440.0" width="210.0" height="90.0" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.0"/>
+<text x="1250.0" y="456.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">ndx.liqt91.top</text>
+<text x="1250.0" y="473.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">静态站 + edge functions</text>
+<text x="1250.0" y="490.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#1a1a1a">首屏看板 / 订阅表单</text>
+<rect x="640.0" y="440.0" width="210.0" height="90.0" fill="#d5e8d4" stroke="#82b366" stroke-width="1.0"/>
+<text x="650.0" y="456.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">broadcast.yml</text>
+<text x="650.0" y="473.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">check-freshness 门禁</text>
+<text x="650.0" y="490.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#1a1a1a">数据非今日 → exit 2，一封不发</text>
+<rect x="940.0" y="440.0" width="210.0" height="90.0" fill="#ffe6cc" stroke="#d79b00" stroke-width="1.0"/>
+<text x="950.0" y="456.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">Brevo</text>
+<text x="950.0" y="473.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">SMTP 中继 · 300 封/日</text>
+<text x="950.0" y="490.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#1a1a1a">send.mjs（nodemailer）</text>
+<rect x="940.0" y="590.0" width="210.0" height="90.0" fill="#ffe6cc" stroke="#d79b00" stroke-width="1.0"/>
+<text x="950.0" y="606.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">订阅者</text>
+<text x="950.0" y="623.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">每人每日 1 封</text>
+<text x="950.0" y="640.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#1a1a1a">退订链接带 token</text>
+<rect x="340.0" y="440.0" width="210.0" height="120.0" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.0"/>
+<text x="350.0" y="456.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">EdgeOne KV · SUBS_KV</text>
+<text x="350.0" y="473.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">最终一致 ≤60s · 1GB</text>
+<text x="350.0" y="490.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#1a1a1a">sub_{sha256} 订阅名单</text>
+<text x="350.0" y="507.3" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#1a1a1a">job_sent_* 每日每时点闸</text>
+<text x="350.0" y="524.3" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#1a1a1a">job_events 事件流水 ≤50</text>
+<rect x="340.0" y="590.0" width="210.0" height="90.0" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.0"/>
+<text x="350.0" y="606.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">GET /api/jobs/status</text>
+<text x="350.0" y="623.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">只读 · 无鉴权 · 无 secret</text>
+<text x="350.0" y="640.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#1a1a1a">四跳状态 + 事件流</text>
+<rect x="40.0" y="440.0" width="210.0" height="120.0" fill="#e1d5e7" stroke="#9673a6" stroke-width="1.0"/>
+<text x="50.0" y="456.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">运维面板</text>
+<text x="50.0" y="473.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">腾讯云轻量 · 只听回环</text>
+<text x="50.0" y="490.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#1a1a1a">ssh -L 8780:127.0.0.1:8780</text>
+<text x="50.0" y="507.3" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#1a1a1a">4 槽监控 · 手动兜底</text>
+<rect x="40.0" y="590.0" width="210.0" height="90.0" fill="#f5f5f5" stroke="#b85450" stroke-width="1.0" stroke-dasharray="4 4"/>
+<text x="50.0" y="606.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#777777">轻量云 crontab</text>
+<text x="50.0" y="623.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">已退役（2026-10-21）</text>
+<text x="50.0" y="640.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#777777">与 schedule 双跑</text>
+<text x="50.0" y="657.3" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#777777">→ 日报发两遍</text>
+<rect x="40.0" y="720.0" width="1410.0" height="150.0" fill="#fafafa" stroke="#cfcfcf" stroke-width="1.0"/>
+<text x="52.0" y="738.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#333333">图例　蓝＝EdgeOne Pages / Edge Functions / KV　绿＝GitHub Actions　橙＝第三方　紫＝自有服务器　黄＝数据真源　灰虚线＝已退役</text>
+<text x="52.0" y="755.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#333333">鉴权边界　schedule 不能带 Authorization 头，payload 里的 nonce 只防扫描（仓库公开）；未鉴权调用有三层：组合白名单 403（只许调度表内的 job×slot）／每时点闸 409（job_sent_{job}_{slot}_日期，204 后才落 key）／拒绝计数（401·403·409 不进 50 条流水，防监控被灌满）　｜　防不住，但最坏只是当天那封日报提前几小时，且 check-freshness 门禁保证数据非今日不发</text>
+<text x="52.0" y="772.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#333333">订阅入口　/api/subscribe · /api/confirm · /api/unsubscribe 同属 edge-functions，静态优先路由，名单写入同一个 SUBS_KV</text>
+<text x="52.0" y="789.3" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#333333">PAT 续期　两处必须同步：服务器 /root/.gh_dispatch_token ＋ EdgeOne 控制台环境变量（GH_DISPATCH_TOKEN）</text>
+<text x="52.0" y="806.3" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#333333">待验证　① 四条 schedule 是否自动注册　② /api/jobs/* 嵌套路由映射　③ ap-guangzhou 出口到 GitHub / Brevo 可达性　④ KV 60s 一致性</text>
+<text x="52.0" y="823.4" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#333333">L2 未实施　scrape / broadcast 进 Cloud Functions 需先并行化（并发 8）；Cloud Fn 读不到 KV、Node 不能直连 SMTP</text>
+<path d="M250.0 264.0 L340.0 264.0" fill="none" stroke="#6c8ebf" stroke-width="1.5" marker-end="url(#a)"/>
+<path d="M550.0 189.6 L640.0 189.5" fill="none" stroke="#82b366" stroke-width="1.5" marker-end="url(#a)"/>
+<path d="M850.0 189.5 L940.0 189.5" fill="none" stroke="#d79b00" stroke-width="1.5" marker-end="url(#a)"/>
+<path d="M1150.0 189.5 L1240.0 189.5" fill="none" stroke="#d6b656" stroke-width="1.5" marker-end="url(#a)"/>
+<path d="M1345.0 230.0 L1345.0 290.0" fill="none" stroke="#6c8ebf" stroke-width="1.5" marker-end="url(#a)"/>
+<rect x="1318.6" y="248.5" width="52.8" height="15.0" fill="#ffffff" opacity="0.92"/>
+<text x="1345.0" y="261.0" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="10.0" fill="#444444">git push</text>
+<path d="M1345.0 380.0 L1345.0 440.0" fill="none" stroke="#6c8ebf" stroke-width="1.5" marker-end="url(#a)"/>
+<rect x="1321.0" y="398.5" width="48.0" height="15.0" fill="#ffffff" opacity="0.92"/>
+<text x="1345.0" y="411.0" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="10.0" fill="#444444">自动部署</text>
+<path d="M550.0 350.8 L595.0 351.0 L595.0 470.0 L640.0 469.7" fill="none" stroke="#82b366" stroke-width="1.5" marker-end="url(#a)"/>
+<path d="M550.0 500.0 L640.0 499.4" fill="none" stroke="#6c8ebf" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#a)"/>
+<path d="M850.0 485.0 L940.0 485.0" fill="none" stroke="#d79b00" stroke-width="1.5" marker-end="url(#a)"/>
+<rect x="879.8" y="473.5" width="30.4" height="15.0" fill="#ffffff" opacity="0.92"/>
+<text x="895.0" y="486.0" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="10.0" fill="#444444">SMTP</text>
+<path d="M1045.0 530.0 L1045.0 590.0" fill="none" stroke="#d79b00" stroke-width="1.5" marker-end="url(#a)"/>
+<path d="M550.0 308.6 L700.0 309.0 L1045.0 309.0 L1045.0 440.0" fill="none" stroke="#b85450" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#a)"/>
+<rect x="524.4" y="297.3" width="201.2" height="15.0" fill="#ffffff" opacity="0.92"/>
+<text x="625.0" y="309.8" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="10.0" fill="#994444">失败告警（Brevo API → ALERT_EMAIL）</text>
+<path d="M445.0 560.0 L445.0 590.0" fill="none" stroke="#6c8ebf" stroke-width="1.5" marker-end="url(#a)"/>
+<path d="M340.0 635.0 L295.0 635.0 L295.0 500.0 L250.0 500.0" fill="none" stroke="#9673a6" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#a)"/>
+<path d="M250.0 470.0 L270.0 470.0 L270.0 209.0 L340.0 209.4" fill="none" stroke="#9673a6" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#a)"/>
+<rect x="221.4" y="459.6" width="77.1" height="13.5" fill="#ffffff" opacity="0.92"/>
+<text x="260.0" y="470.9" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="9.0" fill="#6b5285">手动触发 / 兜底</text>
+</svg>

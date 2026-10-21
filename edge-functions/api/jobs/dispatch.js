@@ -9,10 +9,21 @@
 //   2) 面板 / curl / 当天重跑：body.cron_secret 或 Authorization: Bearer 带 CRON_SECRET
 //      （只存在于 EdgeOne 控制台环境变量，不进仓库）。鉴权调用不受每日闸限制。
 //
-// 为什么未鉴权调用要加「每日一次」闸：nonce 在公开仓库里，理论上有人能照着触发一次
-// broadcast。闸把未鉴权调用压成「每任务每天最多一次」，且只在 GitHub 真的受理（204）
-// 后才落 key——失败重试不被卡。最坏情况从「随便刷」变成「当天提前发一封日报」。
-// KV 最终一致性最长 60s，60s 内的连发理论上能漏过去一两次，可接受（见部署文档）。
+// 为什么未鉴权调用要加「每日每时点一次」闸：nonce 在公开仓库里，理论上有人能照着触发。
+// 闸把未鉴权调用压成「每个 job×slot 每天最多一次」，且只在 GitHub 真的受理（204）后才
+// 落 key——失败重试不被卡。KV 最终一致性最长 60s，60s 内的连发理论上能漏过去一两次，
+// 可接受（见部署文档）。
+//
+// 能不能彻底防刷？**不能**，只要 payload 必须写在公开仓库里，nonce 就不是秘密。所以这里
+// 不追求「挡住」，而是把最坏后果压到可接受，并保证监控不被噪声挤掉：
+//   · 越权组合 403 —— 未鉴权只许调度表里真实存在的 job×slot，堵掉「凭空多发一封信」；
+//   · 每时点闸 409 —— 同一天同一个动作最多生效一次，堵掉「刷 N 次发 N 封」；
+//   · 拒绝计数 —— 401/403/409/400 不写 50 条的事件流水，只累加次数（否则几十次无效
+//     请求就能把面板的视野灌满，「被刷」的真实伤害是被刷到看不见真实状态）；
+//   · 剩余风险由下游门禁兜底 —— broadcast 前有 check-freshness：数据不是今天的直接
+//     exit 2 一封不发。所以即便被抢跑，也只会「当天那封日报早发几小时」，不会发错数据。
+//   要根治只有一条路：把 payload（含 nonce）移出公开仓库，改在 EdgeOne 控制台配置
+//   schedule——那要等控制台是否能可视化配 payload 验证过（见迁移文档待验证清单）。
 //
 // 告警：GitHub 侧非 204（PAT 过期、仓库/工作流名写错、网络不通）时，经 Brevo 事务
 // 邮件 API 给站长发一封告警信。Server酱/飞书未开通，邮件是唯一零新增依赖的推送渠道，
@@ -42,18 +53,81 @@ const MODE_ALIAS = { send: 'send', dry: 'dry-run', 'dry-run': 'dry-run' };
 
 // 时点（slot）：broadcast 用 payload.edition（早报 morning / 下午报 close），
 // refresh 用 payload.slot（抓取时刻由 scrape.mjs 自己判定，这里只用于分闸）。
-// 为什么键里必须带 slot：一天两抓两报（07:50/08:10 + 14:30/14:45），闸不按时点分键，
-// 第二次调用会被 409 already_triggered_today 静默挡掉，下午报永远发不出去
+// 为什么键里必须带 slot：一天多抓一报（07:50 / 09:40 / 14:30 + 14:45），闸不按时点分键，
+// 第二次调用会被 409 already_triggered_today 静默挡掉，后面的抓取永远发不出去
 // （2026-10-21《双时点抓取与下午报接入.md》第五节第 2 项）。
+//
+// 09:40 这一抓（slot=intraday）的理由：07:50 偏早、单向少报——当日额度调整公告多在
+// 07:51 之后发布，早间那一抓会漏掉（2026-10-21 实测 56 份额漏 2 个，而全天平均只变 1.3 个）。
+// 盘中额度本身几乎不动，所以这一抓的价值在覆盖早盘公告窗口，不是追波动。
+const REFRESH_SLOTS = ['preopen', 'intraday', 'close'];
+const BROADCAST_SLOTS = ['morning', 'close'];
+
+// 调度表里真实存在的 job×slot 组合（必须与 edgeone.json 的 schedules 一致）：
+// 未鉴权调用只许这些组合。否则匿名者可以凭空造出调度表里没有的动作——最典型的就是
+// 用 edition=morning 发一封「早报」：早报的 schedule 已经下线，可闸键还在，
+// 白白多给所有订阅者发一封信。
+const SCHEDULED = {
+  refresh: ['preopen', 'intraday', 'close'],
+  broadcast: ['close'],
+};
+
+// 显式校验，不做「认不出来就当默认值」的静默归一：slot 写错（paylaod 手抖、旧文档照抄）
+// 若被静默归到 preopen，后果是这个时点被前面那次占掉、整天静默少抓一次，
+// 正是上一版踩过的坑。认不出来就 400，让它在拒绝计数里露头。
 function resolveSlot(job, data) {
-  if (job === 'broadcast') return data.edition === 'close' ? 'close' : 'morning';
-  return data.slot === 'close' ? 'close' : 'morning';
+  const raw = job === 'broadcast' ? data.edition : data.slot;
+  const list = job === 'broadcast' ? BROADCAST_SLOTS : REFRESH_SLOTS;
+  if (raw == null || raw === '') return { slot: job === 'broadcast' ? 'close' : 'preopen' };
+  const s = String(raw);
+  if (!list.includes(s)) return { error: 'bad_slot', slot: s, hint: `${job} 的 slot 取值：${list.join(' | ')}` };
+  return { slot: s };
 }
 // 调度事件流水：KV 单 key 存数组，最新在前，最多 50 条。给 /api/jobs/status（运维
-// 面板聚合用）当数据源。读-改-写在最终一致性窗口内有丢更新风险，但本函数一天就
-// 两三次调用，可接受；写失败绝不影响 dispatch 本身的结果。
+// 面板聚合用）当数据源。读-改-写在最终一致性窗口内有丢更新风险，但**只有真正走到
+// GitHub 的业务终态才写这里**（每天 ≤4 条），可接受；写失败绝不影响 dispatch 本身的结果。
 const EVENTS_KEY = 'job_events';
 const MAX_EVENTS = 50;
+
+// 被拒计数：未鉴权 401 / 越权组合 403 / 每日闸拦截 409 / 参数错 400 一律**不写事件流水**，
+// 只把当天的次数与最后一次原因累加进一个 key。
+// 为什么这么改：流水只有 50 条，而这个端点在公网上、nonce 又在公开仓库里，
+// 谁都能照着 POST。以前每次 401 都写一条事件，几十次无效请求就能把流水灌满，
+// 面板上的「今天四跳到底触没触发」直接失真——**监控被噪声挤掉比被刷本身的危害更大**。
+// 现在流水里只剩真正走到 GitHub 的业务终态（每天 ≤4 条），拒绝证据仍在计数里看得见。
+const REJECTED_PREFIX = 'job_rejected_';
+
+async function bumpRejected(kv, info) {
+  if (!kv) return;
+  const key = `${REJECTED_PREFIX}${cstDate()}`;
+  try {
+    let cur = null;
+    const raw = await kv.get(key);
+    if (raw) {
+      try {
+        cur = JSON.parse(raw);
+      } catch {
+        cur = null;
+      }
+    }
+    const now = new Date().toISOString();
+    await kv.put(
+      key,
+      JSON.stringify({
+        n: (cur && Number.isFinite(cur.n) ? cur.n : 0) + 1,
+        first: (cur && cur.first) || now,
+        last: now,
+        lastError: info.error,
+        lastStatus: info.status,
+        lastJob: info.job || null,
+        lastSlot: info.slot || null,
+      })
+    );
+  } catch (e) {
+    // 计数失败不影响响应：它是监控辅助，不是业务结果
+    console.error('[dispatch] 拒绝计数写入失败：', e.message || e);
+  }
+}
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -207,7 +281,13 @@ export async function onRequestPost({ request, env }) {
   if (!Object.prototype.hasOwnProperty.call(JOBS, job)) {
     return json({ ok: false, error: 'bad_job', hint: 'job 取值：refresh | broadcast' }, 400);
   }
-  const slot = resolveSlot(job, data);
+  const rs = resolveSlot(job, data);
+  if (rs.error) {
+    // 参数错不写流水（同「被拒」口径：任何人都能构造，写进去就是灌流水）
+    await bumpRejected(getKV(env), { job, slot: rs.slot, error: rs.error, status: 400 });
+    return json({ ok: false, error: rs.error, job, slot: rs.slot, hint: rs.hint }, 400);
+  }
+  const slot = rs.slot;
 
   let mode = 'send';
   if (job === 'broadcast') {
@@ -226,17 +306,7 @@ export async function onRequestPost({ request, env }) {
 
   if (!authed && (!env.DISPATCH_NONCE || !secretEqual(data.nonce, env.DISPATCH_NONCE))) {
     console.error('[dispatch] 鉴权失败：nonce 不匹配且未提供有效 CRON_SECRET', JSON.stringify({ job, slot }));
-    await recordEvent(getKV(env), {
-      at: new Date().toISOString(),
-      job,
-      slot,
-      mode: job === 'broadcast' ? mode : null,
-      via: 'anonymous',
-      status: 401,
-      ok: false,
-      error: 'unauthorized',
-      alert: null,
-    });
+    await bumpRejected(getKV(env), { job, slot, error: 'unauthorized', status: 401 });
     return json({ ok: false, error: 'unauthorized' }, 401);
   }
 
@@ -248,19 +318,27 @@ export async function onRequestPost({ request, env }) {
       console.error('[dispatch] SUBS_KV 未绑定，拒绝未鉴权调用（fail closed）');
       return json({ ok: false, error: 'guard_not_configured', hint: '绑定 SUBS_KV，或改用 CRON_SECRET 鉴权调用' }, 500);
     }
+    // 未鉴权只许调度表里真实存在的组合：闸键只挡「同一动作重复」，挡不住「多出一个动作」。
+    // 早报 schedule 已下线而 broadcast/morning 的闸键还在——不挡的话匿名者能凭空发一封早报。
+    if (!SCHEDULED[job].includes(slot)) {
+      console.error('[dispatch] 越权组合（不在调度表内）：', JSON.stringify({ job, slot }));
+      await bumpRejected(kv, { job, slot, error: 'slot_not_scheduled', status: 403 });
+      return json(
+        {
+          ok: false,
+          error: 'slot_not_scheduled',
+          job,
+          slot,
+          hint: `未鉴权调用只接受调度表内的组合：${Object.keys(SCHEDULED)
+            .map((k) => `${k}(${SCHEDULED[k].join('/')})`)
+            .join('、')}；其他组合请带 CRON_SECRET`,
+        },
+        403
+      );
+    }
     const sent = await kv.get(guardKey);
     if (sent) {
-      await recordEvent(kv, {
-        at: new Date().toISOString(),
-        job,
-        slot,
-        mode: job === 'broadcast' ? mode : null,
-        via: 'nonce',
-        status: 409,
-        ok: false,
-        error: 'already_triggered_today',
-        alert: null,
-      });
+      await bumpRejected(kv, { job, slot, error: 'already_triggered_today', status: 409 });
       return json(
         {
           ok: false,

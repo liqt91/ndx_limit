@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1520 980" width="1520" height="980">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<rect x="0" y="0" width="1520" height="980" fill="#ffffff"/>
+<rect x="40.0" y="26.0" width="900.0" height="34.0" fill="#ffffff" stroke="#666666" stroke-width="1.0"/>
+<text x="50.0" y="46.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="22.0" font-weight="400" fill="#1a1a1a">ndx_limit · tick 方案部署图</text>
+<rect x="40.0" y="62.0" width="1100.0" height="22.0" fill="#ffffff" stroke="#666666" stroke-width="1.0"/>
+<text x="50.0" y="74.7" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="12.0" font-weight="400" fill="#666666">对照 deploy-architecture.drawio：调度表从 4 条写死的 schedule 变成「1 条滴答 + 一张 KV 表」；执行层完全没动</text>
+<rect x="40.0" y="147.0" width="160.0" height="26.0" fill="#ffffff" stroke="#666666" stroke-width="1.0"/>
+<text x="50.0" y="161.7" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="12.0" font-weight="600" fill="#333333">01　配置面</text>
+<rect x="40.0" y="309.0" width="160.0" height="26.0" fill="#ffffff" stroke="#666666" stroke-width="1.0"/>
+<text x="50.0" y="323.7" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="12.0" font-weight="600" fill="#333333">02　滴答与派发</text>
+<rect x="40.0" y="471.0" width="160.0" height="26.0" fill="#ffffff" stroke="#666666" stroke-width="1.0"/>
+<text x="50.0" y="485.7" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="12.0" font-weight="600" fill="#333333">03　抓取链</text>
+<rect x="40.0" y="633.0" width="160.0" height="26.0" fill="#ffffff" stroke="#666666" stroke-width="1.0"/>
+<text x="50.0" y="647.7" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="12.0" font-weight="600" fill="#333333">04　发信链</text>
+<rect x="40.0" y="795.0" width="160.0" height="26.0" fill="#ffffff" stroke="#666666" stroke-width="1.0"/>
+<text x="50.0" y="809.7" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="12.0" font-weight="600" fill="#333333">05　观察面</text>
+<rect x="220.0" y="110.0" width="280.0" height="100.0" fill="#e1d5e7" stroke="#9673a6" stroke-width="1.0"/>
+<text x="230.0" y="126.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">运维面板 · /schedule</text>
+<text x="230.0" y="143.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">四行表：时刻 / 动作 / 参数 / 开关</text>
+<text x="230.0" y="160.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">127.0.0.1:8780，Tailscale 进</text>
+<rect x="530.0" y="110.0" width="280.0" height="100.0" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.0"/>
+<text x="540.0" y="126.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">POST /api/jobs/config</text>
+<text x="540.0" y="143.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">CRON_SECRET 鉴权，只此一条写路径</text>
+<text x="540.0" y="160.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">校验 HH:MM / slot 白名单 / 至少一条开</text>
+<rect x="840.0" y="110.0" width="280.0" height="100.0" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.0"/>
+<text x="850.0" y="126.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">KV · job_schedule</text>
+<text x="850.0" y="143.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">一份 JSON，改完 5 分钟内生效</text>
+<text x="850.0" y="160.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">同时留 job_schedule_prev 供回滚</text>
+<rect x="1150.0" y="110.0" width="280.0" height="100.0" fill="#f5f5f5" stroke="#b85450" stroke-width="1.0" stroke-dasharray="4 4"/>
+<text x="1160.0" y="126.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#777777">凭据仍在原处</text>
+<text x="1160.0" y="143.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">控制台 env / GitHub Secrets</text>
+<text x="1160.0" y="160.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">面板只做一致性体检，不代管</text>
+<rect x="220.0" y="272.0" width="280.0" height="100.0" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.0"/>
+<text x="230.0" y="288.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">EdgeOne Schedules × 1</text>
+<text x="230.0" y="305.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">*/5 * * * * · Asia/Shanghai</text>
+<text x="230.0" y="322.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">payload 为空，无 job / slot / nonce</text>
+<rect x="530.0" y="272.0" width="280.0" height="100.0" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.0"/>
+<text x="540.0" y="288.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">POST /api/jobs/tick</text>
+<text x="540.0" y="305.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">读表 → 算 CST 时分 → 命中才派发</text>
+<text x="540.0" y="322.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">每跳写 job_tick_last 心跳</text>
+<rect x="840.0" y="272.0" width="280.0" height="100.0" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.0"/>
+<text x="850.0" y="288.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">POST /api/jobs/dispatch</text>
+<text x="850.0" y="305.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">保留：面板手动触发 / 当天补发</text>
+<text x="850.0" y="322.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">只收 CRON_SECRET，不再认 nonce</text>
+<rect x="1150.0" y="272.0" width="280.0" height="100.0" fill="#d5e8d4" stroke="#82b366" stroke-width="1.0"/>
+<text x="1160.0" y="288.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">GitHub API</text>
+<text x="1160.0" y="305.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">workflow_dispatch · PAT</text>
+<text x="1160.0" y="322.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">refresh.yml / broadcast.yml</text>
+<rect x="220.0" y="434.0" width="280.0" height="100.0" fill="#d5e8d4" stroke="#82b366" stroke-width="1.0"/>
+<text x="230.0" y="450.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">refresh.yml</text>
+<text x="230.0" y="467.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">07:50 / 09:40 / 14:30 三抓</text>
+<text x="230.0" y="484.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">scrape → 覆盖率门禁 → 回写</text>
+<rect x="530.0" y="434.0" width="280.0" height="100.0" fill="#ffe6cc" stroke="#d79b00" stroke-width="1.0"/>
+<text x="540.0" y="450.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">天天基金</text>
+<text x="540.0" y="467.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">56 份额详情页 + 全量快照</text>
+<text x="540.0" y="484.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">快照只作对账 / 兜底 / 找缺口</text>
+<rect x="840.0" y="434.0" width="280.0" height="100.0" fill="#fff2cc" stroke="#d6b656" stroke-width="1.0"/>
+<text x="850.0" y="450.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">data/*.json</text>
+<text x="850.0" y="467.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">history / funds / fund-meta</text>
+<text x="850.0" y="484.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">announcements 解释「为什么变了」</text>
+<rect x="1150.0" y="434.0" width="280.0" height="100.0" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.0"/>
+<text x="1160.0" y="450.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">Pages 构建 → 站点</text>
+<text x="1160.0" y="467.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">push 自动触发，500 次/月</text>
+<text x="1160.0" y="484.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">ndx.liqt91.top</text>
+<rect x="220.0" y="596.0" width="280.0" height="100.0" fill="#d5e8d4" stroke="#82b366" stroke-width="1.0"/>
+<text x="230.0" y="612.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">broadcast.yml</text>
+<text x="230.0" y="629.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">14:45 · edition 由配置给</text>
+<text x="230.0" y="646.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">不再需要手工传 inputs</text>
+<rect x="530.0" y="596.0" width="280.0" height="100.0" fill="#d5e8d4" stroke="#82b366" stroke-width="1.0"/>
+<text x="540.0" y="612.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">check-freshness</text>
+<text x="540.0" y="629.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">数据非今日 → exit 2，一封不发</text>
+<text x="540.0" y="646.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">休市日置 skip，不刷空邮件</text>
+<rect x="840.0" y="596.0" width="280.0" height="100.0" fill="#ffe6cc" stroke="#d79b00" stroke-width="1.0"/>
+<text x="850.0" y="612.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">Brevo SMTP</text>
+<text x="850.0" y="629.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">300 封/天免费额度</text>
+<text x="850.0" y="646.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">订阅者破 300 才碰天花板</text>
+<rect x="1150.0" y="596.0" width="280.0" height="100.0" fill="#ffe6cc" stroke="#d79b00" stroke-width="1.0"/>
+<text x="1160.0" y="612.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">订阅者</text>
+<text x="1160.0" y="629.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">名单来自 KV，经 /api/subscribers</text>
+<text x="1160.0" y="646.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">退订 token 算法只在 unsub.mjs</text>
+<rect x="220.0" y="758.0" width="280.0" height="100.0" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.0"/>
+<text x="230.0" y="774.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">KV · job_* 账本</text>
+<text x="230.0" y="791.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">job_sent_&lt;job&gt;_&lt;slot&gt;_&lt;日&gt; 闸键</text>
+<text x="230.0" y="808.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">job_tick_last / job_events</text>
+<text x="230.0" y="825.3" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">job_rejected_&lt;日&gt; 拒绝计数</text>
+<rect x="530.0" y="758.0" width="280.0" height="100.0" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.0"/>
+<text x="540.0" y="774.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">GET /api/jobs/status</text>
+<text x="540.0" y="791.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">只读，无鉴权，不含任何 secret</text>
+<text x="540.0" y="808.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">KV 未绑定时 500 fail closed</text>
+<rect x="840.0" y="758.0" width="280.0" height="100.0" fill="#e1d5e7" stroke="#9673a6" stroke-width="1.0"/>
+<text x="850.0" y="774.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">运维面板 · 仪表盘</text>
+<text x="850.0" y="791.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">四槽灯 / 心跳灯 / 拒绝计数</text>
+<text x="850.0" y="808.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">心跳超 10 分钟没更新就标红</text>
+<rect x="1150.0" y="758.0" width="280.0" height="100.0" fill="#f5f5f5" stroke="#b85450" stroke-width="1.0" stroke-dasharray="4 4"/>
+<text x="1160.0" y="774.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#777777">L2 未实施</text>
+<text x="1160.0" y="791.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">抓取 / 发信搬进 Cloud Fn 已评估</text>
+<text x="1160.0" y="808.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">额度只占 0.16%，但 GitHub 省不掉</text>
+<rect x="40.0" y="890.0" width="1440.0" height="76.0" fill="#fafafa" stroke="#999999" stroke-width="1.0"/>
+<text x="52.0" y="908.1" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="600" fill="#1a1a1a">这一版的关键差别　schedule 从 4 条缩成 1 条、payload 为空 → 匿名者没有可伪造的动作参数，nonce 语义删除；调度表进 KV，页面改、5 分钟内生效，不用改仓库重新部署。</text>
+<text x="52.0" y="925.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#5a5a5a">仍然保留：每时点闸键（幂等，敲 100 次只干一次）、check-freshness 门禁、事件流水。新增一个盲点：滴答停了函数自己不知道，靠 job_tick_last 心跳由面板发现。</text>
+<text x="52.0" y="942.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="11.0" font-weight="400" fill="#8a6d1f">待验证：① EdgeOne 是否接受 */5 表达式（不接受则退回 4 条 schedule 都打 tick，配置就不算真集中）② KV 最终一致性 60s 对「面板改表后 5 分钟内生效」的影响</text>
+<path d="M500.0 160.0 L530.0 160.0" fill="none" stroke="#9673a6" stroke-width="1.5" marker-end="url(#a)"/>
+<path d="M810.0 160.0 L840.0 160.0" fill="none" stroke="#6c8ebf" stroke-width="1.5" marker-end="url(#a)"/>
+<path d="M980.0 210.0 L980.0 240.0 L670.0 240.0 L670.0 272.0" fill="none" stroke="#6c8ebf" stroke-width="1.5" marker-end="url(#a)"/>
+<rect x="939.2" y="213.5" width="81.6" height="15.0" fill="#ffffff" opacity="0.92"/>
+<text x="980.0" y="226.0" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="10.0" fill="#444444">每跳 tick 读表</text>
+<path d="M500.0 322.0 L530.0 322.0" fill="none" stroke="#6c8ebf" stroke-width="1.5" marker-end="url(#a)"/>
+<path d="M810.0 322.0 L840.0 322.0" fill="none" stroke="#6c8ebf" stroke-width="1.5" marker-end="url(#a)"/>
+<path d="M1120.0 322.0 L1150.0 322.0" fill="none" stroke="#82b366" stroke-width="1.5" marker-end="url(#a)"/>
+<path d="M1234.0 372.0 L1234.0 404.0 L360.0 404.0 L360.0 434.0" fill="none" stroke="#82b366" stroke-width="1.5" marker-end="url(#a)"/>
+<rect x="1197.6" y="376.5" width="72.8" height="15.0" fill="#ffffff" opacity="0.92"/>
+<text x="1234.0" y="389.0" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="10.0" fill="#3d6b2d">触发 refresh</text>
+<path d="M1346.0 372.0 L1346.0 384.0 L1470.0 384.0 L1470.0 565.0 L360.0 565.0 L360.0 596.0" fill="none" stroke="#82b366" stroke-width="1.5" marker-end="url(#a)"/>
+<rect x="1304.0" y="366.5" width="84.0" height="15.0" fill="#ffffff" opacity="0.92"/>
+<text x="1346.0" y="379.0" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="10.0" fill="#3d6b2d">触发 broadcast</text>
+<path d="M500.0 484.0 L530.0 484.0" fill="none" stroke="#82b366" stroke-width="1.5" marker-end="url(#a)"/>
+<path d="M810.0 484.0 L840.0 484.0" fill="none" stroke="#d79b00" stroke-width="1.5" marker-end="url(#a)"/>
+<path d="M1120.0 484.0 L1150.0 484.0" fill="none" stroke="#d6b656" stroke-width="1.5" marker-end="url(#a)"/>
+<path d="M500.0 646.0 L530.0 646.0" fill="none" stroke="#82b366" stroke-width="1.5" marker-end="url(#a)"/>
+<path d="M810.0 646.0 L840.0 646.0" fill="none" stroke="#82b366" stroke-width="1.5" marker-end="url(#a)"/>
+<path d="M1120.0 646.0 L1150.0 646.0" fill="none" stroke="#d79b00" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#a)"/>
+<path d="M500.0 808.0 L530.0 808.0" fill="none" stroke="#6c8ebf" stroke-width="1.5" marker-end="url(#a)"/>
+<path d="M810.0 808.0 L840.0 808.0" fill="none" stroke="#6c8ebf" stroke-width="1.5" marker-end="url(#a)"/>
+</svg>

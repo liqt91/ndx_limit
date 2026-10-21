@@ -1,0 +1,168 @@
+<mxfile host="app.diagrams.net" modified="2026-10-21T15:40:00.000Z" agent="workbuddy" version="24.7.17">
+  <diagram id="ndx-deploy-tick" name="tick 方案部署">
+    <mxGraphModel dx="1600" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1520" pageHeight="980" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="t1" value="ndx_limit · tick 方案部署图" style="text;html=1;align=left;verticalAlign=middle;fontSize=22;fontStyle=1;fontColor=#1a1a1a;" vertex="1" parent="1">
+          <mxGeometry x="40" y="26" width="900" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="t2" value="对照 deploy-architecture.drawio：调度表从 4 条写死的 schedule 变成「1 条滴答 + 一张 KV 表」；执行层完全没动" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="40" y="62" width="1100" height="22" as="geometry" />
+        </mxCell>
+
+        <mxCell id="l0" value="&lt;b&gt;01&lt;/b&gt;　配置面" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="40" y="147" width="160" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="l1" value="&lt;b&gt;02&lt;/b&gt;　滴答与派发" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="40" y="309" width="160" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="l2" value="&lt;b&gt;03&lt;/b&gt;　抓取链" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="40" y="471" width="160" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="l3" value="&lt;b&gt;04&lt;/b&gt;　发信链" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="40" y="633" width="160" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="l4" value="&lt;b&gt;05&lt;/b&gt;　观察面" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="40" y="795" width="160" height="26" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p1" value="&lt;b&gt;运维面板 · /schedule&lt;/b&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;四行表：时刻 / 动作 / 参数 / 开关&lt;/font&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;127.0.0.1:8780，Tailscale 进&lt;/font&gt;" style="rounded=0;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="220" y="110" width="280" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="p2" value="&lt;b&gt;POST /api/jobs/config&lt;/b&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;CRON_SECRET 鉴权，只此一条写路径&lt;/font&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;校验 HH:MM / slot 白名单 / 至少一条开&lt;/font&gt;" style="rounded=0;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="530" y="110" width="280" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="p3" value="&lt;b&gt;KV · job_schedule&lt;/b&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;一份 JSON，改完 5 分钟内生效&lt;/font&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;同时留 job_schedule_prev 供回滚&lt;/font&gt;" style="rounded=0;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="840" y="110" width="280" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="p4" value="&lt;b&gt;凭据仍在原处&lt;/b&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;控制台 env / GitHub Secrets&lt;/font&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;面板只做一致性体检，不代管&lt;/font&gt;" style="rounded=0;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;fillColor=#f5f5f5;strokeColor=#b85450;dashed=1;fontSize=11;fontColor=#777777;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="110" width="280" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="s1" value="&lt;b&gt;EdgeOne Schedules × 1&lt;/b&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;*/5 * * * * · Asia/Shanghai&lt;/font&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;payload 为空，无 job / slot / nonce&lt;/font&gt;" style="rounded=0;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="220" y="272" width="280" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="s2" value="&lt;b&gt;POST /api/jobs/tick&lt;/b&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;读表 → 算 CST 时分 → 命中才派发&lt;/font&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;每跳写 job_tick_last 心跳&lt;/font&gt;" style="rounded=0;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="530" y="272" width="280" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="s3" value="&lt;b&gt;POST /api/jobs/dispatch&lt;/b&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;保留：面板手动触发 / 当天补发&lt;/font&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;只收 CRON_SECRET，不再认 nonce&lt;/font&gt;" style="rounded=0;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="840" y="272" width="280" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="s4" value="&lt;b&gt;GitHub API&lt;/b&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;workflow_dispatch · PAT&lt;/font&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;refresh.yml / broadcast.yml&lt;/font&gt;" style="rounded=0;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="272" width="280" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c1" value="&lt;b&gt;refresh.yml&lt;/b&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;07:50 / 09:40 / 14:30 三抓&lt;/font&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;scrape → 覆盖率门禁 → 回写&lt;/font&gt;" style="rounded=0;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="220" y="434" width="280" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="c2" value="&lt;b&gt;天天基金&lt;/b&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;56 份额详情页 + 全量快照&lt;/font&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;快照只作对账 / 兜底 / 找缺口&lt;/font&gt;" style="rounded=0;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="530" y="434" width="280" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="c3" value="&lt;b&gt;data/*.json&lt;/b&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;history / funds / fund-meta&lt;/font&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;announcements 解释「为什么变了」&lt;/font&gt;" style="rounded=0;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="840" y="434" width="280" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="c4" value="&lt;b&gt;Pages 构建 → 站点&lt;/b&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;push 自动触发，500 次/月&lt;/font&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;ndx.liqt91.top&lt;/font&gt;" style="rounded=0;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="434" width="280" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="b1" value="&lt;b&gt;broadcast.yml&lt;/b&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;14:45 · edition 由配置给&lt;/font&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;不再需要手工传 inputs&lt;/font&gt;" style="rounded=0;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="220" y="596" width="280" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="b2" value="&lt;b&gt;check-freshness&lt;/b&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;数据非今日 → exit 2，一封不发&lt;/font&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;休市日置 skip，不刷空邮件&lt;/font&gt;" style="rounded=0;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="530" y="596" width="280" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="b3" value="&lt;b&gt;Brevo SMTP&lt;/b&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;300 封/天免费额度&lt;/font&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;订阅者破 300 才碰天花板&lt;/font&gt;" style="rounded=0;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="840" y="596" width="280" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="b4" value="&lt;b&gt;订阅者&lt;/b&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;名单来自 KV，经 /api/subscribers&lt;/font&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;退订 token 算法只在 unsub.mjs&lt;/font&gt;" style="rounded=0;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="596" width="280" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="o1" value="&lt;b&gt;KV · job_* 账本&lt;/b&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;job_sent_&lt;job&gt;_&lt;slot&gt;_&lt;日&gt; 闸键&lt;/font&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;job_tick_last / job_events&lt;/font&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;job_rejected_&lt;日&gt; 拒绝计数&lt;/font&gt;" style="rounded=0;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="220" y="758" width="280" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="o2" value="&lt;b&gt;GET /api/jobs/status&lt;/b&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;只读，无鉴权，不含任何 secret&lt;/font&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;KV 未绑定时 500 fail closed&lt;/font&gt;" style="rounded=0;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="530" y="758" width="280" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="o3" value="&lt;b&gt;运维面板 · 仪表盘&lt;/b&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;四槽灯 / 心跳灯 / 拒绝计数&lt;/font&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;心跳超 10 分钟没更新就标红&lt;/font&gt;" style="rounded=0;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="840" y="758" width="280" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="o4" value="&lt;b&gt;L2 未实施&lt;/b&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;抓取 / 发信搬进 Cloud Fn 已评估&lt;/font&gt;&lt;br&gt;&lt;font color='#5a5a5a'&gt;额度只占 0.16%，但 GitHub 省不掉&lt;/font&gt;" style="rounded=0;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=10;spacingTop=6;fillColor=#f5f5f5;strokeColor=#b85450;dashed=1;fontSize=11;fontColor=#777777;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="758" width="280" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#9673a6;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=10;fontColor=#6b5285;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="p1" target="p2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#6c8ebf;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=10;fontColor=#444444;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="p2" target="p3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="每跳 tick 读表" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#6c8ebf;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=10;fontColor=#444444;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="p3" target="s2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="980" y="240" />
+              <mxPoint x="670" y="240" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#6c8ebf;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=10;fontColor=#444444;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="s1" target="s2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#6c8ebf;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=10;fontColor=#444444;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="s2" target="s3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#82b366;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="s3" target="s4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" value="触发 refresh" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#82b366;exitX=0.3;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=10;fontColor=#3d6b2d;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="s4" target="c1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1234" y="404" />
+              <mxPoint x="360" y="404" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e8" value="触发 broadcast" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#82b366;exitX=0.7;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=10;fontColor=#3d6b2d;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="s4" target="b1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1346" y="384" />
+              <mxPoint x="1470" y="384" />
+              <mxPoint x="1470" y="565" />
+              <mxPoint x="360" y="565" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#82b366;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="c1" target="c2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#d79b00;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="c2" target="c3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#d6b656;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=10;fontColor=#8a6d1f;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="c3" target="c4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#82b366;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="b1" target="b2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#82b366;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="b2" target="b3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e14" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#d79b00;dashed=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=10;fontColor=#8a6d1f;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="b3" target="b4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e15" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#6c8ebf;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="o1" target="o2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e16" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#6c8ebf;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="o2" target="o3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="note" value="&lt;b&gt;这一版的关键差别&lt;/b&gt;　schedule 从 4 条缩成 1 条、payload 为空 → 匿名者没有可伪造的动作参数，nonce 语义删除；调度表进 KV，页面改、5 分钟内生效，不用改仓库重新部署。&lt;br&gt;&lt;font color='#5a5a5a'&gt;仍然保留：每时点闸键（幂等，敲 100 次只干一次）、check-freshness 门禁、事件流水。新增一个盲点：滴答停了函数自己不知道，靠 job_tick_last 心跳由面板发现。&lt;br&gt;待验证：① EdgeOne 是否接受 &lt;font color='#8a6d1f'&gt;*/5&lt;/font&gt; 表达式（不接受则退回 4 条 schedule 都打 tick，配置就不算真集中）② KV 最终一致性 60s 对「面板改表后 5 分钟内生效」的影响&lt;/font&gt;" style="rounded=0;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacingLeft=12;spacingTop=8;fillColor=#fafafa;strokeColor=#999999;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="40" y="890" width="1440" height="76" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

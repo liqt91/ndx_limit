@@ -220,16 +220,37 @@ function parseDispatchLog(text) {
   return out;
 }
 
-// 一天四跳：早间抓 07:50 → 早报 08:10；收盘前抓 14:30 → 下午报 14:45（北京时间）。
+// 一天四跳：盘前抓 07:50 → 早盘抓 09:40 → 收盘前抓 14:30 → 下午报 14:45（北京时间）。
 // slot 与 dispatch.js 的 resolveSlot / KV 闸键一一对应：refresh 用 payload.slot、
-// broadcast 用 payload.edition，两者都归一到 morning/close。
+// broadcast 用 payload.edition。
+// ★ 07:50 与 09:40 都是 refresh，闸键必须靠 slot 区分（preopen / intraday）；
+//   09:40 这一抓专为覆盖早盘公告窗口（07:51 之后才发的当日额度调整）。
+// ★ 08:10 早报已下线（2026-10-21），现在每天只发一封下午报。
 const SLOTS = [
-  { job: 'refresh', wf: 'refresh.yml', hhmm: '07:50', slot: 'morning' },
-  { job: 'broadcast', wf: 'broadcast.yml', hhmm: '08:10', slot: 'morning' },
-  { job: 'refresh', wf: 'refresh.yml', hhmm: '14:30', slot: 'close' },
-  { job: 'broadcast', wf: 'broadcast.yml', hhmm: '14:45', slot: 'close' },
+  { job: 'refresh', wf: 'refresh.yml', hhmm: '07:50', slot: 'preopen', label: '盘前' },
+  { job: 'refresh', wf: 'refresh.yml', hhmm: '09:40', slot: 'intraday', label: '早盘' },
+  { job: 'refresh', wf: 'refresh.yml', hhmm: '14:30', slot: 'close', label: '收盘前' },
+  { job: 'broadcast', wf: 'broadcast.yml', hhmm: '14:45', slot: 'close', label: '下午报' },
 ];
-const SLOT_LABEL = { morning: '晨', close: '午' };
+// 按 job 索引而不是按 slot 索引：close 同时属于 refresh 与 broadcast，
+// 单靠 slot 名取不到唯一标签（以前 SLOT_LABEL[slot] 只够两槽用）。
+const SLOT_LABEL = Object.fromEntries(SLOTS.map((s) => [`${s.job}:${s.slot}`, s.label]));
+const slotLabel = (job, slot) => SLOT_LABEL[`${job}:${slot}`] || slot || '';
+// 标签必须在服务端算好塞进 slot 对象：整页内联脚本是独立作用域，拿不到这里的常量
+// （以前客户端直接写 SLOT_LABEL[sl.slot]，浏览器里是 ReferenceError，调度卡整块渲染不出来）。
+function labelize(slots) {
+  return slots.map((s) => ({ ...s, label: slotLabel(s.job, s.slot) }));
+}
+// 本地日志降级视图用：没有 slot 字段，只能按时刻落点归槽。
+// 09:00 前算盘前、09:00–12:00 算早盘、12:00 之后算收盘前（broadcast 半分界在 12:00）。
+const cstMinutes = (t) => Number(String(t).slice(0, 2)) * 60 + Number(String(t).slice(3, 5));
+const SLOT_WINDOW = {
+  'refresh:preopen': (m) => m < 9 * 60,
+  'refresh:intraday': (m) => m >= 9 * 60 && m < 12 * 60,
+  'refresh:close': (m) => m >= 12 * 60,
+  'broadcast:morning': (m) => m < 12 * 60,
+  'broadcast:close': (m) => m >= 12 * 60,
+};
 
 // EdgeOne 调度层状态（GET /api/jobs/status，只读、无鉴权）。拿不到不猜：
 // 返回 { ok:false, error }，由 collectDispatch 决定回退到本地日志。
@@ -304,7 +325,7 @@ function slotStateFromLog(entry, slot) {
 // 两者皆无 → source='none'，槽位全 unknown，overall 至少 warn。
 function collectDispatch(eo) {
   if (eo && eo.ok) {
-    const slots = SLOTS.map((s) => slotStateFromEO(eo, s));
+    const slots = labelize(SLOTS.map((s) => slotStateFromEO(eo, s)));
     let state = 'ok';
     if (slots.some((s) => s.state === 'fail')) state = 'fail';
     else if (slots.some((s) => s.state === 'missing')) state = 'missing';
@@ -318,26 +339,27 @@ function collectDispatch(eo) {
       ok: e.ok,
       alert: e.alert,
     }));
-    return { source: 'edgeone', state, slots, recent, alerts: eo.alerts || { last: null }, config: eo.config || null, note: null };
+    return { source: 'edgeone', state, slots, recent, alerts: eo.alerts || { last: null }, config: eo.config || null, rejected: eo.rejected || null, note: null };
   }
   const entries = collectLocalDispatch();
   if (entries) {
     const today = cstToday();
     const todayEntries = entries.filter((e) => e.cstDate === today);
-    // 本地日志没有 slot 字段（crontab 时代只记 wf 名）：同 job 的多条按时间升序，
-    // 依次分配给晨/午槽位。退役前若真一天跑过两次，这个语义成立；退役后日志停更，
-    // 降级视图本来就会停在旧记录，靠 note 告知，不装作是今天的成绩。
+    // 本地日志没有 slot 字段（crontab 时代只记 wf 名），按**落点时刻**归槽而不是按出现顺序：
+    // 现在 refresh 有三个时点，顺序分配会把退役前 14:30 那条错标成「早盘」。
+    // 退役后日志停更，降级视图本来就会停在旧记录，靠 note 告知，不装作是今天的成绩。
     const byJob = {};
     for (const e of todayEntries) {
       (byJob[e.wf] = byJob[e.wf] || []).push(e);
     }
     for (const k of Object.keys(byJob)) byJob[k].sort((a, b) => (a.atUtc < b.atUtc ? -1 : a.atUtc > b.atUtc ? 1 : 0));
-    const seen = {};
-    const slots = SLOTS.map((s) => {
-      const i = seen[s.job] || 0;
-      seen[s.job] = i + 1;
-      return slotStateFromLog((byJob[s.wf] || [])[i] || null, s);
-    });
+    const slots = labelize(
+      SLOTS.map((s) => {
+        const win = SLOT_WINDOW[`${s.job}:${s.slot}`];
+        const entry = (byJob[s.wf] || []).find((e) => win && win(cstMinutes(e.cstTime))) || null;
+        return slotStateFromLog(entry, s);
+      })
+    );
     // 降级视图只把「日志证明的失败」升级为 fail；unknown 不参与汇总——
     // 它只表示「本地没留记录」，而 computeOverall 里 source!=='edgeone' 的 warn 已兜底。
     let state = 'ok';
@@ -349,16 +371,18 @@ function collectDispatch(eo) {
       recent: entries.slice(-6).reverse().map((e) => ({ cstDate: e.cstDate, cstTime: e.cstTime, wf: e.wf, slot: null, code: e.code, via: 'cron', ok: e.code === 204, alert: null })),
       alerts: { last: null },
       config: null,
+      rejected: null,
       note: `EdgeOne 状态端点不可达（${eo ? eo.error : '未查询'}）；已回退本地脚本日志。crontab 已退役，该日志可能停在退役前，仅作降级视图。`,
     };
   }
   return {
     source: 'none',
     state: 'unknown',
-    slots: SLOTS.map((s) => ({ job: s.job, wf: s.wf, hhmm: s.hhmm, slot: s.slot, state: 'unknown', at: null, code: null, via: null, note: null })),
+    slots: labelize(SLOTS.map((s) => ({ job: s.job, wf: s.wf, hhmm: s.hhmm, slot: s.slot, state: 'unknown', at: null, code: null, via: null, note: null }))),
     recent: [],
     alerts: { last: null },
     config: null,
+    rejected: null,
     note: eo ? `EdgeOne 状态端点不可达（${eo.error}），本地也无 dispatch 日志。` : 'EdgeOne 状态端点未查询，本地无 dispatch 日志。',
   };
 }
@@ -479,18 +503,21 @@ async function runDispatch(job, mode) {
     // 优先走 EdgeOne 端点（DISPATCH_VIA=local 可强制回退本地脚本）：
     // 服务器 PAT 过期不影响面板触发，且每次点击都是对 EO 调度路径的活体验证。
     if (CFG.eoCronSecret && CFG.dispatchVia !== 'local') {
-      // 手动触发也带时点：过午（CST 12:00）算 close，与调度同款判定。
-      // 鉴权调用不受每日闸限制，这里传 slot/edition 是为了语义正确——
+      // 手动触发也带时点：按当前时刻就近落槽（与调度同款三分法），
+      // refresh 有 preopen/intraday/close 三档，broadcast 只有 morning/close 两版。
+      // 鉴权调用不受每日闸与组合白名单限制，这里传 slot/edition 是为了语义正确——
       // 下午手点 broadcast 发的应是下午报，不是早报重发。
-      const slot = cstParts().minutes >= 12 * 60 ? 'close' : 'morning';
+      const mins = cstParts().minutes;
+      const refreshSlot = mins >= 12 * 60 ? 'close' : mins >= 9 * 60 ? 'intraday' : 'preopen';
+      const edition = mins >= 12 * 60 ? 'close' : 'morning';
       const r = await fetch(`${CFG.siteOrigin}/api/jobs/dispatch`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           job,
           mode: job === 'broadcast' ? (mode === 'dry-run' ? 'dry' : 'send') : undefined,
-          slot: job === 'refresh' ? slot : undefined,
-          edition: job === 'broadcast' ? slot : undefined,
+          slot: job === 'refresh' ? refreshSlot : undefined,
+          edition: job === 'broadcast' ? edition : undefined,
           cron_secret: CFG.eoCronSecret,
         }),
         signal: AbortSignal.timeout(90000),
@@ -696,6 +723,9 @@ var OVERALL_TEXT = { ok: '链路正常', warn: '需关注', bad: '异常' };
 var SLOT_TEXT = { ok: 'ok', fail: '失败', missing: '缺失', pending: '未到点', unknown: '未知' };
 var SOURCE_TEXT = { edgeone: 'EdgeOne 调度', 'local-log': '本地日志（降级）', none: '无数据源' };
 var VIA_TEXT = { nonce: '调度触发', cron_secret: '鉴权手动', cron: 'cron 时代', anonymous: '未鉴权' };
+// 槽位中文名由服务端随 slot 对象下发（sl.label）；这里只保留事件流用的兜底映射，
+// 因为事件里的 slot 字符串没有附带 job 上下文。
+var SLOT_CN = { preopen: '盘前', intraday: '早盘', close: '收盘前', morning: '早报' };
 
 function slotDot(state) {
   if (state === 'ok') return 'ok';
@@ -708,7 +738,7 @@ function evtLine(e) {
   // 换行必须用 fromCharCode(10)：整页嵌在服务端模板字符串里，任何反斜杠转义
   // （连注释里的也算）都会被外层吃掉，浏览器收到裸换行会报 SyntaxError。
   // 2026-10-21 实测踩过两次；smoke.mjs 的「内联脚本可编译」断言专防这个。
-  var left = (e.cstDate || '??') + ' ' + (e.cstTime || '--') + '  ' + String(e.wf || '').replace('.yml', '') + (e.slot ? '·' + (e.slot === 'close' ? '午' : '晨') : '');
+  var left = (e.cstDate || '??') + ' ' + (e.cstTime || '--') + '  ' + String(e.wf || '').replace('.yml', '') + (e.slot ? '·' + (SLOT_CN[e.slot] || e.slot) : '');
   var right = e.code == null ? '网络异常' : 'HTTP ' + e.code;
   if (e.ok) {
     right += ' ok';
@@ -755,9 +785,16 @@ function render(s) {
   (d.slots || []).forEach(function (sl) {
     var right = sl.code != null ? ('HTTP ' + sl.code + (sl.at ? ' · ' + sl.at : '')) : (SLOT_TEXT[sl.state] || sl.state);
     if (sl.via) right += ' · ' + (VIA_TEXT[sl.via] || sl.via);
-    html += '<div class="row"><span class="k">' + dot(slotDot(sl.state)) + esc(sl.job + ' ' + sl.hhmm + ' ' + (SLOT_LABEL[sl.slot] || '')) + '</span><span class="v">' + esc(right) + '</span></div>';
+    html += '<div class="row"><span class="k">' + dot(slotDot(sl.state)) + esc(sl.job + ' ' + sl.hhmm + ' ' + (sl.label || '')) + '</span><span class="v">' + esc(right) + '</span></div>';
   });
   if (d.note) html += row('备注', esc(d.note));
+  // 今日被拒：dispatch 故意不把 401/403/409/400 写进事件流水（50 条会被噪声灌满），
+  // 所以「有没有人在扫这个端点」只能靠这个计数看。非零不等于出事，但值得看一眼。
+  var rj = d.rejected;
+  html += row(
+    '今日被拒',
+    rj && rj.n ? esc('共 ' + rj.n + ' 次 · 最近 ' + String(rj.last || '').replace('T', ' ').slice(0, 16) + ' · ' + (rj.lastError || '—') + '（' + (rj.lastJob || '?') + '/' + (rj.lastSlot || '?') + '）') : '无'
+  );
   var la = d.alerts && d.alerts.last;
   html += row(
     '最近告警',

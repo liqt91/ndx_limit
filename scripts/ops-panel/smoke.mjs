@@ -67,10 +67,13 @@ async function startStack(opts = {}) {
   const today = cstToday();
   const staleDate = cstShiftDays(-1);
 
-  // dispatch 日志 fixture：今天两个槽位；failStack 把 refresh 换成 500
+  // dispatch 日志 fixture：今天盘前/早盘各一跳 + 下午报一跳，**故意不写 14:30 那条**，
+  // 用来验证「无记录的槽位记 unknown 而不是 missing」；failStack 把盘前那次换成 500。
+  // 时刻按新调度表（07:50 / 09:40 / 14:30 / 14:45），降级视图按落点归槽。
   const lines = [
     `${utcAtCst(today, '07:50')} refresh.yml -> HTTP ${opts.failRefresh ? 500 : 204}`,
-    `${utcAtCst(today, '08:10')} broadcast.yml -> HTTP 204`,
+    `${utcAtCst(today, '09:40')} refresh.yml -> HTTP 204`,
+    `${utcAtCst(today, '14:45')} broadcast.yml -> HTTP 204`,
     `${utcAtCst(cstShiftDays(-1), '07:50')} refresh.yml -> HTTP 204`,
   ];
   const dispatchLog = join(dir, 'gh-dispatch.log');
@@ -173,12 +176,14 @@ async function startStack(opts = {}) {
   return { dir, baseUrl, panel, panelExit, panelErr: () => panelErr, authSeen: () => ({ gh: ghAuthSeen, subs: subsAuthSeen }), srvs: [gh, raw, site], argsFile, dispatchLog, auditLog: join(dir, 'audit.log'), mockFail, eoDispatchSeen: () => eoDispatchSeen };
 }
 
-// EdgeOne /api/jobs/status 的桩载荷：今天四跳都成功（晨/午各两跳）、一条未鉴权 401、
+// EdgeOne /api/jobs/status 的桩载荷：今天三抓一报都成功、一条历史上的未鉴权 401、
 // 昨天一次 github_error 且告警已发（alerts.last 指向它）。over 供各栈按需覆盖。
 // jobs 为 job×slot 双层结构，与 status.js 一致；事件带 slot，与 dispatch.js 一致。
+// ★ 401/409 现在不再进事件流水（改为 job_rejected_ 计数），这里保留一条历史事件
+//   是为了覆盖面板对旧数据的展示分支。
 function eoPayload(over = {}) {
   const at1 = new Date(Date.now() - 30 * 60000).toISOString();
-  const at2 = new Date(Date.now() - 90 * 60000).toISOString();
+  const at2 = new Date(Date.now() - 60 * 60000).toISOString();
   const at3 = new Date(Date.now() - 200 * 60000).toISOString();
   const at4 = new Date(Date.now() - 190 * 60000).toISOString();
   const atOld = new Date(Date.now() - 26 * 3600e3).toISOString();
@@ -188,21 +193,23 @@ function eoPayload(over = {}) {
     cstToday: cstToday(),
     jobs: {
       refresh: {
-        morning: { dispatchedToday: true, at: at1, via: 'nonce', mode: null },
+        preopen: { dispatchedToday: true, at: at1, via: 'nonce', mode: null },
+        intraday: { dispatchedToday: true, at: at2, via: 'nonce', mode: null },
         close: { dispatchedToday: true, at: at3, via: 'nonce', mode: null },
       },
       broadcast: {
-        morning: { dispatchedToday: true, at: at2, via: 'nonce', mode: 'send' },
+        morning: { dispatchedToday: false, at: null, via: null, mode: null },
         close: { dispatchedToday: true, at: at4, via: 'nonce', mode: 'send' },
       },
     },
+    rejected: { n: 3, first: atOld, last: atFail, lastError: 'unauthorized', lastStatus: 401, lastJob: 'broadcast', lastSlot: 'morning' },
     events: [
       { at: at4, job: 'broadcast', slot: 'close', mode: 'send', via: 'nonce', status: 204, ok: true, error: null, alert: null },
       { at: at3, job: 'refresh', slot: 'close', mode: null, via: 'nonce', status: 204, ok: true, error: null, alert: null },
-      { at: at2, job: 'broadcast', slot: 'morning', mode: 'send', via: 'nonce', status: 204, ok: true, error: null, alert: null },
-      { at: at1, job: 'refresh', slot: 'morning', mode: null, via: 'nonce', status: 204, ok: true, error: null, alert: null },
-      { at: atOld, job: 'refresh', slot: 'morning', mode: null, via: 'anonymous', status: 401, ok: false, error: 'unauthorized', alert: null },
-      { at: atFail, job: 'refresh', slot: 'morning', mode: null, via: 'nonce', status: 502, ok: false, error: 'github_error', alert: 'sent' },
+      { at: at2, job: 'refresh', slot: 'intraday', mode: null, via: 'nonce', status: 204, ok: true, error: null, alert: null },
+      { at: at1, job: 'refresh', slot: 'preopen', mode: null, via: 'nonce', status: 204, ok: true, error: null, alert: null },
+      { at: atOld, job: 'refresh', slot: 'preopen', mode: null, via: 'anonymous', status: 401, ok: false, error: 'unauthorized', alert: null },
+      { at: atFail, job: 'refresh', slot: 'preopen', mode: null, via: 'nonce', status: 502, ok: false, error: 'github_error', alert: 'sent' },
     ],
     alerts: { last: { at: atFail, job: 'refresh', status: 502, alert: 'sent' } },
     config: { ghToken: true, cronSecret: true, alertEmail: true },
@@ -305,6 +312,12 @@ async function main() {
       compileErr = String(e.message || e);
     }
     check('页面内联脚本可编译', compileErr === '', compileErr);
+    // 编译过 ≠ 能跑：客户端脚本是独立作用域，引用服务端 const（如 SLOT_LABEL）编译不报错，
+    // 浏览器里却是 ReferenceError、整块卡片渲染不出来（2026-10-21 真实踩过：
+    // 客户端写 SLOT_LABEL[sl.slot]，调度卡整块空白，而冒烟只测了「能编译」）。
+    // 所以槽位标签一律由服务端随 slot 对象下发（sl.label），这里静态守住这条约定。
+    check('内联脚本不引用服务端常量 SLOT_LABEL', scriptMatch && !/SLOT_LABEL\s*\[/.test(scriptMatch[1]));
+    check('槽位标签来自下发数据 sl.label', scriptMatch && /sl\.label/.test(scriptMatch[1]));
 
     const st = await getJson(ok.baseUrl + '/api/status');
     check('GET /api/status 返回 200', st.status === 200, st.status);
@@ -313,11 +326,13 @@ async function main() {
     check('dispatch.source === edgeone（EO 优先）', s.dispatch && s.dispatch.source === 'edgeone', s.dispatch && s.dispatch.source);
     check('dispatch.state === ok', s.dispatch && s.dispatch.state === 'ok', JSON.stringify(s.dispatch && s.dispatch.state));
     check('四个槽位都是 ok/204', Array.isArray(s.dispatch.slots) && s.dispatch.slots.length === 4 && s.dispatch.slots.every((x) => x.state === 'ok' && x.code === 204), JSON.stringify(s.dispatch.slots));
-    check('槽位覆盖晨/午 × refresh/broadcast', s.dispatch.slots.map((x) => x.job + ':' + x.slot).join(',') === 'refresh:morning,broadcast:morning,refresh:close,broadcast:close', JSON.stringify(s.dispatch.slots.map((x) => x.job + ':' + x.slot)));
+    check('槽位顺序 = 三抓一报', s.dispatch.slots.map((x) => x.job + ':' + x.slot).join(',') === 'refresh:preopen,refresh:intraday,refresh:close,broadcast:close', JSON.stringify(s.dispatch.slots.map((x) => x.job + ':' + x.slot)));
     check('槽位标注触发方式 via=nonce', s.dispatch.slots.every((x) => x.via === 'nonce'), JSON.stringify(s.dispatch.slots.map((x) => x.via)));
-    check('事件流可见午间槽位', s.dispatch.recent.some((e) => e.slot === 'close' && e.ok === true), JSON.stringify(s.dispatch.recent));
+    check('槽位带中文标签（服务端下发，客户端不查表）', s.dispatch.slots.map((x) => x.label).join(',') === '盘前,早盘,收盘前,下午报', JSON.stringify(s.dispatch.slots.map((x) => x.label)));
+    check('事件流可见收盘前槽位', s.dispatch.recent.some((e) => e.slot === 'close' && e.ok === true), JSON.stringify(s.dispatch.recent));
     check('事件流水进入面板（含今日与昨日）', Array.isArray(s.dispatch.recent) && s.dispatch.recent.length >= 3 && s.dispatch.recent.some((e) => e.cstDate === cstToday() && e.ok === true), JSON.stringify(s.dispatch.recent));
-    check('未鉴权调用也在事件流里可见', s.dispatch.recent.some((e) => e.via === 'anonymous' && e.code === 401), JSON.stringify(s.dispatch.recent));
+    check('历史未鉴权事件仍可读（旧数据兼容）', s.dispatch.recent.some((e) => e.via === 'anonymous' && e.code === 401), JSON.stringify(s.dispatch.recent));
+    check('今日被拒计数下发给面板', s.dispatch.rejected && s.dispatch.rejected.n === 3 && s.dispatch.rejected.lastError === 'unauthorized', JSON.stringify(s.dispatch.rejected));
     check('最近告警=已发送', s.dispatch.alerts && s.dispatch.alerts.last && s.dispatch.alerts.last.alert === 'sent', JSON.stringify(s.dispatch.alerts));
     check('调度鉴权已配置可见', s.dispatch.config && s.dispatch.config.cronSecret === true, JSON.stringify(s.dispatch.config));
     check('refresh runs 最新 success', Array.isArray(s.runs.refresh) && s.runs.refresh[0].conclusion === 'success');
@@ -363,36 +378,37 @@ async function main() {
     await stopStack(ok);
   }
 
-  // ---- 栈 2：EO 报告今日早间 refresh 硬失败（GitHub 502）→ overall=bad ----
+  // ---- 栈 2：EO 报告今日盘前 refresh 硬失败（GitHub 502）→ overall=bad ----
   {
     const failAt = new Date(Date.now() - 45 * 60000).toISOString();
     const bad = await startStack({
       eoStatus: eoPayload({
         jobs: {
           refresh: {
-            morning: { dispatchedToday: false, at: null, via: null, mode: null },
+            preopen: { dispatchedToday: false, at: null, via: null, mode: null },
+            intraday: { dispatchedToday: true, at: new Date(Date.now() - 60 * 60000).toISOString(), via: 'nonce', mode: null },
             close: { dispatchedToday: true, at: new Date(Date.now() - 200 * 60000).toISOString(), via: 'nonce', mode: null },
           },
           broadcast: {
-            morning: { dispatchedToday: true, at: new Date(Date.now() - 90 * 60000).toISOString(), via: 'nonce', mode: 'send' },
+            morning: { dispatchedToday: false, at: null, via: null, mode: null },
             close: { dispatchedToday: true, at: new Date(Date.now() - 190 * 60000).toISOString(), via: 'nonce', mode: 'send' },
           },
         },
         events: [
           { at: new Date(Date.now() - 190 * 60000).toISOString(), job: 'broadcast', slot: 'close', mode: 'send', via: 'nonce', status: 204, ok: true, error: null, alert: null },
           { at: new Date(Date.now() - 200 * 60000).toISOString(), job: 'refresh', slot: 'close', mode: null, via: 'nonce', status: 204, ok: true, error: null, alert: null },
-          { at: new Date(Date.now() - 90 * 60000).toISOString(), job: 'broadcast', slot: 'morning', mode: 'send', via: 'nonce', status: 204, ok: true, error: null, alert: null },
-          { at: failAt, job: 'refresh', slot: 'morning', mode: null, via: 'nonce', status: 502, ok: false, error: 'github_error', alert: 'sent' },
+          { at: new Date(Date.now() - 60 * 60000).toISOString(), job: 'refresh', slot: 'intraday', mode: null, via: 'nonce', status: 204, ok: true, error: null, alert: null },
+          { at: failAt, job: 'refresh', slot: 'preopen', mode: null, via: 'nonce', status: 502, ok: false, error: 'github_error', alert: 'sent' },
         ],
         alerts: { last: { at: failAt, job: 'refresh', status: 502, alert: 'sent' } },
       }),
     });
     try {
       const s = (await getJson(bad.baseUrl + '/api/status')).body;
-      check('EO 报今日早间 refresh 失败 → overall=bad', s.overall === 'bad', s.overall);
+      check('EO 报今日盘前 refresh 失败 → overall=bad', s.overall === 'bad', s.overall);
       check('dispatch.state === fail', s.dispatch.state === 'fail', s.dispatch.state);
-      check('失败槽位带 502 与时间（仅早间 refresh）', s.dispatch.slots[0].state === 'fail' && s.dispatch.slots[0].code === 502 && !!s.dispatch.slots[0].at && s.dispatch.slots[0].slot === 'morning', JSON.stringify(s.dispatch.slots[0]));
-      check('午间 refresh 槽位不受早间失败影响', s.dispatch.slots[2].state === 'ok', JSON.stringify(s.dispatch.slots[2]));
+      check('失败槽位带 502 与时间（仅盘前 refresh）', s.dispatch.slots[0].state === 'fail' && s.dispatch.slots[0].code === 502 && !!s.dispatch.slots[0].at && s.dispatch.slots[0].slot === 'preopen', JSON.stringify(s.dispatch.slots[0]));
+      check('收盘前 refresh 槽位不受盘前失败影响', s.dispatch.slots[2].state === 'ok', JSON.stringify(s.dispatch.slots[2]));
       const la2 = s.dispatch.alerts && s.dispatch.alerts.last;
       check('告警摘要指向这次失败', !!la2 && la2.status === 502 && la2.alert === 'sent', JSON.stringify(s.dispatch.alerts));
     } finally {
@@ -418,8 +434,9 @@ async function main() {
       const s = (await getJson(down.baseUrl + '/api/status')).body;
       check('EO 不可达 → source=local-log', s.dispatch.source === 'local-log', s.dispatch.source);
       check('降级时 note 说明来源', String(s.dispatch.note || '').includes('EdgeOne 状态端点不可达'), s.dispatch.note);
-      check('本地日志早间两槽仍可读（今天 204）', s.dispatch.slots[0].state === 'ok' && s.dispatch.slots[1].state === 'ok', JSON.stringify(s.dispatch.slots));
-      check('午间槽位无记录 → unknown（不伪装成 missing）', s.dispatch.slots[2].state === 'unknown' && s.dispatch.slots[3].state === 'unknown', JSON.stringify(s.dispatch.slots));
+      check('本地日志按落点归槽：盘前 / 早盘都读到 204', s.dispatch.slots[0].state === 'ok' && s.dispatch.slots[1].state === 'ok', JSON.stringify(s.dispatch.slots));
+      check('本地日志：收盘前无记录 → unknown（不伪装成 missing）', s.dispatch.slots[2].state === 'unknown', JSON.stringify(s.dispatch.slots[2]));
+      check('本地日志：下午报按 12:00 分界归到 close', s.dispatch.slots[3].state === 'ok', JSON.stringify(s.dispatch.slots[3]));
       check('EO 不可达 → overall=warn', s.overall === 'warn', s.overall);
     } finally {
       await stopStack(down);
@@ -451,7 +468,7 @@ async function main() {
       const seen1 = eo.eoDispatchSeen();
       check('EO 端点收到 job=refresh 与 cron_secret', !!seen1 && seen1.body.job === 'refresh' && seen1.body.cron_secret === 'smoke-eo-secret', JSON.stringify(seen1 && seen1.body));
       check('refresh 不带 mode 字段', !!seen1 && !('mode' in seen1.body), JSON.stringify(seen1 && seen1.body));
-      check('refresh 带 slot（按面板当前时刻判晨/午）', !!seen1 && ['morning', 'close'].includes(seen1.body.slot), JSON.stringify(seen1 && seen1.body));
+      check('refresh 带 slot（按面板当前时刻落三槽之一）', !!seen1 && ['preopen', 'intraday', 'close'].includes(seen1.body.slot), JSON.stringify(seen1 && seen1.body));
       const st = await getJson(eo.baseUrl + '/api/status');
       check('审计记录 via=edgeone', Array.isArray(st.body.audit) && st.body.audit.length === 1 && st.body.audit[0].via === 'edgeone', JSON.stringify(st.body.audit));
 

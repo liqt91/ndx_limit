@@ -11,20 +11,19 @@
       "method": "POST",
       "payload": {
         "job": "refresh",
-        "slot": "morning",
+        "slot": "preopen",
         "nonce": "1440685b9dca09d0c26840248fdfac205ed0b4f1ddbe1ac4"
       }
     },
     {
-      "name": "broadcast-0810",
-      "cron": "10 8 * * *",
+      "name": "refresh-0940",
+      "cron": "40 9 * * *",
       "timezone": "Asia/Shanghai",
       "path": "/api/jobs/dispatch",
       "method": "POST",
       "payload": {
-        "job": "broadcast",
-        "mode": "send",
-        "edition": "morning",
+        "job": "refresh",
+        "slot": "intraday",
         "nonce": "1440685b9dca09d0c26840248fdfac205ed0b4f1ddbe1ac4"
       }
     },
