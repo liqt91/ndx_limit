@@ -1,0 +1,24 @@
+[Unit]
+Description=ndx_limit ops panel (loopback only; access via SSH tunnel)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/ops-panel
+# 可选的环境文件；不放任何密钥本体，只放路径类配置（密钥走 /root 下的 token 文件）
+EnvironmentFile=-/etc/ops-panel.env
+ExecStart=/usr/bin/node server.mjs
+Restart=on-failure
+RestartSec=5
+
+# 安全加固：面板只需要读 /root 下的凭据文件、写 /var/log 下的审计日志
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadOnlyPaths=/root
+ReadWritePaths=/var/log
+
+[Install]
+WantedBy=multi-user.target
