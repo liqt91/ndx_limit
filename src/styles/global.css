@@ -923,6 +923,27 @@ a { color: inherit; text-decoration: none; }
 
 /* ── 额度待核验 / 数据质量标记 ── */
 .lim-unknown { color: var(--warn); font-family: var(--mono); font-size: 12px; }
+
+/* ── 详情页：申购相关公告 ── */
+.ann-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
+.ann-row {
+  display: flex; align-items: baseline; gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--rule) 70%, transparent);
+}
+.ann-date { flex: none; font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+.ann-action {
+  flex: none; font-size: 13.5px; color: var(--ink);
+  text-decoration: none; border-bottom: 1px solid var(--rule-2); padding-bottom: 1px;
+}
+.ann-action:hover, .ann-action:focus-visible { border-bottom-color: var(--ink-3); }
+.ann-action::after { content: ' ↗'; color: var(--ink-3); font-size: 11px; }
+/* 原标题很长（「关于××基金(QDII)调整…的公告」），单行截断，全文放 title 里 */
+.ann-t {
+  min-width: 0; font-size: 12px; color: var(--ink-3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ann-note { font-size: 12px; color: var(--ink-3); line-height: 1.7; margin: 10px 0 0; }
 .fam-note {
   font-family: var(--mono);
   font-size: 11.5px;
@@ -957,6 +978,21 @@ a { color: inherit; text-decoration: none; }
 .cl-dot-opened, .cl-dot-limit-up { background: var(--accent-open); }
 .cl-dot-stopped, .cl-dot-limit-down, .cl-dot-limit-set, .cl-dot-limit-clear { background: var(--accent-changed); }
 .cl-dot-unknown { background: var(--accent-faint); }
+/* 公告链接是这一行里最小的一级信息：想深究的人才点，不该抢走「额度变了几块」的位置。
+   用发丝下划线而不是换色，跟全站「细线 + 墨色」的语言一致。 */
+.cl-title { min-width: 0; }
+.cl-ann {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink-3);
+  text-decoration: none;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--rule-2);
+  padding-bottom: 1px;
+}
+.cl-ann:hover,
+.cl-ann:focus-visible { color: var(--ink); border-bottom-color: var(--ink-3); }
 .cl-transition { display: inline-flex; align-items: center; gap: 8px; flex: none; font-family: var(--mono); font-size: 13px; }
 .cl-from { color: var(--ink-3); }
 .cl-arrow { color: var(--rule-2); }
@@ -1004,6 +1040,12 @@ a { color: inherit; text-decoration: none; }
   /* 小注在窄屏必须能折行：nowrap 是给桌面「不拆开一句话」用的，
      390 宽下「较上个交易日（2026-10-19）3 只开门…」比屏还宽，会横滚 */
   .mast-summary .mast-sum-item { white-space: normal; }
+  /* 变化行在窄屏必须拆两行：名称 + 公告一行、变化靠右一行。
+     挤在一行时「华安纳斯达克100ETF联接(QDII)A 公告 · 暂停申购 限 5 元 → 暂停」
+     会把名称切成三段，读的人得在断行里找主语。 */
+  .cl-row { flex-wrap: wrap; row-gap: 6px; }
+  .cl-name { flex: 1 1 100%; }
+  .cl-transition { margin-left: auto; }
   .foot-grid { grid-template-columns: 1fr; gap: 8px; }
   .foot-icp { text-align: left; }
 }

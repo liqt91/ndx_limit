@@ -107,11 +107,74 @@ export function prevTradingDay(date, holidays) {
   return null;
 }
 
-// 返回结构化日报。healthy=false 时 text 为数据异常提示；无论有无变化都返回 text（无变化含说明）。
-export function buildDailyDigest() {
+// 人民币份额的当日聚合（与页面同一口径）：按「公司 + 基金名」成组，组内任一可买即算开门，
+// 可买份额的单日上限相加为可投总额。scrape.mjs 的 fetch-meta.runs[] 也用它，避免两处口径漂移。
+export function aggregateCny(funds, pointByCode) {
+  const groups = new Map();
+  for (const f of funds) {
+    if (f.currency !== 'CNY') continue;
+    const key = `${f.company}|${f.baseName}`;
+    if (!groups.has(key)) groups.set(key, { buyable: false, total: 0 });
+    const g = groups.get(key);
+    for (const c of f.codes) {
+      const p = pointByCode[c.code];
+      if (!p) continue;
+      if (p.status === 'OPEN' || p.status === 'LIMITED') {
+        g.buyable = true;
+        if (p.limit != null) g.total += p.limit;
+      }
+    }
+  }
+  const arr = [...groups.values()];
+  return { opened: arr.filter((g) => g.buyable).length, total: arr.reduce((a, g) => a + g.total, 0), families: arr.length };
+}
+
+/** 指定日期的人民币聚合（history 里每只基金取该日那条）。 */
+export function summarizeDay(funds, history, date) {
+  const pts = {};
+  for (const code in history) {
+    const arr = history[code];
+    if (!Array.isArray(arr)) continue;
+    const hit = arr.find((d) => d.date === date);
+    if (hit) pts[code] = hit;
+  }
+  return aggregateCny(funds, pts);
+}
+
+// 一条变化 → 一行文案。页面、早报、下午报共用一套说法，避免「限大额 10 元」与
+// 「限 10 元」两种写法在不同地方各说一遍。
+export function formatChangeLine(c) {
+  switch (c.kind) {
+    case 'opened':
+      return `✅ 开门：${c.name}${c.to.limit != null ? `（限 ${c.to.limit}元）` : ''}`;
+    case 'stopped':
+      return `⛔ 暂停：${c.name}`;
+    case 'limit-up':
+      return `🔺 额度上调：${c.name}（${c.from.limit}元→${c.to.limit}元）`;
+    case 'limit-down':
+      return `🔻 额度下调：${c.name}（${c.from.limit}元→${c.to.limit}元）`;
+    case 'limit-set':
+      return `🔒 新限额：${c.name}（${c.to.limit}元）`;
+    case 'limit-clear':
+      return `🔓 取消限额：${c.name}`;
+    case 'unknown':
+      return `❓ 数据待核验：${c.name}`;
+    default:
+      return `• ${c.name}`;
+  }
+}
+
+// ── 日报正文 ──
+// edition=morning：早报（07:50 抓、08:10 发），说明当天开盘前的情况；
+// edition=close ：下午报（14:30 抓、14:45 发），收盘前最后一次刷新——
+//   这个时点才是「今天还能不能下单」的答案（场外 15:00 截止），所以它先给当日快照，
+//   再给「较昨日」，最后给「较今晨」，让读者一眼看出上午到现在有没有变。
+export function buildDailyDigest({ edition = 'morning' } = {}) {
   const funds = readJson('funds.json', { funds: [] }).funds;
   const history = readJson('history.json', {});
   const meta = readJson('fund-meta.json', {});
+  const fetchMeta = readJson('fetch-meta.json', {});
+  const isClose = edition === 'close';
 
   if (!Object.keys(history).length) {
     return { healthy: false, noChange: true, date: '', subject: '纳指开门日报', text: 'ℹ 暂无抓取历史，日报暂缓。', changes: [] };
@@ -155,30 +218,52 @@ export function buildDailyDigest() {
   const stopped = changes.filter((c) => c.kind === 'stopped').length;
   const limitChanged = changes.filter((c) => ['limit-up', 'limit-down', 'limit-set', 'limit-clear'].includes(c.kind)).length;
 
-  const lines = changes.map((c) => {
-    switch (c.kind) {
-      case 'opened':
-        return `✅ 开门：${c.name}${c.to.limit != null ? `（限大额 ${c.to.limit}元）` : ''}`;
-      case 'stopped':
-        return `⛔ 暂停：${c.name}`;
-      case 'limit-up':
-        return `🔺 额度上调：${c.name}（${c.from.limit}元→${c.to.limit}元）`;
-      case 'limit-down':
-        return `🔻 额度下调：${c.name}（${c.from.limit}元→${c.to.limit}元）`;
-      case 'limit-set':
-        return `🔒 新限额：${c.name}（${c.to.limit}元）`;
-      case 'limit-clear':
-        return `🔓 取消限额：${c.name}`;
-      case 'unknown':
-        return `❓ 数据待核验：${c.name}`;
-      default:
-        return `• ${c.name}`;
+  const lines = changes.map(formatChangeLine);
+  const deltaLine = `较 ${prevDate}：${opened} 家开门 · ${stopped} 家暂停 · ${limitChanged} 家额度变动`;
+  const head = isClose ? `【纳指开门日报 · ${date} 收盘前】` : `【纳指开门日报 · ${date}】`;
+  const blocks = [head];
+
+  // 下午报先给当日快照：读者此刻只关心「现在还能买多少」
+  const runs = Array.isArray(fetchMeta.runs) ? fetchMeta.runs : [];
+  const slotTime = (slot) => runs.find((r) => r.slot === slot)?.time || null;
+  const dataTime = slotTime('close') || slotTime('morning') || null;
+  if (isClose) {
+    const agg = summarizeDay(funds, history, date);
+    blocks.push(`收盘前：${agg.opened} 家开门 · 合计 ${agg.total} 元可投${dataTime ? `（${dataTime} 抓取）` : ''}`);
+  }
+
+  blocks.push(changes.length ? `${deltaLine}\n\n${lines.join('\n')}` : `${deltaLine.replace(/：.*$/, '：今日无变化，所有纳指 QDII 额度状态与昨日一致。')}`);
+
+  if (isClose) {
+    // 较今晨：history 只留当日最后一个点，早间值只存在 fetch-meta.runs[] 里
+    const closeRun = runs.find((r) => r.slot === 'close');
+    const intraday = Array.isArray(closeRun?.changed) ? closeRun.changed : [];
+    const morningTime = slotTime('morning');
+    // 早间那次正常在 07:5x；手动补跑可能落在任何时刻，那就别叫「今晨」
+    const prevLabel = !morningTime
+      ? '较同日上一次运行'
+      : morningTime < '12:00'
+        ? `较今晨 ${morningTime}`
+        : `较同日 ${morningTime}`;
+    if (intraday.length) {
+      const intr = intraday
+        .map((c) => {
+          const kind = classifyChange(c.from, c.to);
+          const name = (meta[c.code] && meta[c.code].name) || c.code;
+          return formatChangeLine({ name, from: c.from, to: c.to, kind });
+        })
+        .join('\n');
+      blocks.push(`${prevLabel}：${intraday.length} 处变化\n\n${intr}`);
+    } else if (morningTime) {
+      blocks.push(`${prevLabel}：没有变化。`);
     }
-  });
+    blocks.push('15:00 前下单按今日净值。明早 08:10 再报。');
+  } else {
+    blocks.push('额度盘中可能调整（多为当日公告生效），收盘前 14:45 会再发一次当日最终额度。');
+  }
 
-  const text = changes.length
-    ? `【纳指开门日报 · ${date}】\n较 ${prevDate}：${opened} 家开门 · ${stopped} 家暂停 · ${limitChanged} 家额度变动\n\n` + lines.join('\n')
-    : `【纳指开门日报 · ${date}】\n较 ${prevDate}：今日无变化，所有纳指 QDII 额度状态与昨日一致。`;
+  const text = blocks.join('\n\n');
+  const subject = isClose ? `纳指开门日报 · ${date} 收盘前` : `纳指开门日报 · ${date}`;
 
-  return { healthy: true, noChange: changes.length === 0, coverage, date, prevDate, subject: `纳指开门日报 · ${date}`, text, changes };
+  return { healthy: true, noChange: changes.length === 0, coverage, date, prevDate, subject, text, changes, edition };
 }

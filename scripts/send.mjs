@@ -21,6 +21,11 @@
 // 用法：
 //   node scripts/send.mjs --dry-run   只打印，不发送
 //   node scripts/send.mjs             真正发送
+//
+// 版次（edition）：
+//   morning（默认）早报；close 下午报（收盘前，先给当日快照再给「较今晨」）。
+//   用 --edition=close 或环境变量 DIGEST_EDITION=close 指定。
+//   定时侧怎么传见 docs/ops/双时点抓取与下午报接入.md——本期不改调度配置。
 
 import fs from 'node:fs';
 import nodemailer from 'nodemailer';
@@ -28,6 +33,10 @@ import { buildDailyDigest } from './digest.mjs';
 import { unsubLink } from './unsub.mjs';
 
 const DRY = process.argv.includes('--dry-run');
+const EDITION =
+  (process.argv.find((a) => a.startsWith('--edition=')) || '').split('=')[1] ||
+  process.env.DIGEST_EDITION ||
+  'morning';
 const HOST = process.env.SMTP_HOST || '';
 const PORT = Number(process.env.SMTP_PORT || 587);
 const SECURE =
@@ -111,7 +120,7 @@ async function loadSubscribers() {
 }
 
 async function main() {
-  const d = buildDailyDigest();
+  const d = buildDailyDigest({ edition: EDITION === 'close' ? 'close' : 'morning' });
   if (!d.healthy) {
     console.log(`ℹ 数据不健康（覆盖率不足），本次不群发。\n${d.text}`);
     // dry-run 只打印；真发时用它兜住「门禁被绕过」的情况，让失败可见而不是静默成功。
@@ -120,7 +129,7 @@ async function main() {
   }
 
   const subs = await loadSubscribers();
-  console.log(`subject: ${d.subject}`);
+  console.log(`[${d.edition || 'morning'}] subject: ${d.subject}`);
   console.log(`订阅者: ${subs.length} 人${subs.length ? `（示例 ${subs.slice(0, 3).join(', ')}…）` : ''}`);
   if (!UNSUB_URL || !UNSUB_SECRET) {
     // 静默缺失最麻烦：日报发出去了、却没有退订口，收件人只能点「举报垃圾邮件」

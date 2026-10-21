@@ -60,7 +60,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/history.json data/fund-meta.json data/fetch-meta.json
+          git add data/history.json data/fund-meta.json data/fetch-meta.json data/announcements.json
           if git diff --cached --quiet; then
             echo "no data changes, skip commit"
           else

@@ -1,4 +1,39 @@
 {
   "date": "2026-10-21",
-  "fetchedAt": "2026-10-21T07:51:37+08:00"
+  "fetchedAt": "2026-10-21T12:30:24+08:00",
+  "slot": "close",
+  "runs": [
+    {
+      "slot": "morning",
+      "at": "2026-10-21T12:29:50+08:00",
+      "time": "12:29",
+      "opened": 7,
+      "total": 135,
+      "families": 17,
+      "changed": null
+    },
+    {
+      "slot": "close",
+      "at": "2026-10-21T12:30:24+08:00",
+      "time": "12:30",
+      "opened": 7,
+      "total": 135,
+      "families": 17,
+      "changed": null
+    }
+  ],
+  "shadow": {
+    "available": true,
+    "checked": 54,
+    "agree": 54,
+    "mismatch": [],
+    "recovered": [],
+    "gaps": {
+      "scoped": 63,
+      "known": 60,
+      "excludedExchange": 3,
+      "missing": []
+    },
+    "warnings": []
+  }
 }

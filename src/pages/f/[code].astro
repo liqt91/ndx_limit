@@ -1,7 +1,7 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import SectionHead from '../../components/SectionHead.astro';
-import { loadAllShares, loadUsdShares } from '../../data/loader';
+import { loadAllShares, loadUsdShares, loadAnnouncementsFor } from '../../data/loader';
 import { STATUS_LABEL, statusClass } from '../../lib/status';
 import type { FundShare, PurchaseStatus } from '../../data/types';
 
@@ -19,6 +19,8 @@ const history = [...share.history].reverse();
 const newest = share.history[share.history.length - 1];
 
 const currencyLabel = share.currency === 'USD' ? '美元' : '人民币';
+// 申购类公告：额度为什么变，答案大多在这一节里（上游公告接口只有日期，没有时分）
+const anns = loadAnnouncementsFor(share.code);
 const heroLabel = share.dailyLimit != null ? '单日最多可投（代销）' : '当前申购状态';
 const heroCls =
   share.dailyLimit != null ? 'is-open'
@@ -89,4 +91,24 @@ const heroCls =
       }
     </tbody>
   </table>
+
+  {
+    anns.length > 0 && (
+      <>
+        <SectionHead index="02" title="申购相关公告" aside={`${anns.length} 条`} />
+        <ul class="ann-list">
+          {anns.map((a) => (
+            <li class="ann-row">
+              <span class="ann-date">{a.date.slice(5)}</span>
+              <a class="ann-action" href={a.url} target="_blank" rel="noopener noreferrer">
+                {a.action}
+              </a>
+              <span class="ann-t" title={a.title}>{a.title}</span>
+            </li>
+          ))}
+        </ul>
+        <p class="ann-note">公告来自天天基金，只保留与申购额度相关的那几类（直销渠道公告、境外节假日临时暂停、费率优惠已剔除）。公告只标注日期，不标时点。</p>
+      </>
+    )
+  }
 </BaseLayout>

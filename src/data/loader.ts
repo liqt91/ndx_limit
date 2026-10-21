@@ -32,6 +32,46 @@ function readJson<T>(name: string, fallback: T): T {
 // 交易日判定只认「周末 + 此集合」；调休补班日若在周末仍休市，无需单独列出。
 const HOLIDAYS = new Set<string>(readJson<string[]>('market-holidays.json', []));
 
+// ──────────────────────────────────────────────────────────────
+// 申购类公告（scripts/announcements.mjs 写 data/announcements.json）
+//
+// 公告解释「今天为什么变了」。只存与代销申购额度相关的那几类（调整大额申购限额 /
+// 暂停申购 / 恢复申购 / 开放日常申购 / 调整规模上限），直销渠道公告、境外节假日
+// 临时暂停、费率优惠都已在上游筛掉——它们解释不了代销额度的变化。
+// ──────────────────────────────────────────────────────────────
+export interface AnnouncementRef {
+  id?: string;
+  date: string;
+  kind: string;
+  action: string;
+  title: string;
+  url: string;
+}
+
+function readAnnouncements(): Record<string, AnnouncementRef[]> {
+  const raw = readJson<{ codes?: Record<string, AnnouncementRef[]> }>('announcements.json', {});
+  return raw.codes || {};
+}
+
+/** 与今日变化相关的公告：只认最近 days 天内的——更早的公告解释不了今天为什么变。 */
+function pickRecentAnnouncement(
+  map: Record<string, AnnouncementRef[]>,
+  code: string,
+  today: string,
+  days = 3
+): AnnouncementRef | null {
+  const arr = map[code];
+  if (!arr || !arr.length) return null;
+  const from = shiftDate(today, -days);
+  return arr.find((a) => a.date >= from) || null;
+}
+
+/** 详情页用：某份额最近的申购类公告（已按日期倒序）。没有就返回空数组。 */
+export function loadAnnouncementsFor(code: string, limit = 6): AnnouncementRef[] {
+  const arr = readAnnouncements()[code] || [];
+  return arr.slice(0, limit);
+}
+
 // history.json 里只保留交易日记录：非交易日（周末/法定节假日）数据不参与任何聚合与展示，
 // 既修掉「把周日当上个交易日」的误判，也保证 /daily 与 30 天柱图只出现交易日。
 function filterTradingDays(history: Record<string, DayPoint[]>): Record<string, DayPoint[]> {
@@ -217,6 +257,8 @@ export interface ChangeRecord {
   fromLimit: number | null;
   toLimit: number | null;
   kind: ChangeKind;
+  /** 解释这条变化的那份公告（有就展示，没有就不写——不猜原因） */
+  ann?: AnnouncementRef | null;
 }
 
 export interface DailyChanges {
@@ -248,6 +290,7 @@ export function loadDailyChanges(): DailyChanges {
   const funds = readJson<{ funds: any[] }>('funds.json', { funds: [] }).funds;
   const history = readHistory();
   const meta = readJson<Record<string, { name: string }>>('fund-meta.json', {});
+  const annMap = readAnnouncements();
   const today = getToday();
 
   const hasReal = Object.keys(history).length > 0;
@@ -274,6 +317,7 @@ export function loadDailyChanges(): DailyChanges {
         fromLimit: from.limit,
         toLimit: to.limit,
         kind,
+        ann: pickRecentAnnouncement(annMap, c.code, today),
       });
     }
   }
@@ -392,6 +436,18 @@ export interface LastTradingDay {
   count: number;
 }
 
+export interface FetchRun {
+  /** morning（早间）/ close（收盘前） */
+  slot: string;
+  at: string;
+  /** 展示用 HH:MM */
+  time: string;
+  opened: number;
+  total: number;
+  /** 与同日另一次运行相比的差异；当天只跑过一次时为 null */
+  changed: { code: string; from: DayPoint; to: DayPoint }[] | null;
+}
+
 export interface FetchMeta {
   /** 抓取日 YYYY-MM-DD（应与 history 最新日期一致） */
   date: string | null;
@@ -399,17 +455,26 @@ export interface FetchMeta {
   fetchedAt: string | null;
   /** 展示用 HH:MM；没有 fetch-meta.json 时为 null */
   time: string | null;
+  /** 本次抓取时点：morning / close */
+  slot: string | null;
+  /** 当日各时点的运行记录（每天最多两条：早间、收盘前） */
+  runs: FetchRun[];
 }
 
 /** 抓取时刻（data/fetch-meta.json，scrape.mjs 写）。缺失时全部为 null，页面只显示日期不显示钟点。 */
 export function loadFetchMeta(): FetchMeta {
-  const raw = readJson<{ date?: string; fetchedAt?: string } | null>('fetch-meta.json', null);
+  const raw = readJson<{ date?: string; fetchedAt?: string; slot?: string; runs?: FetchRun[] } | null>(
+    'fetch-meta.json',
+    null
+  );
   const fetchedAt = typeof raw?.fetchedAt === 'string' ? raw.fetchedAt : null;
   const m = fetchedAt?.match(/T(\d{2}:\d{2})/);
   return {
     date: typeof raw?.date === 'string' ? raw.date : null,
     fetchedAt,
     time: m ? m[1] : null,
+    slot: typeof raw?.slot === 'string' ? raw.slot : null,
+    runs: Array.isArray(raw?.runs) ? raw!.runs : [],
   };
 }
 

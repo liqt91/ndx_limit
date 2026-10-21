@@ -4,7 +4,7 @@ import FamilyCard from '../components/FamilyCard.astro';
 import SectionHead from '../components/SectionHead.astro';
 import { loadTodaySnapshot, loadDailyChanges, getTradingContext, tradingWindowMap, loadUsdShares } from '../data/loader';
 import { STATUS_SHORT, classRank } from '../lib/status';
-import type { FundShare } from '../data/types';
+import type { FundShare, PurchaseStatus } from '../data/types';
 
 const snap = loadTodaySnapshot();
 const changes = loadDailyChanges();
@@ -66,6 +66,11 @@ const idxUsd = ctx.isTrading && hasChanges ? '03' : '02';
 // 额度类变动直接显示「5 元 → 10 元」，比「限大额 → 限大额」有用
 const isLimitKind = (k: string) => k.startsWith('limit');
 const fmtLimit = (v: number | null) => (v == null ? '未公布' : `${v} 元`);
+// 变化行两端的状态文案：限额且已公布金额时写「限 10 元」，不写「限大额」——
+// 「限大额 → 暂停」读者还是不知道门槛是多少，具体金额才有信息量。
+// 数据约束：limit 非 null 当且仅当 LIMITED（全量历史已验证），其余状态原样输出。
+const fmtSide = (s: PurchaseStatus, limit: number | null) =>
+  s === 'LIMITED' && limit != null ? `限 ${limit} 元` : STATUS_SHORT[s];
 
 // 「数据更新于」后面的日期：今天就说「今日」，否则给具体月日。
 // 不写「上个交易日」——那读起来像在讲上个交易日的行情，其实只是今天还没刷新；
@@ -139,7 +144,14 @@ const tradingMap = tradingWindowMap(10, 30);
               <li class={`cl-row cl-${c.kind}`}>
                 <span class="cl-name">
                   <i class={`cl-dot cl-dot-${c.kind}`}></i>
-                  {c.shortName}
+                  <span class="cl-title">{c.shortName}</span>
+                  {/* 解释源：公告标题里全是「关于××基金(QDII)调整…的公告」，有信息量的只有
+                      那个动作，所以只写动作，标题留给详情页。没有公告就不写，不猜原因。 */}
+                  {c.ann && (
+                    <a class="cl-ann" href={c.ann.url} target="_blank" rel="noopener noreferrer">
+                      公告 · {c.ann.action}
+                    </a>
+                  )}
                 </span>
                 <span class="cl-transition">
                   {isLimitKind(c.kind) ? (
@@ -150,12 +162,9 @@ const tradingMap = tradingWindowMap(10, 30);
                     </>
                   ) : (
                     <>
-                      <span class="cl-from">{STATUS_SHORT[c.fromStatus]}</span>
+                      <span class="cl-from">{fmtSide(c.fromStatus, c.fromLimit)}</span>
                       <span class="cl-arrow">→</span>
-                      <span class="cl-to">
-                        {STATUS_SHORT[c.toStatus]}
-                        {c.toLimit != null ? ` ${c.toLimit} 元` : ''}
-                      </span>
+                      <span class="cl-to">{fmtSide(c.toStatus, c.toLimit)}</span>
                     </>
                   )}
                 </span>
@@ -198,7 +207,7 @@ const tradingMap = tradingWindowMap(10, 30);
   }
 
   {/* 放在页面最末尾：脚本要改 H1 和下方小节标题，必须在这些节点解析完之后执行 */}
-  <script is:inline define:vars={{ dataDate: ctx.dataDate, tradingMap }}>
+  <script is:inline define:vars={{ dataDate: ctx.dataDate, tradingMap, fetchedTime: ctx.updatedTime }}>
     // 静态页隔夜不会自己变：按浏览器当天（东八区）判断数据是否过期，
     // 把「数据更新于今日」改成具体日期，并在该有数据的日子亮提示。
     // 结论句不动——「今天 8 家开门」说的是今天这个判断，改口成「上个交易日」
@@ -211,6 +220,26 @@ const tradingMap = tradingWindowMap(10, 30);
           timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
         }).format(new Date());
       } catch (e) { return; }
+
+      var nowHM = '12:00';
+      try {
+        nowHM = new Intl.DateTimeFormat('sv-SE', {
+          timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit', hour12: false,
+        }).format(new Date());
+      } catch (e) {}
+
+      // 一天抓两次（早间 + 收盘前）。数据是今天的、但抓取时刻还在上午，而现在已经过了
+      // 收盘前那次该跑的时刻 → 午后那次没跑到。这时「今天能买多少」其实是今晨的值，
+      // 不说明白就是误导：有人会拿着 07:51 的额度去下单。
+      if (today === dataDate && fetchedTime && fetchedTime < '12:00' && nowHM >= '14:50') {
+        var hintEarly = document.getElementById('stale-hint');
+        var textEarly = document.querySelector('[data-stale-text]');
+        if (hintEarly && textEarly) {
+          textEarly.textContent = '今日午后数据尚未更新，当前是今晨 ' + fetchedTime + ' 的结果。';
+          hintEarly.hidden = false;
+        }
+      }
+
       if (!/^\d{4}-\d{2}-\d{2}$/.test(today) || today <= dataDate) return;
 
       var p = dataDate.split('-');
@@ -232,12 +261,6 @@ const tradingMap = tradingWindowMap(10, 30);
 
       // 提示只在「今天本该有新数据」时亮：休市日不提示，那天本来就不更新
       if (tradingMap[today] === 0) return;
-      var nowHM = '12:00';
-      try {
-        nowHM = new Intl.DateTimeFormat('sv-SE', {
-          timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit', hour12: false,
-        }).format(new Date());
-      } catch (e) {}
 
       var hint = document.getElementById('stale-hint');
       var text = document.querySelector('[data-stale-text]');

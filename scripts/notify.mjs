@@ -19,11 +19,56 @@
 //
 // 依赖：仅 Node 22 内置。日报内容由 ./digest.mjs 统一构建。
 
+import fs from 'node:fs';
 import { buildDailyDigest } from './digest.mjs';
 
 const DRY_RUN = process.argv.includes('--dry-run');
 const WEBHOOK = process.env.NOTIFY_WEBHOOK || '';
 const ALERT_EMAIL = process.env.ALERT_EMAIL || '';
+
+// 抓取巡检：把 scrape.mjs 记在 fetch-meta.json 里的旁路结论带进管理员通知。
+// 这些是「给自己看的」——订阅人不需要知道对账差异，也不该看到名单外份额。
+// 没有这条，对账差异、快照兜底、新份额缺口只会沉在 CI 日志里，没人会翻。
+function opsReport() {
+  let m;
+  try {
+    m = JSON.parse(fs.readFileSync(new URL('../data/fetch-meta.json', import.meta.url), 'utf8'));
+  } catch {
+    return { text: '', slot: null, anomalies: [] };
+  }
+  const s = m.shadow || {};
+  const lines = [];
+  const anomalies = [];
+  const runs = Array.isArray(m.runs) ? m.runs : [];
+  if (runs.length) {
+    lines.push(
+      '时点：' +
+        runs.map((r) => `${r.slot} ${r.time}（${r.opened} 家 / ${r.total} 元${r.changed ? `，较上次 ${r.changed.length} 处变化` : ''}）`).join(' · ')
+    );
+  }
+  if (s.checked) lines.push(`对账：${s.agree}/${s.checked} 与全量快照一致`);
+  if (s.mismatch && s.mismatch.length) {
+    lines.push(
+      `⚠ 对账差异 ${s.mismatch.length} 处：${s.mismatch
+        .map((x) => `${x.code} 页面${x.page.status}/${x.page.limit ?? '—'} vs 快照${x.snapshot.status}/${x.snapshot.limit ?? '—'}`)
+        .join('；')}`
+    );
+    anomalies.push('mismatch');
+  }
+  if (s.recovered && s.recovered.length) {
+    lines.push(`↺ 快照兜底 ${s.recovered.length} 个：${s.recovered.join(', ')}`);
+    anomalies.push('recovered');
+  }
+  if (s.gaps && s.gaps.missing && s.gaps.missing.length) {
+    lines.push(`⚠ 名单外纳指100 份额 ${s.gaps.missing.length} 个：${s.gaps.missing.map((x) => `${x.code} ${x.name}`).join('；')}`);
+    anomalies.push('gaps');
+  }
+  if (s.warnings && s.warnings.length) {
+    lines.push(`⚠ ${s.warnings.join('；')}`);
+    anomalies.push('warnings');
+  }
+  return { text: lines.length ? `\n\n— 抓取巡检 —\n${lines.join('\n')}` : '', slot: m.slot || null, anomalies };
+}
 
 function pickChannel() {
   const explicit = (process.env.NOTIFY_CHANNEL || '').toLowerCase();
@@ -47,9 +92,21 @@ function resolveEndpoint(key) {
 
 function main() {
   const d = buildDailyDigest();
+  const ops = opsReport();
+  const text = d.text + ops.text;
+
+  // 一天抓两次（早间 + 收盘前），但管理员通知不需要两封：
+  // 收盘前那次只在巡检发现异常时才发，正常的「下午也一样」不值一封邮件。
+  const quiet =
+    ops.slot === 'close' && ops.anomalies.length === 0 && !DRY_RUN && !process.argv.includes('--always');
+  if (quiet) {
+    console.log(text);
+    console.log('\nℹ 收盘前时点且巡检无异常，不发管理员通知（需要照发请加 --always）。');
+    return;
+  }
 
   if (DRY_RUN || CHANNEL === 'none' || (CHANNEL === 'email' && !canSendEmail())) {
-    console.log(d.text);
+    console.log(text);
     let target;
     if (CHANNEL === 'email') {
       target = canSendEmail() ? ALERT_EMAIL : '(缺 BREVO_API_KEY / MAIL_FROM / ALERT_EMAIL)';
@@ -62,7 +119,7 @@ function main() {
     return;
   }
 
-  send(d.text, d.subject).catch((e) => {
+  send(text, d.subject).catch((e) => {
     console.error('✗ 通知发送失败：', e.message || e);
     process.exit(1);
   });

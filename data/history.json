@@ -2123,8 +2123,8 @@
     },
     {
       "date": "2026-10-21",
-      "status": "STOPPED",
-      "limit": null
+      "status": "LIMITED",
+      "limit": 5
     }
   ],
   "019442": [
@@ -2256,8 +2256,8 @@
     },
     {
       "date": "2026-10-21",
-      "status": "STOPPED",
-      "limit": null
+      "status": "LIMITED",
+      "limit": 5
     }
   ],
   "040046": [
@@ -7437,6 +7437,34 @@
       "limit": null,
       "nav": 0.6385
     },
+    {
+      "date": "2026-10-21",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "021000": [
+    {
+      "date": "2026-10-21",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "022664": [
+    {
+      "date": "2026-10-21",
+      "status": "LIMITED",
+      "limit": 5
+    }
+  ],
+  "024237": [
+    {
+      "date": "2026-10-21",
+      "status": "STOPPED",
+      "limit": null
+    }
+  ],
+  "021838": [
     {
       "date": "2026-10-21",
       "status": "STOPPED",
