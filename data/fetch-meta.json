@@ -1,12 +1,21 @@
 {
   "date": "2026-10-22",
-  "fetchedAt": "2026-10-22T09:40:12+08:00",
-  "slot": "morning",
+  "fetchedAt": "2026-10-22T14:30:11+08:00",
+  "slot": "close",
   "runs": [
     {
       "slot": "morning",
       "at": "2026-10-22T09:40:12+08:00",
       "time": "09:40",
+      "opened": 7,
+      "total": 135,
+      "families": 17,
+      "changed": null
+    },
+    {
+      "slot": "close",
+      "at": "2026-10-22T14:30:11+08:00",
+      "time": "14:30",
       "opened": 7,
       "total": 135,
       "families": 17,
@@ -30,7 +39,7 @@
   "ms": {
     "available": true,
     "checked": 58,
-    "agree": 51,
+    "agree": 52,
     "mismatch": [
       {
         "code": "021000",
@@ -41,17 +50,6 @@
         "ms": {
           "status": "LIMITED",
           "limit": 200
-        }
-      },
-      {
-        "code": "019442",
-        "page": {
-          "status": "LIMITED",
-          "limit": 5
-        },
-        "ms": {
-          "status": "LIMITED",
-          "limit": 10
         }
       },
       {
