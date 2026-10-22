@@ -1,6 +1,6 @@
 {
   "date": "2026-10-21",
-  "fetchedAt": "2026-10-21T12:30:24+08:00",
+  "fetchedAt": "2026-10-21T23:22:46+08:00",
   "slot": "close",
   "runs": [
     {
@@ -14,8 +14,8 @@
     },
     {
       "slot": "close",
-      "at": "2026-10-21T12:30:24+08:00",
-      "time": "12:30",
+      "at": "2026-10-21T23:22:46+08:00",
+      "time": "23:22",
       "opened": 7,
       "total": 135,
       "families": 17,
@@ -35,5 +35,89 @@
       "missing": []
     },
     "warnings": []
+  },
+  "ms": {
+    "available": true,
+    "checked": 58,
+    "agree": 51,
+    "mismatch": [
+      {
+        "code": "021000",
+        "page": {
+          "status": "STOPPED",
+          "limit": null
+        },
+        "ms": {
+          "status": "LIMITED",
+          "limit": 200
+        }
+      },
+      {
+        "code": "019442",
+        "page": {
+          "status": "LIMITED",
+          "limit": 5
+        },
+        "ms": {
+          "status": "LIMITED",
+          "limit": 10
+        }
+      },
+      {
+        "code": "022525",
+        "page": {
+          "status": "STOPPED",
+          "limit": null
+        },
+        "ms": {
+          "status": "LIMITED",
+          "limit": 100
+        }
+      },
+      {
+        "code": "012751",
+        "page": {
+          "status": "STOPPED",
+          "limit": null
+        },
+        "ms": {
+          "status": "LIMITED",
+          "limit": 1
+        }
+      },
+      {
+        "code": "012753",
+        "page": {
+          "status": "STOPPED",
+          "limit": null
+        },
+        "ms": {
+          "status": "LIMITED",
+          "limit": 1
+        }
+      },
+      {
+        "code": "019174",
+        "page": {
+          "status": "STOPPED",
+          "limit": null
+        },
+        "ms": {
+          "status": "LIMITED",
+          "limit": 1
+        }
+      },
+      {
+        "code": "019175",
+        "page": {
+          "status": "STOPPED",
+          "limit": null
+        },
+        "ms": {
+          "status": "LIMITED",
+          "limit": 1
+        }
+      }
+    ]
   }
 }
