@@ -2,7 +2,8 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import FamilyCard from '../components/FamilyCard.astro';
 import SectionHead from '../components/SectionHead.astro';
-import { loadTodaySnapshot, loadDailyChanges, getTradingContext, tradingWindowMap, loadUsdShares } from '../data/loader';
+import TrendBackdrop from '../components/TrendBackdrop.astro';
+import { loadTodaySnapshot, loadDailyChanges, getTradingContext, tradingWindowMap, loadDailySummaries, loadUsdShares } from '../data/loader';
 import { STATUS_SHORT, classRank } from '../lib/status';
 import type { FundShare, PurchaseStatus } from '../data/types';
 
@@ -81,13 +82,26 @@ const staleText = `今日数据尚未更新，当前展示 ${mdLabel(ctx.dataDat
 // 交易日窗口表（过去 10 天 + 未来 30 天）：客户端据此判断「今天该不该有新数据」、
 // 「数据日是不是上个交易日」——靠日期间隔猜会在长假上出错
 const tradingMap = tradingWindowMap(10, 30);
+
+// 首屏背景折线：近 30 个交易日的开门数 / 可投额度（升序）。口径与结论句一致
+// （人民币、按组成组、组内任一可买即开门、可买份额限额相加），
+// 只取形状不取数值——loader 已有逐日聚合，直接复用。
+// 少于两个点画不出线，组件自己会整体跳过。
+const trend = loadDailySummaries(30).reverse();
+
+// 装饰带的噪声下限（单位同指标）：窗口内跨度小于它时按它展开，否则按真实跨度。
+// 没有下限，±1 家、几十元的抖动会被自归一放大成满带尖峰，看起来像渲染出错——
+// 装饰要的是安静背景，不是精确走势。真实数据的跨度（约 6 家 / 900 元）远大于
+// 这两个值，正常形态不受影响。家数按 17 组的口径取 3，额度按百元级波动取 200。
+const trendFloors = { opened: 3, total: 200 };
 ---
 
 <BaseLayout title="纳指开门日报">
   <section class="masthead">
     {/* 首屏只留两行：结论句（家数 + 可投额）＋ 一行小注（比上个交易日如何、数据几点抓的）。
         原来 kicker 那圈「数据更新于… · 纳指 QDII 申购额度」整块并进第二行——副标题在
-        <title> 和导航里都有，首屏不必再说一遍。 */}
+        <title> 和导航里都有，首屏不必再说一遍。两行字背后还有一道抽象装饰带
+        （家数=柱、申购额=折线，见本节末尾），淡到不抢视线、也不配文字。 */}
     <h1 class="mast-lead">
       {
         ctx.isTrading ? (
@@ -132,6 +146,13 @@ const tradingMap = tradingWindowMap(10, 30);
     <div class="stale-hint" id="stale-hint" hidden={!ctx.isStale}>
       <span data-stale-text>{ctx.isStale ? staleText : ''}</span>
     </div>
+
+    {/* 抽象装饰带：近 30 个交易日的开门数（柱）/ 可投额度（折线），只画走势。
+        CSS 网格里跨满全部文字行：顶端与标题顶边对齐，底端停在注释行下方
+        原来的位置；z-index:-1 压在文字背后。无坐标无数值无图例。
+        数据口径与结论句一致（人民币、按组成组、组内任一可买即开门），
+        少于两个点画不出柱，组件自己会整体跳过。 */}
+    <TrendBackdrop series={trend} floors={trendFloors} />
   </section>
 
   {
