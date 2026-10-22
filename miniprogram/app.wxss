@@ -1,0 +1,276 @@
+/* =============================================================
+   设计语言 — 纸感 / 单一墨色 / 发丝细线
+   -------------------------------------------------------------
+   与网页版（src/styles/global.css）同一套令牌与同一套语言：
+   暖白纸底 + 近黑墨字；数字、日期一律等宽；不用色块、不用阴影、
+   不用圆角卡片，层级全靠细线与字重；状态色退到墨水里。
+   小程序与网页版同源同色，改一处要记得改另一处。
+   ============================================================= */
+page {
+  --paper: #faf9f6;
+  --surface: #fffefb;
+  --ink: #14130f;
+  --ink-2: #4f4d44;
+  --ink-3: #6b6859;
+  --rule: #e3e0d6;
+  --rule-2: #cfccc0;
+  --ghost: #b3afa2;
+  --cal-off: #928e80;
+
+  --ok: #2c6e4f;
+  --warn: #8a6320;
+  --stop: #a33a2f;
+
+  --heat-1: #c4dacc;
+  --heat-2: #92b6a2;
+  --heat-3: #63947c;
+  --heat-4: #2f6650;
+
+  --accent-open: #3f7d63;
+  --accent-changed: #b5732a;
+  --accent-faint: #c6c1b1;
+
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, "JetBrains Mono",
+    "Cascadia Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.72;
+  -webkit-font-smoothing: antialiased;
+}
+
+view, text, scroll-view, button, input { box-sizing: border-box; }
+
+/* 页面容器：两侧虚线竖栏在小程序里太窄，改为上下留白 + 细线分节 */
+.wrap { padding: 0 22px 48px; }
+
+/* ── 首屏两行制：结论句 + 一行小注 ───────────────────────────── */
+.masthead { padding: 26px 0 22px; border-bottom: 1px solid var(--rule); }
+.mast-lead {
+  font-size: 27px;
+  font-weight: 700;
+  line-height: 1.36;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+.mast-lead .num {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 1.06em;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+}
+.mast-summary {
+  margin: 6px 0 0;
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: var(--ink-2);
+}
+.mast-summary .tnum { font-family: var(--mono); font-weight: 600; color: var(--ink); }
+.mast-updated-t { font-family: var(--mono); margin-left: 4px; }
+
+.stale-hint {
+  margin-top: 14px;
+  padding: 8px 10px;
+  border: 1px solid rgba(138, 99, 32, 0.34);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--warn);
+}
+
+/* ── 小节头：[01] 标题 ——— 右侧注 ── */
+.sec {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 34px 0 12px;
+}
+.sec-i {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+  border: 1px solid var(--rule-2);
+  padding: 1px 5px;
+  line-height: 1.5;
+  flex: none;
+}
+.sec-t { font-size: 15px; font-weight: 700; margin: 0; white-space: nowrap; }
+.sec-line { flex: 1; height: 1px; background: var(--rule); min-width: 10px; }
+.sec-a {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+/* ── 家族卡：细线网格，单列 ── */
+.grid { border-top: 1px solid var(--rule); }
+.fam {
+  border-bottom: 1px solid var(--rule);
+  padding: 16px 0 14px;
+}
+.fam-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.fam-name {
+  flex: 1 1 0%;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.fam-right { flex: none; display: flex; align-items: baseline; gap: 10px; }
+.fam-big {
+  font-family: var(--mono);
+  font-size: 23px;
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.fam-big.is-stop { color: var(--ink-3); font-size: 16px; font-weight: 400; }
+.fam-big.is-unknown { color: var(--warn); font-size: 16px; font-weight: 600; }
+.fam-big .u { font-family: var(--sans); font-size: 12px; font-weight: 400; color: var(--ink-3); margin-left: 3px; }
+
+/* 状态标签：方点 + 字色，不用彩色药丸 */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.tag::before {
+  content: "";
+  width: 5px; height: 5px;
+  flex: none;
+  background: currentColor;
+  opacity: 0.9;
+}
+.tag-ok { color: var(--ok); }
+.tag-stop { color: var(--stop); }
+.tag-closed { color: var(--warn); }
+.tag-unknown { color: var(--ink-3); }
+.tag-partial { color: var(--warn); }
+
+.st-ok { color: var(--ok); }
+.st-stop { color: var(--stop); }
+.st-closed { color: var(--warn); }
+.st-unknown { color: var(--ink-3); }
+
+/* 份额流水行：类别 → 额度，一段一段 */
+.fam-shares {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  margin: 6px 0 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.7;
+  column-gap: 14px;
+  row-gap: 2px;
+}
+.sh { color: var(--ink); }
+.sh.is-off { color: var(--ink-3); }
+.sh.is-miss { color: var(--warn); }
+
+/* ── 21 天额度热力方块：只有颜色深浅 ── */
+.heat { display: flex; gap: 2px; margin-top: 11px; }
+.hc {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 11px;
+  background: var(--rule);
+}
+.hc.l1 { background: var(--heat-1); }
+.hc.l2 { background: var(--heat-2); }
+.hc.l3 { background: var(--heat-3); }
+.hc.l4 { background: var(--heat-4); }
+.hc.off { background: transparent; box-shadow: inset 0 0 0 1px var(--rule-2); }
+.hc.unk { background: transparent; box-shadow: inset 0 0 0 1px var(--rule-2); opacity: 0.6; }
+.hc.miss {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--rule);
+  background-image: repeating-linear-gradient(45deg, var(--heat-2) 0 1px, transparent 1px 3px);
+}
+.heat-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 7px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+/* 图例 */
+.lg { display: inline-block; width: 8px; height: 8px; margin-right: 4px; }
+.lg.l1 { background: var(--heat-1); }
+.lg.l2 { background: var(--heat-2); }
+.lg.l3 { background: var(--heat-3); }
+.lg.l4 { background: var(--heat-4); }
+.lg.off { background: transparent; box-shadow: inset 0 0 0 1px var(--rule-2); }
+.lg.miss {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--rule-2);
+  background-image: repeating-linear-gradient(45deg, var(--heat-2) 0 1px, transparent 1px 3px);
+}
+.ramp-legend { display: inline-flex; align-items: center; }
+.ramp-legend em { font-style: normal; margin-left: 6px; }
+
+/* ── 通用件 ── */
+.empty { padding: 24px 0; color: var(--ink-3); font-size: 13.5px; }
+.note { color: var(--ink-3); font-size: 12.5px; line-height: 1.85; margin: 10px 0 0; }
+.mono { font-family: var(--mono); }
+
+.btn {
+  display: inline-block;
+  background: var(--ink);
+  color: var(--paper);
+  border: none;
+  border-radius: 2px;
+  padding: 10px 20px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  letter-spacing: 0.06em;
+  line-height: 1.6;
+}
+.btn.is-ghost {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--rule-2);
+}
+.btn.is-disabled { opacity: 0.38; }
+
+.field {
+  width: 100%;
+  max-width: 460px;
+  padding: 11px 0;
+  border: none;
+  border-bottom: 1px solid var(--rule-2);
+  background: transparent;
+  font-family: var(--mono);
+  font-size: 14.5px;
+  color: var(--ink);
+  margin-bottom: 16px;
+}
+.field-placeholder { color: var(--ghost); font-family: var(--sans); }
+.msg { font-size: 12.5px; line-height: 1.7; color: var(--ink-3); min-height: 18px; }
+.msg.is-ok { color: var(--ok); }
+.msg.is-err { color: var(--stop); }
+
+.foot {
+  margin-top: 34px;
+  padding-top: 16px;
+  border-top: 1px solid var(--rule);
+  color: var(--ink-3);
+  font-size: 12px;
+  line-height: 1.85;
+}
+.foot-line { margin: 0 0 8px; }

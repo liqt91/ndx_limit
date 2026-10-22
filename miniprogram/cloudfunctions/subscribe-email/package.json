@@ -1,0 +1,9 @@
+{
+  "name": "subscribe-email",
+  "version": "1.0.0",
+  "description": "转发邮箱订阅到网页版的订阅接口",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

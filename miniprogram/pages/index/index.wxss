@@ -1,0 +1,30 @@
+/* 首页专属：变化清单。家族卡与热力方块的样式在 app.wxss（与网页版共用一套语言）。 */
+
+.changelog { border-top: 1px solid var(--rule); }
+.cl-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.cl-name { display: flex; align-items: baseline; gap: 8px; min-width: 0; flex: 1 1 auto; }
+.cl-dot { flex: none; width: 5px; height: 5px; background: var(--ink-3); transform: translateY(-2px); }
+.cl-dot-opened, .cl-dot-limit-up { background: var(--accent-open); }
+.cl-dot-stopped, .cl-dot-limit-down, .cl-dot-limit-set, .cl-dot-limit-clear { background: var(--accent-changed); }
+.cl-dot-unknown { background: var(--accent-faint); }
+.cl-title { font-size: 14px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cl-ann {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink-3);
+  border-bottom: 1px solid var(--rule-2);
+  padding-bottom: 1px;
+  white-space: nowrap;
+}
+.cl-transition { display: inline-flex; align-items: center; gap: 7px; flex: none; }
+.cl-from { font-family: var(--mono); font-size: 12.5px; color: var(--ink-3); }
+.cl-arrow { font-family: var(--mono); color: var(--rule-2); }
+.cl-to { font-family: var(--mono); font-size: 12.5px; font-weight: 500; }

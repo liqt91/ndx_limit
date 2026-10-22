@@ -1,0 +1,58 @@
+/* 交易日历 */
+
+.cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 0 4px;
+  border-bottom: 1px solid var(--rule);
+}
+.cal-label { font-size: 16px; font-weight: 700; }
+.cal-nav {
+  width: 34px;
+  height: 34px;
+  line-height: 30px;
+  text-align: center;
+  border: 1px solid var(--rule-2);
+  color: var(--ink-2);
+  font-size: 18px;
+}
+.cal-sub {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-3);
+  padding: 8px 0 14px;
+}
+
+.cal-grid { display: flex; flex-wrap: wrap; }
+.cal-w {
+  width: 14.2857%;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ghost);
+  padding: 6px 0 4px;
+}
+.cal-week { display: flex; width: 100%; }
+.cal-d {
+  width: 14.2857%;
+  height: 38px;
+  line-height: 38px;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.cal-d.is-trade { color: var(--ink); font-weight: 500; }
+.cal-d.is-off { color: var(--cal-off); font-weight: 400; }
+.cal-d.is-today { box-shadow: inset 0 0 0 1px var(--ink); font-weight: 700; }
+
+.cal-detail {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--rule-2);
+  background: var(--surface);
+}
+.cal-detail-t { font-size: 13.5px; color: var(--ink); margin-bottom: 4px; }
+.cal-detail-r { font-family: var(--mono); font-size: 12px; color: var(--ink-2); line-height: 1.8; }

@@ -1,0 +1,65 @@
+/* 份额详情 */
+
+.hero {
+  padding: 22px 0 20px;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 8px;
+}
+.hero-label {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+}
+.hero-name {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-top: 8px;
+  letter-spacing: -0.01em;
+}
+.hero-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.hero-value {
+  font-family: var(--mono);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.hero-value.is-stop { color: var(--stop); font-size: 20px; font-weight: 500; }
+.hv-u {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--ink-3);
+  margin-left: 7px;
+  letter-spacing: 0;
+}
+.hero-note {
+  font-size: 12.5px;
+  color: var(--warn);
+  border-left: 2px solid var(--warn);
+  padding: 2px 0 2px 10px;
+  margin-top: 14px;
+  line-height: 1.75;
+}
+
+.ann-list { border-top: 1px solid var(--rule); }
+.ann-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.ann-date { flex: none; font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+.ann-action { font-size: 13.5px; color: var(--ink); }

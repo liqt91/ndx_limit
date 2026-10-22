@@ -1,0 +1,32 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/calendar/calendar",
+    "pages/subscribe/subscribe",
+    "pages/about/about",
+    "pages/detail/detail"
+  ],
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#faf9f6",
+    "navigationBarTitleText": "纳指开门日报",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#faf9f6",
+    "backgroundColorTop": "#faf9f6"
+  },
+  "tabBar": {
+    "color": "#6b6859",
+    "selectedColor": "#14130f",
+    "backgroundColor": "#faf9f6",
+    "borderStyle": "black",
+    "list": [
+      { "pagePath": "pages/index/index", "text": "额度" },
+      { "pagePath": "pages/calendar/calendar", "text": "日历" },
+      { "pagePath": "pages/subscribe/subscribe", "text": "订阅" },
+      { "pagePath": "pages/about/about", "text": "关于" }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

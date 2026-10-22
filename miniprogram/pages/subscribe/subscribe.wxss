@@ -1,0 +1,19 @@
+/* 订阅页 */
+
+.quota-box {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 18px 0 14px;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 16px;
+}
+.quota-n {
+  font-family: var(--mono);
+  font-size: 40px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.quota-u { font-size: 13px; color: var(--ink-3); }

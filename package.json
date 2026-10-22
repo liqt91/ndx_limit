@@ -17,7 +17,11 @@
     "send": "node scripts/send.mjs",
     "send:dry": "node scripts/send.mjs --dry-run",
     "ops:smoke": "node scripts/ops-panel/smoke.mjs",
-    "jobs:smoke": "node scripts/jobs-dispatch-smoke.mjs"
+    "jobs:smoke": "node scripts/jobs-dispatch-smoke.mjs",
+    "mp:sync": "node scripts/mp-sync.mjs",
+    "mp:check": "node scripts/mp-check.mjs",
+    "mp:upload": "node scripts/mp-upload.mjs",
+    "mp:og": "node scripts/mp-og-image.mjs"
   },
   "dependencies": {
     "astro": "^5.0.0",

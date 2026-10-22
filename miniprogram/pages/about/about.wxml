@@ -1,0 +1,92 @@
+<!-- 关于页：把口径写清楚。读者最常问的三件事——数据从哪来、算的是哪种份额、
+     数字怎么来的——都在这里。 -->
+<view class="wrap">
+  <view class="masthead">
+    <view class="mast-lead">关于这份数据</view>
+    <view class="mast-summary">
+      <text>每天告诉你，纳斯达克指数的场外申购份额今天能不能买、能买多少。</text>
+    </view>
+  </view>
+
+  <view class="sec">
+    <text class="sec-i">01</text>
+    <text class="sec-t">算的是什么</text>
+    <view class="sec-line"></view>
+  </view>
+  <view class="about-list">
+    <view class="about-row">
+      <text class="about-k">场外申购份额</text>
+      <text class="about-v">只统计场外份额（A/C/D/E/F/I 等各类），不含场内 ETF（159xxx / 513xxx）。</text>
+    </view>
+    <view class="about-row">
+      <text class="about-k">成组口径</text>
+      <text class="about-v">按「公司 + 指数 + 币种」成组。组内任一份额可买，这组就算开门。</text>
+    </view>
+    <view class="about-row">
+      <text class="about-k">额度合计</text>
+      <text class="about-v">组内可买份额的单日上限相加。可买但额度未公布的份额不计入，用 ≈ 标注。</text>
+    </view>
+    <view class="about-row">
+      <text class="about-k">币种</text>
+      <text class="about-v">人民币与美元份额不合并，两者的额度各自独立。</text>
+    </view>
+    <view class="about-row">
+      <text class="about-k">额度分档</text>
+      <text class="about-v">固定阈值 30 / 300 / 600 元，不随当天数据缩放，所以同一种颜色在任何一天都是同一个量级。</text>
+    </view>
+  </view>
+
+  <view class="sec">
+    <text class="sec-i">02</text>
+    <text class="sec-t">数据从哪来</text>
+    <view class="sec-line"></view>
+  </view>
+  <view class="about-list">
+    <view class="about-row">
+      <text class="about-k">来源</text>
+      <text class="about-v">天天基金等公开页面上的申购状态与限额，每天盘前 7:50、早盘 9:40、收盘前 14:30 各抓一次。</text>
+    </view>
+    <view class="about-row">
+      <text class="about-k">日历</text>
+      <text class="about-v">A 股法定休市日按国务院公布安排；美股交易日由节假日规则自算，规则外休市可能仍按交易日展示。</text>
+    </view>
+    <view class="about-row">
+      <text class="about-k">核对</text>
+      <text class="about-v">每轮抓取都会与全量快照对账，金额不一致会记录下来供核查。</text>
+    </view>
+  </view>
+
+  <view class="sec">
+    <text class="sec-i">03</text>
+    <text class="sec-t">边界</text>
+    <view class="sec-line"></view>
+  </view>
+  <view class="about-list">
+    <view class="about-row">
+      <text class="about-k">不提供</text>
+      <text class="about-v">这里只做信息汇总，不提供开户、购买、荐基或任何交易入口。实际可买额度请以下单页面为准，盘中可能调整。</text>
+    </view>
+    <view class="about-row">
+      <text class="about-k">不构成建议</text>
+      <text class="about-v">仅陈述客观信息，不构成投资建议。</text>
+    </view>
+    <view class="about-row">
+      <text class="about-k">隐私</text>
+      <text class="about-v">不收集手机号、定位等信息。订阅只保存你主动填的邮箱；微信通知只记推送次数。</text>
+    </view>
+  </view>
+
+  <view class="sec">
+    <text class="sec-i">04</text>
+    <text class="sec-t">网页版</text>
+    <view class="sec-line"></view>
+  </view>
+  <view class="note">
+    完整版（含 30 天走势、历史日报、我的基金）在网页版：{{siteUrl}}
+  </view>
+
+  <view class="foot">
+    <view class="foot-line">© {{siteName}}</view>
+    <view class="foot-line">备案号待补充</view>
+  </view>
+</view>

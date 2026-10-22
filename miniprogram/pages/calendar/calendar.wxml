@@ -1,0 +1,47 @@
+<!-- 交易日历：能买是墨色，买不到一律同一种灰（与网页版同一套两档字色）。
+     原因不写进格子，点某天再看。 -->
+<view class="wrap">
+  <view wx:if="{{!ready}}" class="empty">正在载入…</view>
+
+  <block wx:else>
+    <view class="cal-head">
+      <view class="cal-nav" data-dir="-1" bindtap="shiftMonth">‹</view>
+      <view class="cal-label">{{label}}</view>
+      <view class="cal-nav" data-dir="1" bindtap="shiftMonth">›</view>
+    </view>
+
+    <view class="cal-sub">
+      本月 {{tradeCount}} 天可申购<text wx:if="{{usClosedCount}}">，{{usClosedCount}} 天美股休市</text>
+    </view>
+
+    <view class="cal-grid">
+      <view class="cal-w" wx:for="{{['一','二','三','四','五','六','日']}}" wx:key="*this">{{item}}</view>
+    </view>
+
+    <view class="cal-grid">
+      <view class="cal-week" wx:for="{{weeks}}" wx:key="index">
+        <view
+          class="cal-d {{cell.trade ? 'is-trade' : 'is-off'}} {{cell.date === todayMark ? 'is-today' : ''}}"
+          wx:for="{{item}}"
+          wx:for-item="cell"
+          wx:key="index"
+          data-date="{{cell.date}}"
+          bindtap="pick"
+        >
+          <text wx:if="{{cell}}">{{cell.day}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{selected}}" class="cal-detail">
+      <view class="cal-detail-t">{{selected.title}}</view>
+      <view class="cal-detail-r">A 股：{{selected.cnReason}}</view>
+      <view class="cal-detail-r">美股：{{selected.usReason}}</view>
+    </view>
+
+    <view class="foot">
+      <view class="foot-line">QDII 申购要沪深与纽市同时开门：A 股休市平台不接单；美股休市平台照常营业，但按境外收盘价估值，当日无法申购。</view>
+      <view class="foot-line">美股交易日来自节假日规则自算，规则外休市（极端天气、技术故障）可能仍按交易日展示。</view>
+    </view>
+  </block>
+</view>

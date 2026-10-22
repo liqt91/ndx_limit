@@ -1,0 +1,122 @@
+<!-- 首页：首屏两行制（结论句 + 一行小注），下面是家族额度列表。
+     数字用等宽字体，状态用「方点 + 字色」，不用色块。 -->
+<view class="wrap">
+  <view wx:if="{{!ready}}" class="empty">正在载入…</view>
+
+  <view wx:elif="{{empty}}" class="empty">
+    暂时没有数据。打开一次网页版（ndx.liqt91.top）确认站点正常后再试。
+  </view>
+
+  <block wx:else>
+    <!-- 首屏：结论句。永远以「今天」开头，数据是哪天的交给下一行交代。 -->
+    <view class="masthead">
+      <view class="mast-lead">
+        <text wx:for="{{headlineParts}}" wx:key="index" class="{{item.num ? 'num' : ''}}">{{item.t}}</text>
+      </view>
+      <view class="mast-summary">
+        <text wx:if="{{summaryDelta}}">{{summaryDelta}}</text>
+        <text>数据更新于{{updatedLabel}}<text wx:if="{{updatedTime}}">{{updatedTime}}</text></text>
+      </view>
+      <view wx:if="{{isStale}}" class="stale-hint">
+        今日数据尚未更新，当前展示 {{snapDateMd}} 的数据。
+      </view>
+    </view>
+
+    <!-- 今日变化 -->
+    <view wx:if="{{hasChanges}}" class="sec">
+      <text class="sec-i">01</text>
+      <text class="sec-t">今日变化</text>
+      <view class="sec-line"></view>
+      <text class="sec-a">共 {{changes.length}} 处</text>
+    </view>
+    <view wx:if="{{hasChanges}}" class="changelog">
+      <view class="cl-row" wx:for="{{changes}}" wx:key="code">
+        <view class="cl-name">
+          <view class="cl-dot cl-dot-{{item.kind}}"></view>
+          <text class="cl-title">{{item.name}}</text>
+          <text wx:if="{{item.ann}}" class="cl-ann">{{item.ann.action}}</text>
+        </view>
+        <view class="cl-transition">
+          <text class="cl-from">{{item.fromText}}</text>
+          <text class="cl-arrow">→</text>
+          <text class="cl-to">{{item.toText}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 今天能买多少 -->
+    <view class="sec">
+      <text class="sec-i">{{hasChanges ? '02' : '01'}}</text>
+      <text class="sec-t">今天能买多少</text>
+      <view class="sec-line"></view>
+      <text class="sec-a">{{families.length}} 家</text>
+    </view>
+
+    <view class="grid">
+      <view class="fam" wx:for="{{families}}" wx:key="key">
+        <view class="fam-head">
+          <view class="fam-name">{{item.name}}</view>
+          <view class="fam-right">
+            <view class="tag {{item.statusClass}}">{{item.statusLabel}}</view>
+            <view wx:if="{{item.totalText}}" class="fam-big">{{item.totalText}}<text class="u">{{item.totalUnit}}</text></view>
+          </view>
+        </view>
+        <view class="fam-shares">
+          <view
+            class="sh"
+            wx:for="{{item.shares}}"
+            wx:for-item="s"
+            wx:key="code"
+            data-code="{{s.code}}"
+            bindtap="goDetail"
+          >{{s.cls}}类 {{s.code}} {{s.limitText}}</view>
+        </view>
+        <view class="heat">
+          <view class="hc {{h.kind}}" wx:for="{{item.heat}}" wx:for-item="h" wx:key="index"></view>
+        </view>
+        <view class="heat-axis">
+          <text>{{item.heatFrom}}</text>
+          <text>{{item.heatTo}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 美元份额：与人民币额度口径相互独立，不合并 -->
+    <view wx:if="{{usdFamilies.length}}" class="sec">
+      <text class="sec-i">{{hasChanges ? '03' : '02'}}</text>
+      <text class="sec-t">美元份额</text>
+      <view class="sec-line"></view>
+      <text class="sec-a">{{usdFamilies.length}} 家</text>
+    </view>
+    <view wx:if="{{usdFamilies.length}}" class="grid">
+      <view class="fam" wx:for="{{usdFamilies}}" wx:key="key">
+        <view class="fam-head">
+          <view class="fam-name">{{item.name}}</view>
+          <view class="fam-right">
+            <view class="tag {{item.statusClass}}">{{item.statusLabel}}</view>
+            <view wx:if="{{item.totalText}}" class="fam-big">{{item.totalText}}<text class="u">{{item.totalUnit}}</text></view>
+          </view>
+        </view>
+        <view class="fam-shares">
+          <view
+            class="sh"
+            wx:for="{{item.shares}}"
+            wx:for-item="s"
+            wx:key="code"
+            data-code="{{s.code}}"
+            bindtap="goDetail"
+          >{{s.cls}}类 {{s.code}} {{s.limitText}}</view>
+        </view>
+        <view class="heat">
+          <view class="hc {{h.kind}}" wx:for="{{item.heat}}" wx:for-item="h" wx:key="index"></view>
+        </view>
+      </view>
+    </view>
+
+    <view class="foot">
+      <view class="foot-line">只统计场外申购份额，不含场内 ETF。实际可买额度请以下单页面为准，盘中可能调整。</view>
+      <view class="foot-line">数据抓取自天天基金等公开数据，每天盘前 7:50、早盘 9:40、收盘前 14:30 各抓一次。</view>
+      <view class="foot-line">仅陈述客观信息，不构成投资建议。</view>
+    </view>
+  </block>
+</view>

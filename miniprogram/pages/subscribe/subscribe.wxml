@@ -1,0 +1,50 @@
+<!-- 订阅页：两条通道。攒次数那条要说清规则（一次授权 = 一条消息），
+     否则用户点一下发现只多一条，会觉得被骗。 -->
+<view class="wrap">
+  <view class="sec">
+    <text class="sec-i">01</text>
+    <text class="sec-t">微信通知</text>
+    <view class="sec-line"></view>
+    <text class="sec-a" wx:if="{{quota !== null}}">剩 {{quota}} 次</text>
+  </view>
+
+  <view class="note">
+    平台规则是「一次授权 = 一条消息」，所以这里用攒的办法：每点一次按钮多攒一条发送额度，
+    攒够多少次就能推多少天。额度用完了再点几下就行。
+  </view>
+
+  <view class="quota-box" wx:if="{{quota !== null}}">
+    <view class="quota-n">{{quota}}</view>
+    <view class="quota-u">次可推送</view>
+  </view>
+
+  <view class="btn {{busy ? 'is-disabled' : ''}}" bindtap="addQuota">
+    {{busy ? '处理中…' : '+1 次通知'}}
+  </view>
+  <view class="msg {{quotaMsg ? 'is-err' : ''}}">{{quotaMsg}}</view>
+
+  <view class="sec">
+    <text class="sec-i">02</text>
+    <text class="sec-t">邮箱订阅</text>
+    <view class="sec-line"></view>
+  </view>
+
+  <view class="note">
+    与网页版同一份名单。每天盘后一封，只写「今天几家开门、能买多少」和变化的那几只。
+  </view>
+
+  <input
+    class="field"
+    type="text"
+    value="{{email}}"
+    bindinput="onEmailInput"
+    placeholder="你的邮箱"
+    placeholder-class="field-placeholder"
+  />
+  <view class="btn {{busy ? 'is-disabled' : ''}}" bindtap="subscribeEmail">订阅邮件</view>
+  <view class="msg {{emailState}}">{{emailMsg}}</view>
+
+  <view class="foot">
+    <view class="foot-line">邮箱只用于发送这份日报，退订链接在每封信里。不收集手机号、定位等任何其他信息。</view>
+  </view>
+</view>

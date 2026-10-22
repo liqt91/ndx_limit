@@ -1,0 +1,63 @@
+<!-- 份额详情：谁、什么状态、能买多少、这 21 天怎么走的。 -->
+<view class="wrap">
+  <view wx:if="{{!ready}}" class="empty">正在载入…</view>
+
+  <view wx:elif="{{notFound}}" class="empty">
+    没找到这个份额（代码 {{code}}）。可能它不在监控名单里，或者名单刚调整过。
+  </view>
+
+  <block wx:else>
+    <view class="hero">
+      <view class="hero-label">{{cls}}类 · {{code}}</view>
+      <view class="hero-name">{{name}}</view>
+      <view class="hero-row">
+        <view class="tag {{statusClass}}">{{statusLabel}}</view>
+        <view class="hero-value {{status === 'STOPPED' ? 'is-stop' : ''}}">
+          {{limitText}}<text wx:if="{{limitValue}}" class="hv-u">单日上限</text>
+        </view>
+      </view>
+      <view wx:if="{{hasMissing}}" class="hero-note">
+        这只份额当前可买，但单日上限没有公布（额度待核验）。「待核验」的份额不计入额度合计，
+        所以上面的总数可能偏低。
+      </view>
+    </view>
+
+    <view class="sec">
+      <text class="sec-i">01</text>
+      <text class="sec-t">最近 21 天</text>
+      <view class="sec-line"></view>
+      <text class="sec-a">深＝额度大</text>
+    </view>
+    <view class="heat">
+      <view class="hc {{h.kind}}" wx:for="{{heat}}" wx:for-item="h" wx:key="index"></view>
+    </view>
+    <view class="heat-axis">
+      <text>{{heatFrom}}</text>
+      <text>{{heatTo}}</text>
+    </view>
+    <view class="note">
+      深浅只表示当天单日能买多少；空心格是暂停，斜纹是额度未公布，虚线是状态未公布。
+    </view>
+
+    <view wx:if="{{anns.length}}" class="sec">
+      <text class="sec-i">02</text>
+      <text class="sec-t">相关公告</text>
+      <view class="sec-line"></view>
+      <text class="sec-a">{{anns.length}} 条</text>
+    </view>
+    <view wx:if="{{anns.length}}" class="ann-list">
+      <view class="ann-row" wx:for="{{anns}}" wx:key="date">
+        <text class="ann-date">{{item.date}}</text>
+        <text class="ann-action">{{item.action}}</text>
+      </view>
+    </view>
+    <view wx:if="{{anns.length}}" class="note">
+      公告标题在网页版的份额页里，原始链接在天天基金。
+    </view>
+
+    <view class="foot">
+      <view class="foot-line">只统计场外申购份额。实际可买额度请以下单页面为准，盘中可能调整。</view>
+      <view class="foot-line">仅陈述客观信息，不构成投资建议。</view>
+    </view>
+  </block>
+</view>
