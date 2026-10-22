@@ -18,6 +18,12 @@
 //      的 runs[]（含该时点的开门数/可投额、以及与同日另一次运行的差异），供下午报「较今晨」用。
 //   3) **公告解释源**（announcements.mjs）：只对当日有变化的份额拉公告，回答「为什么变了」。
 //
+// 2026-10-21 晚增加第四件事（备选信息源）：
+//   4) **晨星旁路**（ms-fallback.mjs）：详情页与快照都失败时，用晨星中国（morningstar.cn）
+//      的「申购状态 / 单日申购限额」补点——快照的状态字段不可信，晨星补的正是状态。
+//      另做每日对账（--no-ms-check 可关）：60 份额实测与详情页 51/60 一致，分歧均可解释
+//      （详见 ms-fallback.mjs 头部注释）。新浪也有限额字段但数据滞后（仅 14/60 一致），未接入。
+//
 // 用法：
 //   node scripts/scrape.mjs                      # 抓 funds.json 全部（时点按北京时间自动判）
 //   node scripts/scrape.mjs --slot close         # 指定时点（morning / close）
@@ -32,6 +38,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isTradingDay, aggregateCny } from './digest.mjs';
 import { fetchSnapshot, scanNasdaq100 } from './em-snapshot.mjs';
+import { fetchMorningstar } from './ms-fallback.mjs';
 import { refreshAnnouncements, loadAnnouncementStore } from './announcements.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -59,6 +66,7 @@ const argv = process.argv.slice(2);
 const onlyCodes = [];
 let slotArg = null;
 let useSnapshot = true;
+let useMsCheck = true; // 晨星对账（旁路③）：默认开，--no-ms-check 关
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i];
   if (a === '--slot') {
@@ -71,6 +79,10 @@ for (let i = 0; i < argv.length; i++) {
   }
   if (a === '--no-snapshot') {
     useSnapshot = false;
+    continue;
+  }
+  if (a === '--no-ms-check') {
+    useMsCheck = false;
     continue;
   }
   if (a.startsWith('--')) continue;
@@ -261,8 +273,9 @@ async function main() {
   const stats = { OPEN: 0, LIMITED: 0, STOPPED: 0, CLOSED: 0, UNKNOWN: 0, fail: 0 };
   let okCount = 0; // 成功解析到名称 = 有效记录（全部目标）
   let cnyTargets = 0;
-  let cnyOk = 0; // 人民币份额里「页面抓取成功」的数量（门禁只看这个，快照兜底不算）
+  let cnyOk = 0; // 人民币份额里「页面抓取成功」的数量（门禁只看这个，快照/晨星兜底都不算）
   let cnyRecovered = 0;
+  let cnyMsRecovered = 0; // 其中靠晨星兜底的（同样不计入门禁）
 
   const pageResults = new Map(); // code → 逐页解析结果（用于对账）
   const beforeDay = new Map(); // code → 覆盖前 history 里「今天」那条（算盘中差异）
@@ -276,6 +289,7 @@ async function main() {
 
     let r = await fetchFund(code);
     let fromSnapshot = false;
+    let fromMorningstar = false;
 
     if (r.error && snap) {
       const row = snap.rows.get(code);
@@ -287,7 +301,20 @@ async function main() {
       }
     }
 
-    if (!fromSnapshot) pageResults.set(code, r);
+    // 旁路③：快照也没有（或没开快照）时找晨星。它补的主要是「状态」——
+    // 快照的状态字段有噪声，详情页又抓不到时，这是最后一个能说清「能不能买」的来源。
+    // 名称沿用 fund-meta 里上次成功抓到的官方简称（晨星页名与天天基金口径不同，不混用）；
+    // 没有历史名称时 name 为 null，该点仍写入 history，但不算「有效解析」（门禁照不到绿灯）。
+    if (r.error && !fromSnapshot) {
+      const ms = await fetchMorningstar(code);
+      if (!ms.error) {
+        r = { code, name: meta[code]?.name ?? null, status: ms.status, limit: ms.limit, min: null };
+        fromMorningstar = true;
+        if (isCny) cnyMsRecovered++;
+      }
+    }
+
+    if (!fromSnapshot && !fromMorningstar) pageResults.set(code, r);
     if (r.name) {
       meta[code] = { name: r.name };
       okCount++;
@@ -295,9 +322,9 @@ async function main() {
     }
     if (r.error) {
       stats.fail++;
-      console.warn(`✗ ${code} 抓取失败: ${r.error}${fromSnapshot ? '（已用全量快照兜底）' : ''}`);
+      console.warn(`✗ ${code} 抓取失败: ${r.error}${fromSnapshot ? '（已用全量快照兜底）' : fromMorningstar ? '（已用晨星兜底）' : ''}`);
     } else {
-      const tag = fromSnapshot ? ' ↺快照' : '';
+      const tag = fromSnapshot ? ' ↺快照' : fromMorningstar ? ' ↺晨星' : '';
       console.log(`✓ ${code} ${r.name} [${r.status}${r.limit != null ? ' ' + r.limit + '元' : ''}]${tag}`);
     }
     stats[r.status] = (stats[r.status] || 0) + 1;
@@ -367,6 +394,36 @@ async function main() {
     shadow.gaps = { scoped: scanned.length, known: allCodes.length, excludedExchange: exch.length, missing: missing.slice(0, MAX_GAP_KEEP) };
   }
 
+  // ── 旁路③：晨星对账（独立第二意见，只对「详情页抓成功」的份额比）──
+  // 快照对账只信金额（状态字段有噪声）；晨星对账补的正是状态这一维。
+  // 失败静默跳过：晨星只是备选源，它挂掉不该影响主链路与门禁。
+  const msCheck = { available: false, checked: 0, agree: 0, mismatch: [] };
+  if (useMsCheck && !onlyCodes.length) {
+    for (const [code, r] of pageResults) {
+      if (!r.name) continue;
+      const ms = await fetchMorningstar(code);
+      if (ms.error) continue;
+      msCheck.available = true;
+      msCheck.checked++;
+      const same = ms.status === r.status && (r.status !== 'LIMITED' || ms.limit === r.limit);
+      if (same) msCheck.agree++;
+      else if (msCheck.mismatch.length < MAX_MISMATCH_KEEP) {
+        msCheck.mismatch.push({
+          code,
+          page: { status: r.status, limit: r.limit },
+          ms: { status: ms.status, limit: ms.limit },
+        });
+      }
+      await sleep(150); // 礼貌限速
+    }
+    if (msCheck.available) {
+      console.log(`✓ 晨星对账：${msCheck.agree}/${msCheck.checked} 与详情页一致` +
+        (msCheck.mismatch.length ? `（${msCheck.mismatch.length} 处差异已记录，详情页口径不变）` : ''));
+    } else {
+      console.log('⚠ 晨星对账不可用（本次跳过，不影响数据）');
+    }
+  }
+
   // ── 旁路②：公告（只对「与上一个交易日相比有变化」的份额抓）──
   const changedVsPrevDay = [];
   for (const code of targets) {
@@ -405,7 +462,7 @@ async function main() {
   if (onlyCodes.length) {
     console.log('调试模式（指定了代码）：history/meta 已更新，跳过 fetch-meta 与旁路报告');
   } else {
-    writeJsonAtomic('fetch-meta.json', { date: today, fetchedAt: NOW.iso, slot: SLOT, runs, shadow });
+    writeJsonAtomic('fetch-meta.json', { date: today, fetchedAt: NOW.iso, slot: SLOT, runs, shadow, ms: msCheck });
   }
 
   // ── 健康门禁（仅看人民币份额，美元失败不应阻断人民币展示）──
@@ -424,6 +481,7 @@ async function main() {
       `门禁阈值: ${(MIN_COVERAGE * 100).toFixed(0)}%  →  健康: ${health}`
   );
   if (cnyRecovered) console.log(`其中 ${cnyRecovered} 个人民币份额是靠全量快照兜底的（不计入门禁）`);
+  if (cnyMsRecovered) console.log(`其中 ${cnyMsRecovered} 个人民币份额是靠晨星兜底的（不计入门禁）`);
   console.log(`当日聚合：${agg.opened}/${agg.families} 家开门，合计 ${agg.total} 元可投`);
   if (intraday.length) console.log(`较同日上一次运行有 ${intraday.length} 处变化`);
   if (shadow.mismatch.length) {
@@ -439,6 +497,12 @@ async function main() {
     for (const m of shadow.gaps.missing) console.warn(`   ${m.code} ${m.name} [${m.status}${m.limit != null ? ' ' + m.limit + '元' : ''}]`);
   } else if (shadow.gaps) {
     console.log(`名单外只有场内 ETF ${shadow.gaps.excludedExchange} 个（按口径不收），无场外份额缺口`);
+  }
+  if (msCheck.mismatch.length) {
+    console.warn(`⚠ 晨星对账差异 ${msCheck.mismatch.length} 处（以详情页口径为准，需人工确认）：`);
+    for (const m of msCheck.mismatch) {
+      console.warn(`   ${m.code} 页面=${m.page.status}/${m.page.limit ?? '—'}  晨星=${m.ms.status}/${m.ms.limit ?? '—'}`);
+    }
   }
   for (const w of warnings) console.warn(`⚠ ${w}`);
   console.log(`已更新 -> ${path.join(DATA_DIR, 'history.json')}、fund-meta.json、fetch-meta.json`);

@@ -26,5 +26,89 @@
       "missing": []
     },
     "warnings": []
+  },
+  "ms": {
+    "available": true,
+    "checked": 58,
+    "agree": 51,
+    "mismatch": [
+      {
+        "code": "021000",
+        "page": {
+          "status": "STOPPED",
+          "limit": null
+        },
+        "ms": {
+          "status": "LIMITED",
+          "limit": 200
+        }
+      },
+      {
+        "code": "019442",
+        "page": {
+          "status": "LIMITED",
+          "limit": 5
+        },
+        "ms": {
+          "status": "LIMITED",
+          "limit": 10
+        }
+      },
+      {
+        "code": "022525",
+        "page": {
+          "status": "STOPPED",
+          "limit": null
+        },
+        "ms": {
+          "status": "LIMITED",
+          "limit": 100
+        }
+      },
+      {
+        "code": "012751",
+        "page": {
+          "status": "STOPPED",
+          "limit": null
+        },
+        "ms": {
+          "status": "LIMITED",
+          "limit": 1
+        }
+      },
+      {
+        "code": "012753",
+        "page": {
+          "status": "STOPPED",
+          "limit": null
+        },
+        "ms": {
+          "status": "LIMITED",
+          "limit": 1
+        }
+      },
+      {
+        "code": "019174",
+        "page": {
+          "status": "STOPPED",
+          "limit": null
+        },
+        "ms": {
+          "status": "LIMITED",
+          "limit": 1
+        }
+      },
+      {
+        "code": "019175",
+        "page": {
+          "status": "STOPPED",
+          "limit": null
+        },
+        "ms": {
+          "status": "LIMITED",
+          "limit": 1
+        }
+      }
+    ]
   }
 }

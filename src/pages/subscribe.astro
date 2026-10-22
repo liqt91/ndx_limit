@@ -2,15 +2,15 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 
 // 订阅走自己的边缘函数（EdgeOne Edge Functions），不再依赖第三方表单：
-//   浏览器 POST /api/subscribe（同域，不跳转）→ 边缘函数写 KV → 返回 JSON
-// 每天 08:20 由 GitHub Actions 拉 /api/subscribers 取名单，再用 SMTP 群发。
+//   浏览器 POST /api/subscribe（同源，不跳转）→ 边缘函数写 KV → 返回 JSON
+// 每天 14:45 由 EdgeOne schedules 拉 /api/subscribers 取名单，再用 SMTP 群发。
 // 访客全程只访问本站域名，国内不需要任何代理。
 ---
 
 <BaseLayout title="订阅日报 - 纳指开门日报">
   <h1 class="section-title">订阅日报</h1>
   <p class="my-hint">
-    每天早上 8 点，把当天纳指基金的开门与限购变化发到你的邮箱。只填邮箱，提交后去收件箱点一下确认链接就完成了。
+    每天下午收盘前，把当天纳指基金的开门与限购变化发到你的邮箱。只填邮箱，提交后去收件箱点一下确认链接就完成了。
   </p>
 
   <form class="form" id="sub-form" novalidate>
@@ -94,7 +94,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
               setStatus('确认邮件已发到 ' + email + '，点信里的链接才完成订阅（1 天内有效）。', 'ok');
             } else {
               btn.textContent = '已订阅 ✓';
-              setStatus('已订阅。每天早上 8 点，日报会发到 ' + email + '。', 'ok');
+              setStatus('已订阅。每天下午的日报会发到 ' + email + '。', 'ok');
             }
             return;
           }

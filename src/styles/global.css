@@ -238,8 +238,68 @@ a { color: inherit; text-decoration: none; }
 /* ── 页面开篇（首页用）：只两行 —— 结论句 + 一行小注 ─────────────────
    原来首屏是「kicker / 结论句 / 判定条」三层，同一件事说两遍；
    现在开篇先说结论（几家开门、多少钱可投），第二行解释「比上个交易日如何」
-   和「数据几点抓的」。副标题在 <title> 与导航里都有，这里不再重复。 */
-.masthead { padding: 30px 0 26px; }
+   和「数据几点抓的」。副标题在 <title> 与导航里都有，这里不再重复。
+   网格布局：装饰带（见下 .mast-trend）跨满全部文字行——顶端与标题顶边对齐、
+   底端停在原来的位置（末行就是它原先的占位：44px 高 + 14px 上边距）。
+   比负 margin 稳：注释行在窄屏折成两行时，顶端仍然贴着标题、底端不动。 */
+.masthead {
+  padding: 30px 0 26px;
+  position: relative;
+  display: grid;
+  grid-template-columns: 100%; /* 显式列宽：隐式 auto 列会被装饰带里 SVG 的固有尺寸带窄 */
+  /* 行：顶部留白 / 标题 / 注释 / 过期提示(可空) / 底部占位。
+     顶部留白把标题往下压、头上多一口呼吸；底部占位等量收缩——装饰带
+     跨满全网格，顶边、高度、底边都不变，只是标题在带里待得更低。 */
+  grid-template-rows: 48px auto auto auto 10px;
+}
+.mast-lead { grid-row: 2; grid-column: 1; }
+.mast-summary { grid-row: 3; grid-column: 1; }
+.stale-hint { grid-row: 4; grid-column: 1; }
+
+/* 标题区背后的抽象装饰带（TrendBackdrop）：开门数（柱）+ 可投额度（折线），
+   只画走势。跨 grid 全宽全文字行：顶端与首屏内容顶边对齐，底端在原位置；
+   z-index:-1 压在全部文字下面、body 纸底上面（.frame/.wrap 皆透明），
+   不用给每个文字子节点加 z-index。
+   横向渐变蒙版：左边几乎淡出、约一半宽度处升满——高的柱子在左边（标题背后）
+   安静地化开，往右逐渐显形；右边缘仍是硬边，与内容栏齐平。 */
+.mast-trend {
+  grid-row: 1 / -1;
+  grid-column: 1 / -1; /* 必须显式跨列：只写 row 的话自动放置会把它挤进隐式第二列 */
+  z-index: -1;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(90deg, rgba(0, 0, 0, 0.18) 0%, #000 90%);
+  mask-image: linear-gradient(90deg, rgba(0, 0, 0, 0.18) 0%, #000 90%);
+}
+.mast-trend svg { display: block; width: 100%; height: 100%; }
+/* 两个指标都是墨色：柱子=开门数（结论句的主角，略重），虚线=可投额度（略轻）。
+   柱子入场从基线向上长（scaleY，transform-box:fill-box 让原点落在各自柱脚），
+   按天错开 14ms——像被一根看不见的尺从左往右量过去；折线随后淡入。
+   整带压在文字背后，透明度收得低：0.32 / 0.24——字是主角，带是氛围。 */
+.mt-bar {
+  fill: var(--ink);
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: mt-bar-in 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+.mt-opened { opacity: 0.32; }
+.mt-quota { opacity: 0.24; stroke-width: 1.2; stroke-dasharray: 4 3; }
+.mt-line {
+  fill: none;
+  stroke: var(--ink);
+  animation: mt-line-in 0.5s ease 0.35s both;
+}
+/* 基线：1px 发丝线，non-scaling-stroke 保证不随横向拉伸变粗 */
+.mt-base { stroke: var(--ink); stroke-width: 1; opacity: 0.16; }
+@keyframes mt-bar-in {
+  from { transform: scaleY(0); }
+}
+@keyframes mt-line-in {
+  from { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mt-bar,
+  .mt-line { animation: none; }
+}
 
 .mast-lead {
   font-size: 32px;
@@ -254,6 +314,8 @@ a { color: inherit; text-decoration: none; }
   font-size: 1.06em;
   letter-spacing: -0.03em;
   color: var(--ink);
+  /* 数字不许从中间拆行：「今天 7 家开门，1 / 35元可投」读起来像数据错了 */
+  white-space: nowrap;
 }
 
 /* 第二行：变化判定 + 数据时刻。桌面排成一行，窄屏才折行。 */
@@ -1037,6 +1099,9 @@ a { color: inherit; text-decoration: none; }
   .site-nav { gap: 12px; }
   .site-nav a { font-size: 13px; }
   .mast-lead { font-size: 23px; }
+  /* 窄屏柱条更密（每组只剩几 px）且装饰带更高：再淡一档，别压标题 */
+  .mast-trend .mt-opened { opacity: 0.26; }
+  .mast-trend .mt-quota { opacity: 0.17; }
   /* 小注在窄屏必须能折行：nowrap 是给桌面「不拆开一句话」用的，
      390 宽下「较上个交易日（2026-10-19）3 只开门…」比屏还宽，会横滚 */
   .mast-summary .mast-sum-item { white-space: normal; }

@@ -205,27 +205,30 @@ export function loadDailySummaries(n: number): DailySummary[] {
   const allDates = [...dateSet].sort().reverse().slice(0, n); // 最近 n 天，降序
 
   return allDates.map((date) => {
-    const byGroup = new Map<string, { currency: string; statuses: string[]; limits: number[] }>();
+    // entries 成对收集（status 与 limit 同条推进）：早先版本把两者分压两个数组，
+    // 组内「暂停（limit=null，不进 limits）排在限额份额之前」时索引错位，
+    // 会把限额份额的额度整条漏掉（2026-09-14~18 实测少 100 元）。
+    const byGroup = new Map<string, { currency: string; entries: DayPoint[] }>();
     for (const f of funds) {
       for (const c of f.codes) {
         const entry = (history[c.code] || []).find((d) => d.date === date);
         if (!entry) continue;
         const key = `${f.company}|${f.baseName}|${f.currency}`;
-        if (!byGroup.has(key)) byGroup.set(key, { currency: f.currency, statuses: [], limits: [] });
-        const g = byGroup.get(key)!;
-        g.statuses.push(entry.status);
-        if (entry.limit != null) g.limits.push(entry.limit);
+        if (!byGroup.has(key)) byGroup.set(key, { currency: f.currency, entries: [] });
+        byGroup.get(key)!.entries.push(entry);
       }
     }
     const groups = [...byGroup.values()];
     const cny = groups.filter((g) => g.currency === 'CNY');
-    const opened = cny.filter((g) => g.statuses.some((s) => s === 'LIMITED' || s === 'OPEN')).length;
+    const opened = cny.filter((g) =>
+      g.entries.some((e) => e.status === 'LIMITED' || e.status === 'OPEN')
+    ).length;
     const total = cny.reduce(
       (a, g) =>
         a +
-        g.limits
-          .filter((_, i) => g.statuses[i] === 'LIMITED' || g.statuses[i] === 'OPEN')
-          .reduce((x, y) => x + y, 0),
+        g.entries
+          .filter((e) => e.status === 'LIMITED' || e.status === 'OPEN')
+          .reduce((x, e) => x + (e.limit ?? 0), 0),
       0
     );
     return { date, label: prettyDateCST(date), opened, total, count: cny.length };
@@ -396,7 +399,9 @@ function summarizeSnapshot(snap: DailySnapshot): DailySummary {
 function aggregateForDate(date: string): { opened: number; total: number; count: number } {
   const funds = readJson<{ funds: any[] }>('funds.json', { funds: [] }).funds;
   const history = readHistory();
-  const byGroup = new Map<string, { currency: string; statuses: string[]; limits: number[] }>();
+  // entries 成对收集：与 loadDailySummaries 同一修法——statuses/limits 分压两个数组时，
+  // 组内暂停份额（limit=null）排在限额份额之前会索引错位、漏算额度。
+  const byGroup = new Map<string, { currency: string; entries: DayPoint[] }>();
   for (const f of funds) {
     for (const c of f.codes) {
       const arr = history[c.code] || [];
@@ -409,21 +414,21 @@ function aggregateForDate(date: string): { opened: number; total: number; count:
       }
       if (!entry) continue;
       const key = `${f.company}|${f.baseName}|${f.currency}`;
-      if (!byGroup.has(key)) byGroup.set(key, { currency: f.currency, statuses: [], limits: [] });
-      const g = byGroup.get(key)!;
-      g.statuses.push(entry.status);
-      if (entry.limit != null) g.limits.push(entry.limit);
+      if (!byGroup.has(key)) byGroup.set(key, { currency: f.currency, entries: [] });
+      byGroup.get(key)!.entries.push(entry);
     }
   }
   const groups = [...byGroup.values()];
   const cny = groups.filter((g) => g.currency === 'CNY');
-  const opened = cny.filter((g) => g.statuses.some((s) => s === 'LIMITED' || s === 'OPEN')).length;
+  const opened = cny.filter((g) =>
+    g.entries.some((e) => e.status === 'LIMITED' || e.status === 'OPEN')
+  ).length;
   const total = cny.reduce(
     (a, g) =>
       a +
-      g.limits
-        .filter((_, i) => g.statuses[i] === 'LIMITED' || g.statuses[i] === 'OPEN')
-        .reduce((x, y) => x + y, 0),
+      g.entries
+        .filter((e) => e.status === 'LIMITED' || e.status === 'OPEN')
+        .reduce((x, e) => x + (e.limit ?? 0), 0),
     0
   );
   return { opened, total, count: cny.length };

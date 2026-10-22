@@ -1,0 +1,111 @@
+---
+/**
+ * 首屏注释行下方的抽象装饰带：近 N 个交易日的「开门数」（柱）与「可申购额度」（折线）。
+ *
+ * 它是一道装饰，不是图表——所以没有坐标轴、数值和悬停提示，
+ * 只有柱的高矮和线的形状。要数字的人去 /daily（每日快照）或首屏结论句拿，
+ * 这里只负责让首屏这块不死板。
+ *
+ * 两个指标各自按自己的量纲归一：开门数是个位数到十几，可投额度是几百到上千，
+ * 差着两个数量级；共用一根轴会把柱子压成一条线。归一只保留走势、
+ * 不保留数值，与「抽象示意」的定位一致（全平时落在中线，不会除零）。
+ *
+ * 墨色两档透明度区分两个指标（柱=开门数略重，虚线=可投额度略轻），不引入彩色：
+ * 全站视觉语言是「单一墨色 + 发丝细线」，彩色只留给状态小方点。
+ * 装饰带跨在首屏文字区背后：顶端与标题顶边对齐、底端停在注释行下方原来的
+ * 位置；透明度收得低，字是主角、带是氛围。也不配图例和「近 N 个交易日」
+ * 之类文字——首屏只该有两行字，装饰自己安静待着。
+ */
+interface Props {
+  /** 按时间升序（最早 → 最近）的每日聚合；字段与 loader 的 DailySummary 对齐 */
+  series: { date: string; opened: number; total: number }[];
+  /**
+   * 各指标的「噪声下限」（与字段同单位）：窗口内跨度小于它时，按它展开而不是按真实跨度。
+   * 没有它，±1 家、几十元的抖动会被自归一放大成满带尖峰——装饰要的是安静，
+   * 那种尖峰看起来像渲染出错。跨度大于下限时完全走原逻辑，不影响正常形态。
+   */
+  floors?: { opened: number; total: number };
+}
+
+const { series, floors } = Astro.props;
+const floorOpened = floors?.opened ?? 0;
+const floorTotal = floors?.total ?? 0;
+
+// viewBox 宽 1000、高 128：横向由 CSS 拉满（preserveAspectRatio="none"），
+// 高度跟随装饰带实际拉伸（网格跨行），柱子是填充、线宽靠 non-scaling-stroke
+// 保持 1px 级，都不会因拉伸变形。
+// 带高按桌面端（标题 47 + 注释 23 + 原占位 58 ≈ 128）取值；窄屏注释行折行
+// 时带更高，整幅被纵向拉长一成左右，对一道装饰无妨。
+const W = 1000;
+const H = 128;
+const TOP = 4; // 柱区上沿：贴着标题顶边
+const BOT = 124; // 基线：落在原装饰带底端
+const PAD = 0.12; // 归一时上下各留一点呼吸，最高最矮的柱不贴带边
+const MIN_H = 4; // 最短柱高（viewBox 单位）：今天两项都是低谷，不给下限窄屏下会消失
+
+const n = series.length;
+
+// 每天一组：组内一根柱子（开门数），折线（可投额度）走各组中心。
+// 两端各留 4 个单位：柱子画在 x=0 上会被裁掉一半。
+const usable = W - 8;
+const pitch = usable / n;
+const bw = pitch * 0.46;
+const cx = (i: number) => 4 + i * pitch + pitch / 2; // 组中心：折线顶点、柱子中线
+
+/** 组内 min/max → 柱顶/折点 y 坐标的归一函数；全平时落在中线（不会除零）。
+ *  span 小于噪声下限时用下限展开：微抖动只占带区一小段，不会放大成尖峰。 */
+function makeScale(values: number[], floor: number) {
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = Math.max(max - min, floor);
+  const top = TOP + (BOT - TOP) * PAD;
+  const bot = BOT - (BOT - TOP) * PAD;
+  return (v: number) => (max === min ? (top + bot) / 2 : bot - ((v - min) / span) * (bot - top));
+}
+
+const openedScale = makeScale(series.map((s) => s.opened), floorOpened);
+const quotaScale = makeScale(series.map((s) => s.total), floorTotal);
+
+// 柱子=开门数：柱脚一律落在基线上，矮柱按下限拉伸顶，而不是悬空/越过基线
+const bars = series.map((s, i) => {
+  const h = Math.max(BOT - openedScale(s.opened), MIN_H);
+  return { x: cx(i) - bw / 2, y: BOT - h, h, delay: i * 14 };
+});
+
+// 折线=可投额度：走各组中心，与柱子交错不重叠
+const quotaPath = series
+  .map((s, i) => `${i === 0 ? 'M' : 'L'}${cx(i).toFixed(1)} ${quotaScale(s.total).toFixed(1)}`)
+  .join(' ');
+
+const aria = `近 ${n} 个交易日开门数（柱）与可申购额度（线）走势，抽象示意`;
+---
+
+{
+  n >= 2 ? (
+    <div class="mast-trend">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        role="img"
+        aria-label={aria}
+        focusable="false"
+      >
+        {/* 基线发丝线：给柱条一个落脚处，免得它们看起来像随机条纹 */}
+        <line class="mt-base" x1="0" y1={BOT} x2={W} y2={BOT} vector-effect="non-scaling-stroke" />
+        {bars.map((b) => (
+          <rect
+            class="mt-bar mt-opened"
+            x={b.x.toFixed(1)}
+            y={b.y.toFixed(1)}
+            width={bw.toFixed(1)}
+            height={b.h.toFixed(1)}
+            style={`animation-delay:${b.delay}ms`}
+          />
+        ))}
+        {/* 折线画在柱子之后（SVG 后画的压上面）：跨柱而过才读得出是叠加的另一个指标。
+            虚线跟实心柱区分，不用再引入第三档墨色。 */}
+        <path class="mt-line mt-quota" d={quotaPath} vector-effect="non-scaling-stroke" />
+      </svg>
+    </div>
+  ) : null
+}
