@@ -1,0 +1,19 @@
+{
+  "name": "纳指开门日报",
+  "short_name": "纳指日报",
+  "description": "每天告诉你，纳斯达克指数的场外申购份额今天能不能买、能买多少。",
+  "lang": "zh-CN",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#faf9f6",
+  "theme_color": "#faf9f6",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

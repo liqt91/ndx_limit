@@ -12,6 +12,9 @@ const {
 } = Astro.props;
 
 const year = new Date().getFullYear();
+// 分享卡片图：绝对 URL（微信、Telegram 都按绝对地址抓 og:image）
+const ogImage = new URL('/og.png', Astro.site);
+const canonical = new URL(Astro.url.pathname, Astro.site);
 ---
 
 <!doctype html>
@@ -22,6 +25,30 @@ const year = new Date().getFullYear();
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- 分享卡片：没有 OG 标签时，微信与各家 IM 里分享出去就是一条裸链接，
+         标题靠客户端猜、也没有缩略图。og:url 用 canonical，避免带查询串的地址各发各的。 -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="纳指开门日报" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="纳指额度看板：标题与 21 格额度热力" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    <!-- PWA：安卓可「添加到桌面」，独立图标启动 -->
+    <link rel="canonical" href={canonical} />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#faf9f6" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="纳指日报" />
   </head>
   <body>
     <div class="frame">
@@ -44,5 +71,14 @@ const year = new Date().getFullYear();
         </div>
       </footer>
     </div>
+
+    <!-- 离线兜底：断网时至少能打开上次抓到的那一版 -->
+    <script is:inline>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js').catch(function () {});
+        });
+      }
+    </script>
   </body>
 </html>

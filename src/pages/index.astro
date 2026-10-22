@@ -94,9 +94,14 @@ const trend = loadDailySummaries(30).reverse();
 // 装饰要的是安静背景，不是精确走势。真实数据的跨度（约 6 家 / 900 元）远大于
 // 这两个值，正常形态不受影响。家数按 17 组的口径取 3，额度按百元级波动取 200。
 const trendFloors = { opened: 3, total: 200 };
+// 分享卡片用的描述：写成今天具体的数字，而不是一句通用介绍。
+// 「今天 7 家开门，135 元可投」比「每天告诉你能不能买」更能让人点进来。
+const ogDescription = ctx.isTrading
+  ? `今天 ${openedCny} 家开门，${totalAgency.toLocaleString('zh-CN')} 元可投。${verdictText}。数据更新于${ctx.updatedTime ? `今日 ${ctx.updatedTime}` : '今日'}。`
+  : `今日休市。最近交易日 ${ctx.lastTrading?.opened ?? 0} 家开门、可投 ${ctx.lastTrading?.total ?? 0} 元。`;
 ---
 
-<BaseLayout title="纳指开门日报">
+<BaseLayout title="纳指开门日报" description={ogDescription}>
   <section class="masthead">
     {/* 首屏只留两行：结论句（家数 + 可投额）＋ 一行小注（比上个交易日如何、数据几点抓的）。
         原来 kicker 那圈「数据更新于… · 纳指 QDII 申购额度」整块并进第二行——副标题在
