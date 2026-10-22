@@ -63,6 +63,16 @@ function opsReport() {
     lines.push(`⚠ 名单外纳指100 份额 ${s.gaps.missing.length} 个：${s.gaps.missing.map((x) => `${x.code} ${x.name}`).join('；')}`);
     anomalies.push('gaps');
   }
+  const ms = m.ms || {};
+  if (ms.checked) lines.push(`晨星对账：${ms.agree}/${ms.checked} 与详情页一致`);
+  if (ms.mismatch && ms.mismatch.length) {
+    lines.push(
+      `⚠ 晨星差异 ${ms.mismatch.length} 处：${ms.mismatch
+        .map((x) => `${x.code} 页面${x.page.status}/${x.page.limit ?? '—'} vs 晨星${x.ms.status}/${x.ms.limit ?? '—'}`)
+        .join('；')}`
+    );
+    anomalies.push('ms-mismatch');
+  }
   if (s.warnings && s.warnings.length) {
     lines.push(`⚠ ${s.warnings.join('；')}`);
     anomalies.push('warnings');
