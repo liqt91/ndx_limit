@@ -275,6 +275,128 @@ if (CHECK_DIST) {
   }
 }
 
+// ── 8. 分站视觉身份 ──────────────────────────────────────────────
+// 两个看板版式完全一样，靠纸色区分板块。纸色是**纯 CSS**，改错了不报错、不崩页面，
+// 只会让两个板块重新长得一模一样——典型静默退化，所以必须有断言。
+console.log('\n8. 分站视觉身份（纸色 / 身份色）');
+
+const CSS_PATH = path.join(ROOT, 'src', 'styles', 'global.css');
+// ★ 先剥注释再解析：负向验证里「把 --accent 注释掉」的注入差点被判成通过——
+//   不带这行的解析器会把 `/* --accent: #5b3b60; */` 当成仍然生效的声明。
+const css = fs.readFileSync(CSS_PATH, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+
+// 断言里的路径统一用正斜杠：Windows 下 path.join 产物是 `ndx100\index.html`，
+// 同一条断言在两台机器上文案不同，负向验证按字符串找红点就会漏判。
+const p_ = (rel) => rel.split(path.sep).join('/');
+
+// 取某个选择器块里的自定义属性。`[^}]*` 够用：这些块里没有嵌套规则。
+const blockVars = (selector) => {
+  const m = css.match(new RegExp(selector.replace(/[[\]'=]/g, (c) => '\\' + c) + '\\s*\\{([^}]*)\\}'));
+  if (!m) return null;
+  const out = {};
+  for (const [, name, value] of m[1].matchAll(/--([\w-]+)\s*:\s*([^;]+);/g)) out[name] = value.trim();
+  return out;
+};
+
+// 对比度：纸色是这条链上唯一会被「调浅一点更好看」改坏的东西
+const lum = (hex) => {
+  const h = String(hex).replace('#', '');
+  const ch = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+  const [r, g, b] = ch.map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const contrast = (fg, bg) => {
+  const [a, b] = [lum(fg), lum(bg)].sort((x, y) => y - x);
+  return (a + 0.05) / (b + 0.05);
+};
+
+const rootVars = blockVars(':root') || {};
+const BOARDS = [
+  { slug: 'ndx100', key: NDX },
+  { slug: 'sp500', key: SP500 },
+];
+const boardVars = {};
+for (const b of BOARDS) {
+  const vars = blockVars(`html[data-board='${b.slug}']`);
+  ok(`global.css 有 html[data-board='${b.slug}'] 块`, vars !== null);
+  boardVars[b.slug] = vars || {};
+  for (const need of ['paper', 'surface', 'accent']) {
+    ok(`${b.slug} 声明了 --${need}`, Boolean((vars || {})[need]));
+  }
+}
+
+// 两套纸必须真的不同：改版时最可能的失误是把标普那块复制过来忘了改颜色
+const [[s1, v1], [s2, v2]] = Object.entries(boardVars);
+ok(`两套 --paper 不同（${v1.paper} vs ${v2.paper}）`, v1.paper !== v2.paper);
+ok(`两套 --accent 不同（${v1.accent} vs ${v2.accent}）`, v1.accent !== v2.accent);
+
+// 身份色不许接近状态墨：「暂停」的红点与板块色撞车，读者会把装饰读成结论
+const statusInks = ['ok', 'warn', 'stop'].map((k) => rootVars[k]).filter(Boolean);
+for (const [slug, v] of Object.entries(boardVars)) {
+  ok(
+    `${slug} 的 --accent 不是状态墨之一`,
+    Boolean(v.accent) && !statusInks.includes(v.accent),
+    `accent=${v.accent} 状态墨=${statusInks.join('/')}`
+  );
+  // 纸色变浅一档，AA 就掉了——而正文次级灰与小号数字全靠它
+  for (const [name, key] of [
+    ['ink-3', 'ink-3'],
+    ['accent', 'accent'],
+  ]) {
+    const fg = v[key] || rootVars[key];
+    const ratio = fg && v.paper ? contrast(fg, v.paper) : 0;
+    ok(`${slug} 的 --${name} 对纸色 ≥ 4.5:1`, ratio >= 4.5, `${fg} on ${v.paper} = ${ratio.toFixed(2)}`);
+  }
+}
+
+// 吸顶色带：唯一「滚动时一直在场」的板块标识
+ok('global.css 定义了 .site-head::before 色带', /html\[data-board\] \.site-head::before\s*\{[^}]*background:\s*var\(--accent\)/.test(css));
+
+if (CHECK_DIST) {
+  const dist = path.join(ROOT, 'dist');
+  const pageOf = (rel) => {
+    const f = path.join(dist, rel);
+    return fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : null;
+  };
+  const htmlTag = (h) => (h.match(/<html[^>]*>/) || [''])[0];
+  const themeOf = (h) => (h.match(/name="theme-color" content="([^"]+)"/) || [])[1];
+
+  if (!pageOf(path.join('ndx100', 'index.html'))) {
+    console.log('   dist/ 未构建，跳过纸色渲染层断言');
+  } else {
+    for (const b of BOARDS) {
+      for (const sub of ['', 'daily']) {
+        const rel = path.join(b.slug, sub, 'index.html');
+        const h = pageOf(rel);
+        ok(`${p_(rel)} 存在`, h !== null);
+        if (!h) continue;
+        ok(`${p_(rel)} 的 <html> 带 data-board="${b.slug}"`, htmlTag(h).includes(`data-board="${b.slug}"`), htmlTag(h));
+        eq(`${p_(rel)} 的 theme-color == 本板块纸色`, themeOf(h), boardVars[b.slug].paper);
+        // 站标必须是内联 SVG：老的 /nasdaq-logo.svg 是两个板块共用的「N」方块，
+        // 顶在标普500 页面上是错的
+        ok(`${p_(rel)} 站标是内联 .site-mark`, h.includes('class="site-mark"') && !h.includes('/nasdaq-logo.svg'));
+      }
+    }
+    // 共用页没有指数身份：纸色与色带都必须回到中性，否则「我在哪个板块」会被说错
+    for (const rel of [path.join('my', 'index.html'), path.join('subscribe', 'index.html')]) {
+      const h = pageOf(rel);
+      ok(`${p_(rel)} 存在`, h !== null);
+      if (!h) continue;
+      ok(`${p_(rel)} 不带 data-board`, !/data-board=/.test(htmlTag(h)), htmlTag(h));
+      eq(`${p_(rel)} 的 theme-color 是中性纸色`, themeOf(h), '#faf9f6');
+    }
+    // 详情页跟着份额所属指数走：点进标普500 的份额，不该掉进纳指的冷色纸
+    for (const [k, slug] of [
+      [NDX, 'ndx100'],
+      [SP500, 'sp500'],
+    ]) {
+      const code = [...codeSets[k]][0];
+      const h = pageOf(path.join('f', code, 'index.html'));
+      ok(`/f/${code} 的 data-board == ${slug}`, Boolean(h) && htmlTag(h).includes(`data-board="${slug}"`), h ? htmlTag(h) : '页面缺失');
+    }
+  }
+}
+
 console.log('');
 if (fails.length) {
   console.error(`✗ ${fails.length} 项失败：`);

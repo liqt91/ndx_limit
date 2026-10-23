@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css';
 import SiteHeader from '../components/SiteHeader.astro';
+import { INDEXES } from '../data/loader';
 
 interface Props {
   title: string;
@@ -11,6 +12,8 @@ interface Props {
   shortName?: string;
   /** 当前指数（用于导航高亮）。省略 = 按路径推断；显式传 null = 共用页，两个指数项都不高亮 */
   navKey?: string | null;
+  /** 页面所属指数（用于分站纸色）。省略/null = 共用页，保持中性纸 */
+  indexKey?: string | null;
 }
 const {
   title,
@@ -20,7 +23,24 @@ const {
   siteName = 'QDII 开门日报',
   shortName = 'QDII 日报',
   navKey,
+  indexKey,
 } = Astro.props;
+
+// 分站纸色。data-board 是 <html> 上的一个属性，CSS 靠它整页换纸（见 global.css）。
+// ★ 不叫 data-index：那个名字在代码里已经有两个含义（FamilyCard 和 /my 的分段都用它存
+//   中文指数名），再让 <html> 用同名字段存 ASCII slug，早晚会有人写 [data-index] 时一起选中。
+// ★ 与 navKey 分开传，不能从 navKey 推断：共用页 navKey 可能是 null，而「没传」
+//   又表示按路径猜——把视觉身份挂在这种三态语义上，迟早会像 2026-10-23 那次
+//   aria-current 一样，在共用页上点亮一个板块。
+// slug 从 INDEXES.path 推导，避免再多一处「加指数要同步改」的清单。
+const indexSlug = indexKey
+  ? (INDEXES.find((i) => i.key === indexKey)?.path.replace(/\//g, '') ?? null)
+  : null;
+
+// 手机浏览器地址栏染色。★ 这三行与 global.css 里 --paper 的三处定义是同一份事实，
+//   改了颜色必须两处同改——check:index 会逐字比对，对不上就红。
+const PAPER: Record<string, string> = { ndx100: '#e8eef6', sp500: '#f9f0dd' };
+const themeColor = (indexSlug && PAPER[indexSlug]) || '#faf9f6';
 
 const year = new Date().getFullYear();
 // 分享卡片图：绝对 URL（微信、Telegram 都按绝对地址抓 og:image）
@@ -29,7 +49,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
 ---
 
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-board={indexSlug ?? undefined}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -56,7 +76,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     <!-- PWA：安卓可「添加到桌面」，独立图标启动 -->
     <link rel="canonical" href={canonical} />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#faf9f6" />
+    <meta name="theme-color" content={themeColor} />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content={shortName} />

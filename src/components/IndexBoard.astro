@@ -130,7 +130,7 @@ const ogDescription = noData
     : `今日休市。最近交易日 ${ctx.lastTrading?.opened ?? 0} 家开门、可投 ${ctx.lastTrading?.total ?? 0} 元。`;
 ---
 
-<BaseLayout title={meta.brand} description={ogDescription} siteName={meta.brand} shortName={`${meta.short}日报`} navKey={indexKey}>
+<BaseLayout title={meta.brand} description={ogDescription} siteName={meta.brand} shortName={`${meta.short}日报`} navKey={indexKey} indexKey={indexKey}>
   <section class="masthead">
     {/* 首屏只留两行：结论句（家数 + 可投额）＋ 一行小注（比上个交易日如何、数据几点抓的）。
         原来 kicker 那圈「数据更新于… · 纳指 QDII 申购额度」整块并进第二行——副标题在
