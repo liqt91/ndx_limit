@@ -11,6 +11,11 @@ const { history } = Astro.props;
 /**
  * 21 天额度热力方块：只有颜色深浅，没有高度。
  *
+ * ★ 固定画最近 21 天，不是「有多少天画多少天」：history.json 每只份额保留 60 个点，
+ *   逐日累积后不截断的话格子会一直变窄（24 天 11px、40 天 6px、60 天 2.7px，
+ *   global.css 里 .hc 的 max-width 是按 21 格算的，只为防「一两天数据被拉成大块」，
+ *   挡不住反向缩水）。截断放在这里而不是调用方，任何一个渲染热力条的地方都不会漏。
+ *
  * 颜色只表示「那天单日能买多少」，其余状态交给纹理：
  *   暂停 / 封闭 → 空心细框
  *   能买、但额度没公布 → 斜纹
@@ -18,7 +23,10 @@ const { history } = Astro.props;
  * 悬停只交代「哪天、多少钱」——「当日变动」不再单独标注，额度一变颜色就变，
  * 同一个颜色突然换深换浅本身就是那天的标记。
  */
-const cells = history.map((d) => {
+const HEAT_DAYS = 21;
+const days = history.slice(-HEAT_DAYS);
+
+const cells = days.map((d) => {
   const open = d.status === 'OPEN' || d.status === 'LIMITED';
 
   const level = heatLevel(d.limit);
@@ -43,12 +51,12 @@ const cells = history.map((d) => {
   return { kind, tip: `${prettyDateCST(d.date)} ${state}` };
 });
 
-const firstDate = history[0]?.date;
-const lastDate = history[history.length - 1]?.date;
-const openedDays = history.filter((d) => d.status === 'OPEN' || d.status === 'LIMITED').length;
-const deepest = history.reduce((max, d) => Math.max(max, heatLevel(d.limit) ?? 0), 0);
-const aria = `最近 ${history.length} 天额度热力方块：${openedDays} 天可申购、${
-  history.length - openedDays
+const firstDate = days[0]?.date;
+const lastDate = days[days.length - 1]?.date;
+const openedDays = days.filter((d) => d.status === 'OPEN' || d.status === 'LIMITED').length;
+const deepest = days.reduce((max, d) => Math.max(max, heatLevel(d.limit) ?? 0), 0);
+const aria = `最近 ${days.length} 天额度热力方块：${openedDays} 天可申购、${
+  days.length - openedDays
 } 天暂停${deepest ? `，最深一档为第 ${deepest} 档` : ''}`;
 ---
 
@@ -68,5 +76,5 @@ const aria = `最近 ${history.length} 天额度热力方块：${openedDays} 天
 {/* 只有一天数据时（新收录的指数）首尾是同一个日期，重复显示两遍像渲染错误 */}
 <div class="heat-axis">
   <span>{firstDate}</span>
-  {history.length > 1 && <span>{lastDate}</span>}
+  {days.length > 1 && <span>{lastDate}</span>}
 </div>

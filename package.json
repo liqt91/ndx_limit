@@ -8,6 +8,8 @@
     "dev": "astro dev",
     "scrape": "node scripts/scrape.mjs",
     "import:history": "node scripts/import-history.mjs",
+ "import:limits": "node scripts/import-limits-from-announcements.mjs",
+ "import:limits": "node scripts/import-limits-from-announcements.mjs",
     "check:data": "node scripts/check-freshness.mjs",
     "check:index": "node scripts/check-index-isolation.mjs",
  "check:broadcast": "node scripts/check-broadcast.mjs",
