@@ -16,6 +16,20 @@ const DATA_DIR = path.resolve(__dirname, '..', 'data');
 
 export const MIN_COVERAGE = Number(process.env.SCRAPE_MIN_COVERAGE ?? 0.9);
 
+// 分指数口径（2026-10-23 起 funds.json 里有纳指100 与标普500 两个 indexKey）。
+// ★ 所有聚合都必须显式带 indexKey：省略 = 纳指（早报/小程序的既有契约）。
+//   不存在「不分指数的全量聚合」这种用法——那会静默把两个指数的额度加在一起。
+//   与 src/data/loader.ts 的 NDX / SP500 常量必须逐字一致。
+export const NDX = '纳斯达克100';
+export const SP500 = '标普500';
+export const INDEX_KEYS = [NDX, SP500];
+
+/** 按指数过滤 funds.json 条目。indexKey 省略时原样返回（调用方自己去保证语义）。 */
+export function fundsOfIndex(funds, indexKey) {
+  if (!indexKey) return funds;
+  return funds.filter((f) => f.indexKey === indexKey);
+}
+
 export function readJson(name, fallback) {
   try {
     return JSON.parse(fs.readFileSync(path.join(DATA_DIR, name), 'utf8'));
@@ -46,9 +60,12 @@ export function kindOrder(k) {
 }
 
 // 全量历史里最新的那一天（YYYY-MM-DD）。用于判断数据是不是「今天的」。
-export function latestDate(history) {
+// ★ 传 codes 时只看这些代码——否则标普500 抓到了、纳指没抓到，日期照样是今天，
+//   发信门禁会放行一封用昨天纳指数据拼出来的早报。
+export function latestDate(history, codes) {
   let max = '';
   for (const code in history) {
+    if (codes && !codes.has(code)) continue;
     const arr = history[code];
     if (Array.isArray(arr) && arr.length) {
       const d = arr[arr.length - 1].date;
@@ -64,16 +81,24 @@ export function todayShanghai() {
 }
 
 // 人民币份额覆盖率（分母只算人民币份额，与 scrape 门禁口径一致）。
-export function computeCoverage(funds, meta) {
+// indexKey 默认纳指：早报发的是纳指，标普500 抓失败不该阻断纳指的推送。
+export function computeCoverage(funds, meta, indexKey = NDX) {
+  const scoped = fundsOfIndex(funds, indexKey);
   let cnyTargets = 0;
   let cnyOk = 0;
   const codeCurrency = new Map();
-  for (const f of funds)
+  for (const f of scoped)
     for (const c of f.codes) {
       codeCurrency.set(c.code, f.currency);
       if (f.currency !== 'USD') cnyTargets++;
     }
-  for (const code in meta) if (codeCurrency.get(code) !== 'USD' && meta[code] && meta[code].name) cnyOk++;
+  // ★ 只认「明确记在本指数名录里、且为 CNY」的代码。早先写的是 `!== 'USD'`，
+  //   而 Map 对未收录的 code 返回 undefined，`undefined !== 'USD'` 恒真——
+  //   fund-meta 里任何别的指数的份额都会被算成「本指数人民币抓取成功」。
+  //   2026-10-23 加标普500 后这个隐患立刻显形：纳指覆盖率报出 161%。
+  for (const code in meta) {
+    if (codeCurrency.get(code) === 'CNY' && meta[code] && meta[code].name) cnyOk++;
+  }
   return cnyTargets ? cnyOk / cnyTargets : 1;
 }
 
@@ -109,9 +134,10 @@ export function prevTradingDay(date, holidays) {
 
 // 人民币份额的当日聚合（与页面同一口径）：按「公司 + 基金名」成组，组内任一可买即算开门，
 // 可买份额的单日上限相加为可投总额。scrape.mjs 的 fetch-meta.runs[] 也用它，避免两处口径漂移。
-export function aggregateCny(funds, pointByCode) {
+// ★ 必须传 indexKey：两个指数的份额混算会得出「24 家开门」这种既不是纳指也不是标普的数。
+export function aggregateCny(funds, pointByCode, indexKey = NDX) {
   const groups = new Map();
-  for (const f of funds) {
+  for (const f of fundsOfIndex(funds, indexKey)) {
     if (f.currency !== 'CNY') continue;
     const key = `${f.company}|${f.baseName}`;
     if (!groups.has(key)) groups.set(key, { buyable: false, total: 0 });
@@ -130,7 +156,7 @@ export function aggregateCny(funds, pointByCode) {
 }
 
 /** 指定日期的人民币聚合（history 里每只基金取该日那条）。 */
-export function summarizeDay(funds, history, date) {
+export function summarizeDay(funds, history, date, indexKey = NDX) {
   const pts = {};
   for (const code in history) {
     const arr = history[code];
@@ -138,7 +164,7 @@ export function summarizeDay(funds, history, date) {
     const hit = arr.find((d) => d.date === date);
     if (hit) pts[code] = hit;
   }
-  return aggregateCny(funds, pts);
+  return aggregateCny(funds, pts, indexKey);
 }
 
 // 一条变化 → 一行文案。页面、早报、下午报共用一套说法，避免「限大额 10 元」与
@@ -170,7 +196,9 @@ export function formatChangeLine(c) {
 //   这个时点才是「今天还能不能下单」的答案（场外 15:00 截止），所以它先给当日快照，
 //   再给「较昨日」，最后给「较今晨」，让读者一眼看出上午到现在有没有变。
 export function buildDailyDigest({ edition = 'morning' } = {}) {
-  const funds = readJson('funds.json', { funds: [] }).funds;
+  // 早报只发纳指：标普500 有自己的站内页面。两个指数混进一封邮件，
+  // 「17 家开门」就既不是纳指也不是标普的数了。
+  const funds = fundsOfIndex(readJson('funds.json', { funds: [] }).funds, NDX);
   const history = readJson('history.json', {});
   const meta = readJson('fund-meta.json', {});
   const fetchMeta = readJson('fetch-meta.json', {});
@@ -228,7 +256,7 @@ export function buildDailyDigest({ edition = 'morning' } = {}) {
   const slotTime = (slot) => runs.find((r) => r.slot === slot)?.time || null;
   const dataTime = slotTime('close') || slotTime('morning') || null;
   if (isClose) {
-    const agg = summarizeDay(funds, history, date);
+    const agg = summarizeDay(funds, history, date, NDX);
     blocks.push(`收盘前：${agg.opened} 家开门 · 合计 ${agg.total} 元可投${dataTime ? `（${dataTime} 抓取）` : ''}`);
   }
 

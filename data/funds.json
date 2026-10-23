@@ -1,5 +1,5 @@
 {
-  "_说明": "监控的纳指 QDII 基金份额目录。新增/调整基金只改这里，抓取脚本与页面都会自动适配。currency: CNY/USD；codes 为各份额（A/C/D/F/E 等），cls 为份额类别。",
+  "_说明": "监控的 QDII 基金份额目录（按 indexKey 分指数）。新增/调整基金只改这里，抓取脚本与页面都会自动适配。currency: CNY/USD；codes 为各份额（A/C/D/F/E 等），cls 为份额类别。indexKey 是页面分站与统计口径的唯一切分依据，同一指数的不同币种必须共用同一个 indexKey。标普500 = 2026-10-23 东财全量快照普查：命中 29 只，剔除 4 只场内 ETF（159612/159655/513500/513650）后剩 25 个场外份额、7 家公司；大成为「标普500等权重」策略故 baseName 单列，indexKey 仍归一。",
   "funds": [
     { "company": "宝盈", "baseName": "纳斯达克100", "indexKey": "纳斯达克100", "currency": "CNY", "codes": [ { "cls": "A", "code": "019736" }, { "cls": "C", "code": "019737" } ] },
     { "company": "大成", "baseName": "纳斯达克100", "indexKey": "纳斯达克100", "currency": "CNY", "codes": [ { "cls": "A", "code": "000834" }, { "cls": "C", "code": "008971" } ] },
@@ -28,6 +28,19 @@
     { "company": "华夏", "baseName": "纳斯达克100", "indexKey": "纳斯达克100", "currency": "USD", "codes": [ { "cls": "A", "code": "015518" } ] },
     { "company": "汇添富", "baseName": "纳斯达克100", "indexKey": "纳斯达克100", "currency": "USD", "codes": [ { "cls": "A", "code": "018968" }, { "cls": "C", "code": "018969" } ] },
     { "company": "嘉实", "baseName": "纳斯达克100", "indexKey": "纳斯达克100", "currency": "USD", "codes": [ { "cls": "A", "code": "016534" }, { "cls": "C", "code": "016535" } ] },
-    { "company": "易方达", "baseName": "纳斯达克100", "indexKey": "纳斯达克100", "currency": "USD", "codes": [ { "cls": "A", "code": "003722" }, { "cls": "C", "code": "012871" } ] }
+    { "company": "易方达", "baseName": "纳斯达克100", "indexKey": "纳斯达克100", "currency": "USD", "codes": [ { "cls": "A", "code": "003722" }, { "cls": "C", "code": "012871" } ] },
+
+    { "company": "易方达", "baseName": "标普500", "indexKey": "标普500", "currency": "CNY", "codes": [ { "cls": "A", "code": "161125" }, { "cls": "C", "code": "012860" } ] },
+    { "company": "博时", "baseName": "标普500", "indexKey": "标普500", "currency": "CNY", "codes": [ { "cls": "A", "code": "050025" }, { "cls": "C", "code": "006075" }, { "cls": "E", "code": "018738" } ] },
+    { "company": "天弘", "baseName": "标普500", "indexKey": "标普500", "currency": "CNY", "codes": [ { "cls": "A", "code": "007721" }, { "cls": "C", "code": "007722" }, { "cls": "D", "code": "022523" } ] },
+    { "company": "大成", "baseName": "标普500等权重", "indexKey": "标普500", "currency": "CNY", "codes": [ { "cls": "A", "code": "096001" }, { "cls": "C", "code": "008401" } ] },
+    { "company": "国泰", "baseName": "标普500", "indexKey": "标普500", "currency": "CNY", "codes": [ { "cls": "A", "code": "017028" }, { "cls": "C", "code": "017030" } ] },
+    { "company": "摩根", "baseName": "标普500", "indexKey": "标普500", "currency": "CNY", "codes": [ { "cls": "A", "code": "017641" }, { "cls": "C", "code": "019305" } ] },
+    { "company": "华夏", "baseName": "标普500", "indexKey": "标普500", "currency": "CNY", "codes": [ { "cls": "A", "code": "018064" }, { "cls": "C", "code": "018065" } ] },
+    { "company": "易方达", "baseName": "标普500", "indexKey": "标普500", "currency": "USD", "codes": [ { "cls": "A", "code": "003718" }, { "cls": "C", "code": "012861" } ] },
+    { "company": "博时", "baseName": "标普500", "indexKey": "标普500", "currency": "USD", "codes": [ { "cls": "A", "code": "013425" }, { "cls": "C", "code": "013499" } ] },
+    { "company": "大成", "baseName": "标普500等权重", "indexKey": "标普500", "currency": "USD", "codes": [ { "cls": "A", "code": "013404" }, { "cls": "C", "code": "015545" } ] },
+    { "company": "摩根", "baseName": "标普500", "indexKey": "标普500", "currency": "USD", "codes": [ { "cls": "A", "code": "017642" }, { "cls": "A", "code": "017643" } ] },
+    { "company": "华夏", "baseName": "标普500", "indexKey": "标普500", "currency": "USD", "codes": [ { "cls": "A", "code": "018066" } ] }
   ]
 }

@@ -173,13 +173,42 @@ export async function fetchSnapshot({ attempt = 1 } = {}) {
 // 纳指100 的识别关键字。宁可宽一点（后面还有人工确认），也不要漏掉新份额。
 export const NAQ_KEYWORDS = ['纳斯达克100', '纳指100', 'NASDAQ100', 'Nasdaq100', 'NASDAQ 100', 'Nasdaq 100'];
 
-/** 全市场里名字含纳指100 关键字的份额。用于「名单外缺口」提示，不自动并入 funds.json。 */
-export function scanNasdaq100(rows) {
+// 标普500 的识别关键字。2026-10-23 普查实测命中 29 只（含 4 只场内 ETF）。
+export const SP500_KEYWORDS = ['标普500', '标普 500', 'S&P500', 'S&P 500', 'SP500'];
+
+/** 场内 ETF 判定：名称含 ETF 但**不含「联接」**。
+ *  场外的场外份额是「××标普500ETF联接 A」，含联接；纯 ETF（标普500ETF博时）不含。
+ *  不能按代码段判（1/5 开头）：161125、160213 这类 LOF 场外可申购，会被误伤。 */
+function isExchangeTraded(row) {
+  if (/场内/.test(row.rawStatus)) return true;
+  return /ETF/.test(row.name) && !/联接/.test(row.name);
+}
+
+/** 全市场里名字命中指定关键字的份额。用于「名单外缺口」提示，不自动并入 funds.json。 */
+export function scanIndex(rows, keywords) {
   const out = [];
   for (const r of rows.values()) {
     const hay = `${r.name}${r.type}`.toLowerCase();
-    if (NAQ_KEYWORDS.some((k) => hay.includes(k.toLowerCase()))) out.push(r);
+    if (keywords.some((k) => hay.includes(k.toLowerCase()))) out.push(r);
   }
   out.sort((a, b) => a.code.localeCompare(b.code));
   return out;
+}
+
+/** 全市场里名字含纳指100 关键字的份额（含场内，供缺口判断排除用）。 */
+export function scanNasdaq100(rows) {
+  return scanIndex(rows, NAQ_KEYWORDS);
+}
+
+/** 全市场里名字含标普500 关键字的份额（含场内）。 */
+export function scanSp500(rows) {
+  return scanIndex(rows, SP500_KEYWORDS);
+}
+
+/** 从扫描结果里剔掉场内 ETF，剩下的才是「场外申购份额」。 */
+export function excludeExchangeTraded(rows) {
+  return {
+    exchange: rows.filter(isExchangeTraded),
+    over: rows.filter((r) => !isExchangeTraded(r)),
+  };
 }

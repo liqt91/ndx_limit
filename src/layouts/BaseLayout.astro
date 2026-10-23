@@ -5,10 +5,19 @@ import SiteHeader from '../components/SiteHeader.astro';
 interface Props {
   title: string;
   description?: string;
+  /** 站名。多指数分站后，标普500 页面不该叫「纳指开门日报」 */
+  siteName?: string;
+  /** 添加到桌面时的短名（iOS 会截断长标题） */
+  shortName?: string;
+  /** 当前指数（用于导航高亮），省略则按路径判断 */
+  navKey?: string;
 }
 const {
   title,
   description = '每天下午，告诉你今天纳斯达克基金还能不能买、能买多少。',
+  siteName = '纳指开门日报',
+  shortName = '纳指日报',
+  navKey,
 } = Astro.props;
 
 const year = new Date().getFullYear();
@@ -29,14 +38,14 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     <!-- 分享卡片：没有 OG 标签时，微信与各家 IM 里分享出去就是一条裸链接，
          标题靠客户端猜、也没有缩略图。og:url 用 canonical，避免带查询串的地址各发各的。 -->
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="纳指开门日报" />
+    <meta property="og:site_name" content={siteName} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
     <meta property="og:image" content={ogImage} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="纳指额度看板：标题与 21 格额度热力" />
+    <meta property="og:image:alt" content={`${siteName}：标题与 21 格额度热力`} />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
@@ -48,11 +57,11 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     <meta name="theme-color" content="#faf9f6" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="纳指日报" />
+    <meta name="apple-mobile-web-app-title" content={shortName} />
   </head>
   <body>
     <div class="frame">
-      <SiteHeader />
+      <SiteHeader brand={siteName} navKey={navKey} />
       <main class="wrap">
         <slot />
       </main>
@@ -63,7 +72,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
         <p class="foot-disc">仅陈述客观信息，不构成投资建议</p>
         <div class="foot-grid">
           <div class="foot-brand">
-            © {year} 纳指开门日报
+            © {year} {siteName}
           </div>
           <!-- 备案号位：拿到号码后把文字替换为「京ICP备XXXXXXXX号-X」，
                改成指向 https://beian.miit.gov.cn 的链接，颜色类换掉（ghost → ink-3） -->

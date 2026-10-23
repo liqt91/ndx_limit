@@ -36,8 +36,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { isTradingDay, aggregateCny } from './digest.mjs';
-import { fetchSnapshot, scanNasdaq100 } from './em-snapshot.mjs';
+import { isTradingDay, aggregateCny, NDX, SP500, INDEX_KEYS } from './digest.mjs';
+import { fetchSnapshot, scanNasdaq100, scanSp500, excludeExchangeTraded } from './em-snapshot.mjs';
 import { fetchMorningstar } from './ms-fallback.mjs';
 import { refreshAnnouncements, loadAnnouncementStore } from './announcements.mjs';
 
@@ -239,16 +239,22 @@ async function main() {
     process.exit(0);
   }
 
-  // 代码 → 币种映射，用于「仅看人民币」的健康门禁
+  // 代码 → 币种 / 指数映射，用于「仅看人民币」的健康门禁与分指数统计
   const codeCurrency = new Map();
+  const codeIndex = new Map();
   const allCodes = [];
   for (const f of funds) {
     for (const c of f.codes) {
       allCodes.push(c.code);
       codeCurrency.set(c.code, f.currency);
+      codeIndex.set(c.code, f.indexKey);
     }
   }
   const targets = onlyCodes.length ? onlyCodes : allCodes;
+
+  // 指数全集：以 funds.json 实际出现的 indexKey 为准，而不是常量表。
+  // 否则有人往 funds.json 塞一个新 indexKey 时，它的份额会被静默算进纳指的覆盖率分母。
+  const indexKeys = [...new Set([...INDEX_KEYS, ...funds.map((f) => f.indexKey)])];
 
   // 目录守卫：目标数为 0 = funds.json 解析失败或为空，绝不空跑（否则会把整站写成全 UNKNOWN）
   if (targets.length === 0) {
@@ -270,12 +276,14 @@ async function main() {
     }
   }
 
+  // 分指数统计：覆盖率门禁按指数各算各的。标普500 抓不稳时只降级它自己，
+  // 不能连坐纳指——纳指的早报/页面是本站在跑的主业务。
+  const perIndex = new Map();
+  for (const k of indexKeys) {
+    perIndex.set(k, { cnyTargets: 0, cnyOk: 0, recovered: 0, msRecovered: 0, status: {} });
+  }
   const stats = { OPEN: 0, LIMITED: 0, STOPPED: 0, CLOSED: 0, UNKNOWN: 0, fail: 0 };
   let okCount = 0; // 成功解析到名称 = 有效记录（全部目标）
-  let cnyTargets = 0;
-  let cnyOk = 0; // 人民币份额里「页面抓取成功」的数量（门禁只看这个，快照/晨星兜底都不算）
-  let cnyRecovered = 0;
-  let cnyMsRecovered = 0; // 其中靠晨星兜底的（同样不计入门禁）
 
   const pageResults = new Map(); // code → 逐页解析结果（用于对账）
   const beforeDay = new Map(); // code → 覆盖前 history 里「今天」那条（算盘中差异）
@@ -284,8 +292,10 @@ async function main() {
   const warnings = [];
 
   for (const code of targets) {
+    const idxKey = codeIndex.get(code) ?? NDX;
+    const idxStat = perIndex.get(idxKey) ?? perIndex.get(NDX);
     const isCny = codeCurrency.get(code) !== 'USD';
-    if (isCny) cnyTargets++;
+    if (isCny) idxStat.cnyTargets++;
 
     let r = await fetchFund(code);
     let fromSnapshot = false;
@@ -297,7 +307,7 @@ async function main() {
       if (row && row.status !== 'UNKNOWN') {
         r = { code, name: row.name, status: row.status, limit: row.limit, min: row.min };
         fromSnapshot = true;
-        if (isCny) cnyRecovered++;
+        if (isCny) idxStat.recovered++;
       }
     }
 
@@ -310,7 +320,7 @@ async function main() {
       if (!ms.error) {
         r = { code, name: meta[code]?.name ?? null, status: ms.status, limit: ms.limit, min: null };
         fromMorningstar = true;
-        if (isCny) cnyMsRecovered++;
+        if (isCny) idxStat.msRecovered++;
       }
     }
 
@@ -318,7 +328,7 @@ async function main() {
     if (r.name) {
       meta[code] = { name: r.name };
       okCount++;
-      if (isCny && !fromSnapshot) cnyOk++;
+      if (isCny && !fromSnapshot) idxStat.cnyOk++;
     }
     if (r.error) {
       stats.fail++;
@@ -328,6 +338,7 @@ async function main() {
       console.log(`✓ ${code} ${r.name} [${r.status}${r.limit != null ? ' ' + r.limit + '元' : ''}]${tag}`);
     }
     stats[r.status] = (stats[r.status] || 0) + 1;
+    idxStat.status[r.status] = (idxStat.status[r.status] || 0) + 1;
 
     // 上限 < 起购 = 实际买不到。历史上 0 条，属于预防性提示：不擅自改状态，只记一条告警，
     // 让「限 1 元、起购 10 元」这种自相矛盾的数据能被发现，而不是安静地显示成可买 1 元。
@@ -343,15 +354,62 @@ async function main() {
 
     const point = { date: today, status: r.status, limit: r.limit };
     pointByCode[code] = point;
-    if (last && last.date === today) arr[arr.length - 1] = point; // 同日幂等覆盖
-    else arr.push(point);
-    history[code] = arr.slice(-60); // 最多保留 60 天，loader 读取时再截 30
 
     await sleep(250); // 礼貌限速
   }
 
-  writeJsonAtomic('history.json', history);
+  // 名称与状态无关：抓到了就留下。门禁不该把名称一起回滚。
   writeJsonAtomic('fund-meta.json', meta);
+
+  // ── 健康门禁（分指数，仅看人民币份额）──
+  // cnyOk 只统计「详情页抓取成功」。用快照 / 晨星兜底的份额不计入——快照状态字段有噪声，
+  // 若让兜底也算成功，上游页面改版时门禁会变成假绿灯。
+  const coverage = {};
+  for (const k of indexKeys) {
+    const st = perIndex.get(k);
+    coverage[k] = st.cnyTargets ? st.cnyOk / st.cnyTargets : 1;
+  }
+
+  // 纳指不达标 → 整轮不写任何点，exit 2。既有契约：宁可不出新数据，
+  // 也不发布「今日全暂停 / 全未知」的假象（CI 红 → 不提交 → EdgeOne 保留上次好构建）。
+  if (coverage[NDX] < MIN_COVERAGE) {
+    console.error(
+      `\n✗ 健康门禁未通过（纳指100）：人民币覆盖率 ${(coverage[NDX] * 100).toFixed(1)}% < 阈值 ` +
+        `${(MIN_COVERAGE * 100).toFixed(0)}%。本次不写入任何数据。`
+    );
+    console.error('  可能是天天基金改版 / 网络抖动 / 被限流。');
+    process.exit(2);
+  }
+
+  // 其他指数不达标 → 只丢它今天的点（history 保留上次好数据，页面会亮「数据过期」），
+  // 不阻断纳指。标普500 抓失败不该让纳指的早报和页面停摆。
+  const degradedIndexes = [];
+  for (const k of indexKeys) {
+    if (k === NDX || coverage[k] >= MIN_COVERAGE) continue;
+    degradedIndexes.push(k);
+    let dropped = 0;
+    for (const code of Object.keys(pointByCode)) {
+      if (codeIndex.get(code) === k) {
+        delete pointByCode[code];
+        dropped++;
+      }
+    }
+    console.warn(
+      `⚠ ${k} 覆盖率 ${(coverage[k] * 100).toFixed(1)}% < 阈值 ${(MIN_COVERAGE * 100).toFixed(0)}%：` +
+        `丢弃它今天的 ${dropped} 个点，保留上次数据（页面会显示过期提示）`
+    );
+  }
+
+  // 生效点写入 history：同日幂等覆盖，最多留 60 天（loader 读取时再截 30）
+  for (const code of Object.keys(pointByCode)) {
+    const point = pointByCode[code];
+    const arr = history[code] || [];
+    const last = arr[arr.length - 1];
+    if (last && last.date === today) arr[arr.length - 1] = point;
+    else arr.push(point);
+    history[code] = arr.slice(-60);
+  }
+  writeJsonAtomic('history.json', history);
 
   // ── 旁路①的对账与缺口 ──
   const shadow = { available: !!snap, checked: 0, agree: 0, mismatch: [], recovered: [], gaps: null, warnings };
@@ -381,17 +439,34 @@ async function main() {
       if (!pageResults.has(code) && pointByCode[code]) shadow.recovered.push(code);
     }
     // 名单外缺口：只报不改。funds.json 要人工维护，自动并入会让口径失控。
-    // 场内 ETF（159/513 开头的「场内交易」份额）不算缺口——它们没有「场外申购限额」
-    // 这个概念，本站明确只统计场外份额（页脚已写明）。把它们算缺口会天天报 3 条噪声，
-    // 真正的缺口（新发的 I 类份额之类）就会被淹掉。
-    const known = new Set(allCodes);
-    const scanned = scanNasdaq100(snap.rows);
-    const outside = scanned.filter((r) => !known.has(r.code));
-    const exch = outside.filter((r) => /场内/.test(r.rawStatus));
-    const missing = outside
-      .filter((r) => !/场内/.test(r.rawStatus))
-      .map((r) => ({ code: r.code, name: r.name, status: r.status, limit: r.limit, type: r.type }));
-    shadow.gaps = { scoped: scanned.length, known: allCodes.length, excludedExchange: exch.length, missing: missing.slice(0, MAX_GAP_KEEP) };
+    // 场内 ETF 不算缺口——它们没有「场外申购限额」这个概念，本站明确只统计场外份额。
+    // 把它们算缺口会天天报几条噪声，真正的缺口（新发的 I 类份额之类）就会被淹掉。
+    //
+    // 判据不能用「代码 15/51 开头」：161125、160213 这类 LOF 场外可申购，会被误伤。
+    // 统一用 excludeExchangeTraded（名称含 ETF 但不含「联接」= 场内）。
+    //
+    // 分指数各扫各的：标普500 的缺口混进纳指那份清单里，人工确认时根本分不清该改哪一行。
+    const gapFor = (indexKey, scan) => {
+      const idxKnown = new Set();
+      for (const f of funds) if (f.indexKey === indexKey) for (const c of f.codes) idxKnown.add(c.code);
+      const outside = scan.filter((r) => !idxKnown.has(r.code));
+      const { exchange, over } = excludeExchangeTraded(outside);
+      return {
+        scoped: scan.length,
+        known: idxKnown.size,
+        excludedExchange: exchange.length,
+        missing: over
+          .map((r) => ({ code: r.code, name: r.name, status: r.status, limit: r.limit, type: r.type }))
+          .slice(0, MAX_GAP_KEEP),
+      };
+    };
+    const SCANNERS = { [NDX]: scanNasdaq100, [SP500]: scanSp500 };
+    shadow.gapsByIndex = {};
+    for (const k of indexKeys) {
+      const scan = SCANNERS[k] ? SCANNERS[k](snap.rows) : [];
+      shadow.gapsByIndex[k] = gapFor(k, scan);
+    }
+    shadow.gaps = shadow.gapsByIndex[NDX]; // 兼容：notify.mjs 读的是顶层 gaps
   }
 
   // ── 旁路③：晨星对账（独立第二意见，只对「详情页抓成功」的份额比）──
@@ -453,8 +528,34 @@ async function main() {
   const existingRun = prevRuns.find((r) => r.slot === SLOT);
   // 只有「今天已经有别的时点跑过」时，这个差异才有意义；重跑同一时点时不要把它抹成空
   const changed = intraday.length ? intraday.slice(0, 20) : existingRun && existingRun.changed ? existingRun.changed : null;
-  const agg = aggregateCny(funds, pointByCode);
-  const run = { slot: SLOT, at: NOW.iso, time: NOW.time, opened: agg.opened, total: agg.total, families: agg.families, changed: otherRuns.length ? changed : null };
+
+  // ★ fetch-meta 的顶层字段永远是纳指（早报、页面首屏、小程序都按这个读，语义不变）。
+  //   标普500 等其它指数放进 byIndex，缺字段 = 该指数今天没有有效聚合（被门禁丢弃）。
+  const agg = aggregateCny(funds, pointByCode, NDX);
+  const changedOf = (k) =>
+    changed ? changed.filter((c) => (codeIndex.get(c.code) ?? NDX) === k) : null;
+  const byIndex = {};
+  for (const k of indexKeys) {
+    if (k === NDX) continue;
+    const a = aggregateCny(funds, pointByCode, k);
+    byIndex[k] = {
+      opened: a.opened,
+      total: a.total,
+      families: a.families,
+      degraded: degradedIndexes.includes(k),
+      changed: changedOf(k),
+    };
+  }
+  const run = {
+    slot: SLOT,
+    at: NOW.iso,
+    time: NOW.time,
+    opened: agg.opened,
+    total: agg.total,
+    families: agg.families,
+    changed: otherRuns.length ? changed : null,
+    byIndex,
+  };
   const runs = [...otherRuns, run].sort((a, b) => (a.at < b.at ? -1 : 1));
 
   // 调试模式（命令行指定了代码）不写 fetch-meta：那次聚合只覆盖被指定的份额，
@@ -465,24 +566,28 @@ async function main() {
     writeJsonAtomic('fetch-meta.json', { date: today, fetchedAt: NOW.iso, slot: SLOT, runs, shadow, ms: msCheck });
   }
 
-  // ── 健康门禁（仅看人民币份额，美元失败不应阻断人民币展示）──
-  // 注意：cnyOk 只统计「详情页抓取成功」。用快照兜底的份额不计入——快照状态字段有噪声，
-  // 若让兜底也算成功，上游页面改版时门禁会变成假绿灯。
-  const cnyCoverage = cnyTargets ? cnyOk / cnyTargets : 1;
-  const health = cnyCoverage >= MIN_COVERAGE ? 'OK' : 'DEGRADED';
+  // ── 汇总打印（分指数）──
   console.log('\n==== 今日抓取汇总 (' + today + ' ' + SLOT_LABEL + ') ====');
   console.log(
     `开门 OPEN: ${stats.OPEN}  限购 LIMITED: ${stats.LIMITED}  ` +
       `暂停 STOPPED: ${stats.STOPPED}  封闭 CLOSED: ${stats.CLOSED}  ` +
-      `未知 UNKNOWN: ${stats.UNKNOWN}  失败: ${stats.fail}`
+      `未知 UNKNOWN: ${stats.UNKNOWN}  失败: ${stats.fail}（两指数合计）`
   );
-  console.log(
-    `人民币有效解析: ${cnyOk}/${cnyTargets}  覆盖率: ${(cnyCoverage * 100).toFixed(1)}%  ` +
-      `门禁阈值: ${(MIN_COVERAGE * 100).toFixed(0)}%  →  健康: ${health}`
-  );
-  if (cnyRecovered) console.log(`其中 ${cnyRecovered} 个人民币份额是靠全量快照兜底的（不计入门禁）`);
-  if (cnyMsRecovered) console.log(`其中 ${cnyMsRecovered} 个人民币份额是靠晨星兜底的（不计入门禁）`);
-  console.log(`当日聚合：${agg.opened}/${agg.families} 家开门，合计 ${agg.total} 元可投`);
+  for (const k of indexKeys) {
+    const st = perIndex.get(k);
+    const cov = coverage[k];
+    const a = aggregateCny(funds, pointByCode, k);
+    const tail = [
+      st.recovered ? `快照兜底 ${st.recovered}` : '',
+      st.msRecovered ? `晨星兜底 ${st.msRecovered}` : '',
+      degradedIndexes.includes(k) ? '今日点已丢弃（保留上次数据）' : '',
+    ].filter(Boolean).join(' · ');
+    console.log(
+      `[${k}] 人民币有效解析 ${st.cnyOk}/${st.cnyTargets}  覆盖率 ${(cov * 100).toFixed(1)}%  ` +
+        `→ 当日聚合 ${a.opened}/${a.families} 家开门，合计 ${a.total} 元可投` +
+        (tail ? `（${tail}）` : '')
+    );
+  }
   if (intraday.length) console.log(`较同日上一次运行有 ${intraday.length} 处变化`);
   if (shadow.mismatch.length) {
     console.warn(`⚠ 对账差异 ${shadow.mismatch.length} 处（金额以逐页为准，需人工确认）：`);
@@ -492,11 +597,16 @@ async function main() {
   } else if (snap) {
     console.log(`对账：${shadow.agree}/${shadow.checked} 与全量快照一致`);
   }
-  if (shadow.gaps && shadow.gaps.missing.length) {
-    console.warn(`⚠ 名单外纳指100 份额 ${shadow.gaps.missing.length} 个（未收录，需人工确认）：`);
-    for (const m of shadow.gaps.missing) console.warn(`   ${m.code} ${m.name} [${m.status}${m.limit != null ? ' ' + m.limit + '元' : ''}]`);
-  } else if (shadow.gaps) {
-    console.log(`名单外只有场内 ETF ${shadow.gaps.excludedExchange} 个（按口径不收），无场外份额缺口`);
+  // 缺口按指数分别报：合在一起报，人工确认时不知道该去 funds.json 的哪一段加行
+  for (const k of indexKeys) {
+    const g = shadow.gapsByIndex?.[k];
+    if (!g) continue;
+    if (g.missing.length) {
+      console.warn(`⚠ 名单外${k} 份额 ${g.missing.length} 个（未收录，需人工确认）：`);
+      for (const m of g.missing) console.warn(`   ${m.code} ${m.name} [${m.status}${m.limit != null ? ' ' + m.limit + '元' : ''}]`);
+    } else {
+      console.log(`[${k}] 名单外只有场内 ETF ${g.excludedExchange} 个（按口径不收），无场外份额缺口`);
+    }
   }
   if (msCheck.mismatch.length) {
     console.warn(`⚠ 晨星对账差异 ${msCheck.mismatch.length} 处（以详情页口径为准，需人工确认）：`);
@@ -506,18 +616,6 @@ async function main() {
   }
   for (const w of warnings) console.warn(`⚠ ${w}`);
   console.log(`已更新 -> ${path.join(DATA_DIR, 'history.json')}、fund-meta.json、fetch-meta.json`);
-
-  if (health === 'DEGRADED') {
-    console.error(
-      `\n✗ 健康门禁未通过：人民币覆盖率 ${(cnyCoverage * 100).toFixed(1)}% < 阈值 ` +
-        `${(MIN_COVERAGE * 100).toFixed(0)}%。`
-    );
-    console.error(
-      '  可能是天天基金改版 / 网络抖动 / 被限流。本次结果不部署（CI 将失败），' +
-        '避免发布「今日全暂停 / 全未知」的假象。'
-    );
-    process.exit(2);
-  }
   process.exit(0);
 }
 

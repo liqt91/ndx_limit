@@ -1,16 +1,23 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import SectionHead from '../../components/SectionHead.astro';
-import { loadAllShares, loadUsdShares, loadAnnouncementsFor } from '../../data/loader';
+import { loadAllShares, loadUsdShares, loadAnnouncementsFor, indexMeta } from '../../data/loader';
 import { STATUS_LABEL, statusClass } from '../../lib/status';
 import type { FundShare, PurchaseStatus } from '../../data/types';
 
 export function getStaticPaths() {
+  // 不传 indexKey = 跨指数全量：标普500 的份额也要有自己的详情页
   const shares = [...loadAllShares(), ...loadUsdShares()];
   return shares.map((s) => ({ params: { code: s.code }, props: { share: s } }));
 }
 
 const { share } = Astro.props as { share: FundShare };
+
+// 详情页属于哪个指数，就回哪个指数的首页——从标普500 卡片点进来看完，「返回今日」
+// 把人送回纳指首页是错的（两页长得一样，读者会以为额度变了）
+const meta = indexMeta(share.indexKey);
+const homeHref = meta.path;
+const homeLabel = meta.path === '/' ? '← 返回今日' : `← 返回${meta.label}`;
 
 // 历史按从新到旧展示
 const history = [...share.history].reverse();
@@ -29,9 +36,9 @@ const heroCls =
   : '';
 ---
 
-<BaseLayout title={`${share.shortName} - 纳指开门日报`}>
+<BaseLayout title={`${share.shortName} - ${meta.brand}`} siteName={meta.brand} shortName={`${meta.short}日报`} navKey={share.indexKey}>
   <div class="ctx">
-    <a href="/">← 返回今日</a>
+    <a href={homeHref}>{homeLabel}</a>
     <span>数据日期 {newest?.date}</span>
   </div>
 

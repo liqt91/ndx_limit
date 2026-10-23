@@ -165,10 +165,23 @@ if (fs.existsSync(bundlePath)) {
     `bundle 数据日 ${bundle.snapDate} == fetch-meta.date ${fetchMeta.date}`
   );
   const funds = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'funds.json'), 'utf8'));
-  const expectShares = funds.funds.reduce((a, f) => a + f.codes.length, 0);
+  // 小程序只装纳指：分母也必须是纳指的份额数（不是 funds.json 全部）。
+  // 写成等值断言而不是「<=」——多装一个标普500 份额也该红，那会让首屏组数悄悄变化。
+  const expectShares = funds.funds
+    .filter((f) => f.indexKey === '纳斯达克100')
+    .reduce((a, f) => a + f.codes.length, 0);
   assert(
     bundle.shares.length === expectShares,
-    `bundle 份额数 ${bundle.shares.length} == funds.json 的 ${expectShares}`
+    `bundle 份额数 ${bundle.shares.length} == 纳指在 funds.json 的 ${expectShares}`
+  );
+  // 反向契约：标普500 的份额一个都不能进小程序 bundle（bundle 是纳指壳）
+  const inBundle = new Set(bundle.shares.map((s) => s.code));
+  const sp500Codes = funds.funds
+    .filter((f) => f.indexKey === '标普500')
+    .flatMap((f) => f.codes.map((c) => c.code));
+  assert(
+    sp500Codes.length > 0 && sp500Codes.every((c) => !inBundle.has(c)),
+    `标普500 的 ${sp500Codes.length} 个份额都不在小程序 bundle 里`
   );
 }
 

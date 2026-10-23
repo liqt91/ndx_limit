@@ -1,0 +1,343 @@
+---
+// 单个指数的首屏看板。index.astro（纳指）与 sp500.astro（标普500）共用这一份，
+// 差异只有 indexKey 以及由它派生出来的站名/文案。
+//
+// ★ 为什么抽成组件而不是复制两份 index.astro：301 行里 290 行与指数无关，
+//   复制一份后改首屏要在两处同步改，漏一处就是静默漂移（页面一版一版地分叉）。
+import BaseLayout from '../layouts/BaseLayout.astro';
+import FamilyCard from '../components/FamilyCard.astro';
+import SectionHead from '../components/SectionHead.astro';
+import TrendBackdrop from '../components/TrendBackdrop.astro';
+import {
+  loadTodaySnapshot,
+  loadDailyChanges,
+  getTradingContext,
+  tradingWindowMap,
+  loadDailySummaries,
+  loadUsdShares,
+  indexMeta,
+  NDX,
+  SP500,
+} from '../data/loader';
+import { STATUS_SHORT, classRank } from '../lib/status';
+import type { FundShare, PurchaseStatus } from '../data/types';
+
+interface Props {
+  indexKey: string;
+}
+const { indexKey = NDX } = Astro.props;
+const meta = indexMeta(indexKey);
+
+const snap = loadTodaySnapshot(indexKey);
+const changes = loadDailyChanges(indexKey);
+const ctx = getTradingContext(snap.snapDate, indexKey);
+
+const byGroup = new Map<string, { currency: string; shares: FundShare[] }>();
+for (const s of snap.shares) {
+  const key = `${s.company}|${s.baseName}|${s.currency}`;
+  if (!byGroup.has(key)) byGroup.set(key, { currency: s.currency, shares: [] });
+  byGroup.get(key)!.shares.push(s);
+}
+// 类别次序固定成 A → C → D → E → F：同一家族的类别可能分属 funds.json 里多个条目
+// （天弘的 D 类就是单独一条），不排的话卡片上会出现「D类 / A类 / C类」这种跳序
+for (const g of byGroup.values()) {
+  g.shares.sort((a, b) => classRank(a.shareClass) - classRank(b.shareClass));
+}
+const groups = [...byGroup.values()];
+const cny = groups.filter((g) => g.currency === 'CNY');
+// 美元份额单独成组：首页「美元家族」区块展示，与人民币额度口径（元）相互独立
+const usdShares = loadUsdShares(indexKey);
+const usdByGroup = new Map<string, { currency: string; shares: FundShare[] }>();
+for (const s of usdShares) {
+  const key = `${s.company}|${s.baseName}|${s.currency}`;
+  if (!usdByGroup.has(key)) usdByGroup.set(key, { currency: s.currency, shares: [] });
+  usdByGroup.get(key)!.shares.push(s);
+}
+for (const g of usdByGroup.values()) {
+  g.shares.sort((a, b) => classRank(a.shareClass) - classRank(b.shareClass));
+}
+const usdGroups = [...usdByGroup.values()];
+
+const isOpen = (g: { shares: FundShare[] }) =>
+  g.shares.some((s) => s.purchaseStatus === 'LIMITED' || s.purchaseStatus === 'OPEN');
+const openedCny = cny.filter(isOpen).length;
+const stoppedCny = cny.length - openedCny;
+
+const totalAgency = snap.shares
+  .filter(
+    (s) =>
+      s.currency === 'CNY' &&
+      (s.purchaseStatus === 'LIMITED' || s.purchaseStatus === 'OPEN') &&
+      s.dailyLimit != null
+  )
+  .reduce((a, s) => a + (s.dailyLimit as number), 0);
+
+// 今日判定：有变化就把变化写进首屏，没变化也要在首屏说清楚「没变化」
+const changeParts = [
+  changes.opened ? `${changes.opened} 只开门` : '',
+  changes.stopped ? `${changes.stopped} 只暂停` : '',
+  changes.limitChanged ? `${changes.limitChanged} 只调额度` : '',
+].filter(Boolean);
+const hasChanges = changes.hasData && changeParts.length > 0;
+const verdictText = hasChanges ? changeParts.join('，') : '没有变化';
+
+// 小节编号：有「今日变化」时它占 01，人民币占 02、美元占 03；否则人民币 01、美元 02
+const idxMain = ctx.isTrading && hasChanges ? '02' : '01';
+const idxUsd = ctx.isTrading && hasChanges ? '03' : '02';
+
+// 额度类变动直接显示「5 元 → 10 元」，比「限大额 → 限大额」有用
+const isLimitKind = (k: string) => k.startsWith('limit');
+const fmtLimit = (v: number | null) => (v == null ? '未公布' : `${v} 元`);
+// 变化行两端的状态文案：限额且已公布金额时写「限 10 元」，不写「限大额」——
+// 「限大额 → 暂停」读者还是不知道门槛是多少，具体金额才有信息量。
+// 数据约束：limit 非 null 当且仅当 LIMITED（全量历史已验证），其余状态原样输出。
+const fmtSide = (s: PurchaseStatus, limit: number | null) =>
+  s === 'LIMITED' && limit != null ? `限 ${limit} 元` : STATUS_SHORT[s];
+
+// 「数据更新于」后面的日期：今天就说「今日」，否则给具体月日。
+// 不写「上个交易日」——那读起来像在讲上个交易日的行情，其实只是今天还没刷新；
+// 首屏结论句一律以「今天」开头，数据是哪天的交给这一行和过期提示交代。
+const mdLabel = (d: string) => `${Number(d.slice(5, 7))}月${Number(d.slice(8, 10))}日`;
+const updatedLabel = ctx.dataLabel === '今日' ? '今日' : mdLabel(ctx.dataDate);
+const staleText = `今日数据尚未更新，当前展示 ${mdLabel(ctx.dataDate)} 的数据。`;
+// 交易日窗口表（过去 10 天 + 未来 30 天）：客户端据此判断「今天该不该有新数据」、
+// 「数据日是不是上个交易日」——靠日期间隔猜会在长假上出错
+const tradingMap = tradingWindowMap(10, 30);
+
+// 首屏背景折线：近 30 个交易日的开门数 / 可投额度（升序）。口径与结论句一致
+// （人民币、按组成组、组内任一可买即开门、可买份额限额相加），
+// 只取形状不取数值——loader 已有逐日聚合，直接复用。
+// 少于两个点画不出线，组件自己会整体跳过。
+const trend = loadDailySummaries(30, indexKey).reverse();
+
+// 装饰带的噪声下限（单位同指标）：窗口内跨度小于它时按它展开，否则按真实跨度。
+// 没有下限，±1 家、几十元的抖动会被自归一放大成满带尖峰，看起来像渲染出错——
+// 装饰要的是安静背景，不是精确走势。
+// ★ 两个指数的量级差一个量级（纳指 17 组 / 百元级，标普500 仅 7 组 / 几十元），
+//   共用一组下限会把标普500 的 ±1 家放大成锯齿。
+const trendFloors = indexKey === SP500 ? { opened: 1, total: 30 } : { opened: 3, total: 200 };
+
+// 无份额（该指数首日还没抓到数据）时不能走「今天 0 家全部暂停」——那是把「没数据」
+// 说成「都暂停了」，比不说更糟。
+const noData = cny.length === 0;
+
+// 分享卡片用的描述：写成今天具体的数字，而不是一句通用介绍。
+// 「今天 7 家开门，135 元可投」比「每天告诉你能不能买」更能让人点进来。
+const ogDescription = noData
+  ? `${meta.label}场外 QDII 申购额度看板：数据待更新。`
+  : ctx.isTrading
+    ? `今天 ${openedCny} 家开门，${totalAgency.toLocaleString('zh-CN')} 元可投。${verdictText}。数据更新于${ctx.updatedTime ? `今日 ${ctx.updatedTime}` : '今日'}。`
+    : `今日休市。最近交易日 ${ctx.lastTrading?.opened ?? 0} 家开门、可投 ${ctx.lastTrading?.total ?? 0} 元。`;
+---
+
+<BaseLayout title={meta.brand} description={ogDescription} siteName={meta.brand} shortName={`${meta.short}日报`} navKey={indexKey}>
+  <section class="masthead">
+    {/* 首屏只留两行：结论句（家数 + 可投额）＋ 一行小注（比上个交易日如何、数据几点抓的）。
+        原来 kicker 那圈「数据更新于… · 纳指 QDII 申购额度」整块并进第二行——副标题在
+        <title> 和导航里都有，首屏不必再说一遍。两行字背后还有一道抽象装饰带
+        （家数=柱、申购额=折线，见本节末尾），淡到不抢视线、也不配文字。 */}
+    <h1 class="mast-lead">
+      {
+        noData ? (
+          <>今天还没有{meta.short}的数据</>
+        ) : ctx.isTrading ? (
+          stoppedCny === cny.length ? (
+            <>今天 <span class="num">{cny.length}</span> 家全部暂停</>
+          ) : stoppedCny === 0 ? (
+            <>今天 <span class="num">{openedCny}</span> 家全部开门，<span class="num">{totalAgency.toLocaleString('zh-CN')}</span>元可投</>
+          ) : (
+            <>今天 <span class="num">{openedCny}</span> 家开门，<span class="num">{totalAgency.toLocaleString('zh-CN')}</span>元可投</>
+          )
+        ) : (
+          <>今日休市（非交易日）</>
+        )
+      }
+    </h1>
+
+    <p class="mast-summary">
+      {
+        ctx.isTrading && !noData ? (
+          changes.prevDate && (
+            /* data-delta：数据过期时脚本会把「较上个交易日（10-19）」换成「较 10月19日」。
+               过期那天「上个交易日」指的是今天的前一个交易日，和这里的比较基准不是同一天。
+               整句写在一行：textContent 里不要留换行空白，脚本按句首匹配。 */
+            <span class="mast-sum-item" data-delta data-prev={changes.prevDate}>较上个交易日（{changes.prevDate}）{verdictText}。</span>
+          )
+        ) : !ctx.isTrading ? (
+          ctx.lastTrading?.date && (
+            <span class="mast-sum-item">
+              最近交易日（{ctx.lastTrading.date}）{ctx.lastTrading.opened} 家开门 · 可投 <span class="tnum">{ctx.lastTrading.total}</span> 元。
+            </span>
+          )
+        ) : null
+      }
+      {/* 首次收录的指数没有对比基准日（prevDate 为 null），此时整句「较上个交易日」都不该出现，
+          但也不能让首屏只剩半行——明确说一句「暂无历史对比」，比留白更像人写的。 */}
+      {ctx.isTrading && !noData && !changes.prevDate && (
+        <span class="mast-sum-item">{meta.label}首次收录，暂无历史对比。</span>
+      )}
+      <span class="mast-sum-item">
+        数据更新于<span data-updated-label>{updatedLabel}</span>{ctx.updatedTime && <span class="mast-updated-t">{ctx.updatedTime}</span>}
+      </span>
+    </p>
+
+    {/* 数据过期提示：静态页不会自己变，由下面的内联脚本按浏览器当天日期点亮。
+        服务端在构建时就已过期（数据 job 失败之类）则直接可见——那种情况下
+        页面说的是「今天」，不说明白就是错的。 */}
+    <div class="stale-hint" id="stale-hint" hidden={!ctx.isStale}>
+      <span data-stale-text>{ctx.isStale ? staleText : ''}</span>
+    </div>
+
+    {/* 抽象装饰带：近 30 个交易日的开门数（柱）/ 可投额度（折线），只画走势。
+        CSS 网格里跨满全部文字行：顶端与标题顶边对齐，底端停在注释行下方
+        原来的位置；z-index:-1 压在文字背后。无坐标无数值无图例。
+        数据口径与结论句一致（人民币、按组成组、组内任一可买即开门），
+        少于两个点画不出柱，组件自己会整体跳过。 */}
+    <TrendBackdrop series={trend} floors={trendFloors} />
+  </section>
+
+  {
+    hasChanges && ctx.isTrading && (
+      <>
+        <SectionHead index="01" title="今日变化" aside={`共 ${changes.changes.length} 处`} />
+        <div class="changelog">
+          <ul class="changelog-list">
+            {changes.changes.map((c) => (
+              <li class={`cl-row cl-${c.kind}`}>
+                <span class="cl-name">
+                  <i class={`cl-dot cl-dot-${c.kind}`}></i>
+                  <span class="cl-title">{c.shortName}</span>
+                  {/* 解释源：公告标题里全是「关于××基金(QDII)调整…的公告」，有信息量的只有
+                      那个动作，所以只写动作，标题留给详情页。没有公告就不写，不猜原因。 */}
+                  {c.ann && (
+                    <a class="cl-ann" href={c.ann.url} target="_blank" rel="noopener noreferrer">
+                      公告 · {c.ann.action}
+                    </a>
+                  )}
+                </span>
+                <span class="cl-transition">
+                  {isLimitKind(c.kind) ? (
+                    <>
+                      <span class="cl-from">{fmtLimit(c.fromLimit)}</span>
+                      <span class="cl-arrow">→</span>
+                      <span class="cl-to">{fmtLimit(c.toLimit)}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span class="cl-from">{fmtSide(c.fromStatus, c.fromLimit)}</span>
+                      <span class="cl-arrow">→</span>
+                      <span class="cl-to">{fmtSide(c.toStatus, c.toLimit)}</span>
+                    </>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </>
+    )
+  }
+
+  <SectionHead
+    index={idxMain}
+    title={ctx.isTrading ? '今天能买多少' : `最近交易日额度（${ctx.lastTrading?.date ?? ''}）`}
+  >
+    {/* 数量与图例同处一行：图例就是那把尺，四档颜色连读，读者拿它去对格子，不必换算任何数值 */}
+    <span slot="aside">{openedCny} 家可买</span>
+    <span slot="aside" class="grid-legend">
+      <span class="ramp-legend">
+        <i class="lg l1"></i><i class="lg l2"></i><i class="lg l3"></i><i class="lg l4"></i>
+        <em>申购额度</em>
+      </span>
+      <span><i class="lg off"></i>暂停</span>
+    </span>
+  </SectionHead>
+
+  {
+    noData ? (
+      <p class="empty">{meta.label}的数据还没抓到。抓取脚本今晚跑完后这里会显示名单里的 {snap.monitoredCount || 0} 个份额。</p>
+    ) : (
+      <ul class="grid">
+        {cny.map((g) => <FamilyCard shares={g.shares} />)}
+      </ul>
+    )
+  }
+
+  {
+    usdGroups.length > 0 && (
+      <>
+        <SectionHead index={idxUsd} title="美元基金" />
+        <ul class="grid">
+          {usdGroups.map((g) => <FamilyCard shares={g.shares} />)}
+        </ul>
+      </>
+    )
+  }
+
+  {/* 放在页面最末尾：脚本要改 H1 和下方小节标题，必须在这些节点解析完之后执行 */}
+  <script is:inline define:vars={{ dataDate: ctx.dataDate, tradingMap, fetchedTime: ctx.updatedTime }}>
+    // 静态页隔夜不会自己变：按浏览器当天（东八区）判断数据是否过期，
+    // 把「数据更新于今日」改成具体日期，并在该有数据的日子亮提示。
+    // 结论句不动——「今天 8 家开门」说的是今天这个判断，改口成「上个交易日」
+    // 会被读成「现在看的是上个交易日的行情」；数据是哪天的由提示交代。
+    // 周末/节假日不提示——那天本来就没有新数据，提示会变成每天误报。
+    (function () {
+      var today;
+      try {
+        today = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
+        }).format(new Date());
+      } catch (e) { return; }
+
+      var nowHM = '12:00';
+      try {
+        nowHM = new Intl.DateTimeFormat('sv-SE', {
+          timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit', hour12: false,
+        }).format(new Date());
+      } catch (e) {}
+
+      // 一天抓两次（早间 + 收盘前）。数据是今天的、但抓取时刻还在上午，而现在已经过了
+      // 收盘前那次该跑的时刻 → 午后那次没跑到。这时「今天能买多少」其实是今晨的值，
+      // 不说明白就是误导：有人会拿着 07:51 的额度去下单。
+      if (today === dataDate && fetchedTime && fetchedTime < '12:00' && nowHM >= '14:50') {
+        var hintEarly = document.getElementById('stale-hint');
+        var textEarly = document.querySelector('[data-stale-text]');
+        if (hintEarly && textEarly) {
+          textEarly.textContent = '今日午后数据尚未更新，当前是今晨 ' + fetchedTime + ' 的结果。';
+          hintEarly.hidden = false;
+        }
+      }
+
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(today) || today <= dataDate) return;
+
+      var p = dataDate.split('-');
+      var zh = Number(p[1]) + '月' + Number(p[2]) + '日';
+      var labelEl = document.querySelector('[data-updated-label]');
+      if (labelEl) labelEl.textContent = zh;
+
+      // 「较上个交易日（2026-10-19）」里的「上个交易日」是相对今天说的，过期时它
+      // 和括号里的比较基准不是同一天（今天是 10-21，上个交易日是 10-20，基准却是 10-19）。
+      // 干脆只说「较 10月19日」——日期摆在那儿，不需要再给它一个相对的说法。
+      var delta = document.querySelector('[data-delta]');
+      if (delta && delta.dataset.prev) {
+        var q = delta.dataset.prev.split('-');
+        delta.textContent = delta.textContent.replace(
+          /较上个交易日（\d{4}-\d{2}-\d{2}）/,
+          '较 ' + Number(q[1]) + '月' + Number(q[2]) + '日'
+        );
+      }
+
+      // 提示只在「今天本该有新数据」时亮：休市日不提示，那天本来就不更新
+      if (tradingMap[today] === 0) return;
+
+      var hint = document.getElementById('stale-hint');
+      var text = document.querySelector('[data-stale-text]');
+      if (hint && text) {
+        text.textContent = nowHM < '08:00'
+          ? '今日数据预计 08:00 更新，当前展示 ' + zh + ' 的数据。'
+          : '今日数据尚未更新，当前展示 ' + zh + ' 的数据。';
+        hint.hidden = false;
+      }
+    })();
+  </script>
+</BaseLayout>

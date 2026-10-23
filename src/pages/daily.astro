@@ -14,11 +14,18 @@ const summaries = loadDailySummaries(15);
 <BaseLayout title="交易日历 - 纳指开门日报">
   <SectionHead index="01" title="交易日历" aside="上月 · 本月 · 下月" />
 
+  {/* 日历本身与指数无关（纳指100 与标普500 都跟美股开休市），但「每日快照」按指数算。
+      标普500 首日只有一天历史，先把这句话说清楚，好过让读者以为下面的数字是全部指数的。 */}
+  <p class="my-hint">
+    交易日历对纳指100 与标普500 通用（都跟美股开市）。下方每日快照目前只统计纳斯达克100；
+    标普500 的历史从 2026-10-23 开始积累。
+  </p>
+
   <div class="cal-months">
     {months.map((g) => <MonthCal grid={g} today={today} />)}
   </div>
 
-  <SectionHead index="02" title="每日快照" aside={`最近 ${summaries.length} 个交易日`} />
+  <SectionHead index="02" title="每日快照 · 纳斯达克100" aside={`最近 ${summaries.length} 个交易日`} />
 
   <ul class="daylist">
     {

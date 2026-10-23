@@ -51,8 +51,16 @@ jobs:
 
       # 健康门禁：人民币覆盖率 < 阈值（默认 90%）→ 退出码 2，job 中止。
       # 于是不回写、EdgeOne 保留上次好构建，绝不会出现「今日全暂停」的假象。
+      # 覆盖率按指数各算各的：纳指不达标整轮不写；标普500 不达标只丢它自己的点。
       - name: Scrape today's data
         run: node scripts/scrape.mjs
+
+      # 口径隔离门禁：两个指数的份额共用一份 history.json，任何一处聚合漏了 indexKey
+      # 都会让首屏把两边的额度加在一起（页面照样渲染，数字照样像真的）。
+      # 只验数据层（--no-dist）：这一步不构建站点，渲染层在部署前由 EdgeOne 构建，
+      # 本地/PR 上跑 `npm run check:index`（带 dist）能一起验。
+      - name: Verify index isolation
+        run: node scripts/check-index-isolation.mjs --no-dist
 
       # history.json 是 30 天柱状图的数据源，CI checkout 的是已提交版，不回写会逐天丢数据。
       # 无变化时跳过提交，避免每天产生空 commit。

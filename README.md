@@ -1,20 +1,23 @@
 # 纳指开门日报（静态复刻版）
 
-一个**纯静态**的「纳斯达克 QDII 基金每日申购额度追踪」站。技术栈 **Astro（SSG）**，
-全程**不需要服务器、数据库或运行时**。产物是纯 HTML/CSS/JS，托管在 **EdgeOne Pages**（腾讯云免费的
-静态网站服务，自带全球 CDN + HTTPS + DDoS 防护）；**每日更新**由 **GitHub Actions cron**（永久免费）
-每天抓取数据并回写仓库、自动触发 EdgeOne 重建实现——构建在哪天跑，页面数据就体现哪天。
+一个**纯静态**的「QDII 基金每日申购额度追踪」站，涵盖**纳斯达克100**与**标普500**两个指数分站。
+技术栈 **Astro（SSG）**，全程**不需要服务器、数据库或运行时**。产物是纯 HTML/CSS/JS，托管在
+**EdgeOne Pages**（腾讯云免费的静态网站服务，自带全球 CDN + HTTPS + DDoS 防护）；
+**每日更新**由 **GitHub Actions cron**（永久免费）每天抓取数据并回写仓库、自动触发 EdgeOne 重建实现
+——构建在哪天跑，页面数据就体现哪天。
 
 ## 功能
 
 - **今日**：代销总可投、开门/暂停统计、每只基金份额卡片 + 近 30 天开门柱状图
-- **详情** `/f/[code]`：单只基金份额的状态变化记录、历史快照、相关公告
-- **历史** `/daily`：最近 15 天每日快照摘要
-- **我的基金** `/my`：在浏览器 localStorage 里存基金代码，纯前端过滤展示（不上传）
+  - `/` 纳斯达克100（主站，域名 `ndx.liqt91.top`）
+  - `/sp500/` 标普500（同一份构建产物里的第二个分站，2026-10-23 上线）
+- **详情** `/f/[code]`：单只基金份额的状态变化记录、历史快照、相关公告（两个指数共用一套路由）
+- **历史** `/daily`：交易日历（两个指数通用）+ 最近 15 天每日快照摘要（纳指口径）
+- **我的基金** `/my`：在浏览器 localStorage 里存基金代码，纯前端过滤展示（不上传，跨两个指数）
 - **订阅** `/subscribe`：本站原生表单，同域边缘函数收邮箱（见下）
 
 > 注：只展示**人民币份额**。美元份额仍在 `funds.json` 目录与抓取范围内（历史数据继续累积），
-> 只是不在站内渲染——过滤点在 `src/data/loader.ts` 的 `loadTodaySnapshot()`，日后想展示删掉那两行即可。
+> 只是不在站内首页渲染——过滤点在 `src/data/loader.ts` 的 `loadTodaySnapshot()`，日后想展示删掉那两行即可。
 
 ## 本地开发
 
@@ -126,10 +129,48 @@ node scripts/import-history.mjs --prefer=remote   # 同日冲突改以来源站�
 对齐原站 `/api/holdings`：`purchaseStatus`(OPEN/LIMITED/STOPPED/CLOSED/UNKNOWN)、
 `dailyLimit`(代销单日上限)、`limitText`、`directLimitText`、`directAnnUrl`、`history`(30 天)。
 
-## 多品牌（纳指 / 标普）
+## 多指数分站（纳指100 / 标普500）
 
-原站同套代码跑了 `nasdaq` 和 `sp500` 两个子站。复刻时可以用环境变量（如 `INDEX_KEY`）
-切换基金清单与文案，CI 里跑两次构建分别部署到不同 bucket/子域名。
+2026-10-23 从「单一纳指站」扩为**同一次构建、两个路由**的多指数站：
+
+| 指数 | 路由 | 站名 | 份额（场外） |
+|---|---|---|---|
+| 纳斯达克100 | `/` | 纳指开门日报 | 60（41 人民币 + 19 美元），17 家公司 |
+| 标普500 | `/sp500/` | 标普500开门日报 | 25（16 人民币 + 9 美元），7 家公司 |
+
+两个分站共用：抓取管线、数据文件（`history.json` 按 code 平铺）、交易日历、订阅名单、
+边缘函数、小程序（小程序只装纳指）。差异只有 `indexKey` 与由它派生的文案。
+
+**加一个指数要改三处**，其余全部自动适配：
+
+1. `data/funds.json` 加条目，`indexKey` 填新指数名（同一指数的不同币种必须共用同一个 indexKey）
+2. `src/data/loader.ts` 的 `INDEXES` 加一项（key / short / brand / path / label）
+3. `src/pages/` 加一个三行的页面：`<IndexBoard indexKey="..." />`
+
+抓取会自动纳入新条目（`scrape.mjs` 遍历 `funds.json`），覆盖率门禁也按 `indexKey` 各算各的。
+
+### ★ 口径隔离（这是本次扩张唯一容易出事的地方）
+
+两个指数的份额躺在同一份 `history.json` 里，任何一处聚合忘了带 `indexKey`，首屏就会把两边的
+额度加在一起——页面照样渲染、数字照样像真的。为此：
+
+- `loader.ts` 的每个聚合函数都收 `indexKey`，**默认值一律是纳指**（既有页面、早报、小程序不传参时
+  行为与扩容前逐字节一致）
+- `digest.mjs` 的 `aggregateCny` / `computeCoverage` / `summarizeDay` / `latestDate` 同样必须传
+- `scrape.mjs` 把 fetch-meta 的**顶层字段永远写成纳指**，其它指数放进 `runs[].byIndex`
+- `scripts/check-index-isolation.mjs`（`npm run check:index`）是专门的门禁，29 项断言覆盖
+  代码集合互斥、覆盖率 ≤100%、fetch-meta 与重算值一致、dist 渲染层不串台。
+  已进 `refresh.yml`（`--no-dist`）；本地带 dist 跑能连渲染层一起验。
+
+**踩过的坑（都写成了断言）**：`computeCoverage` 原本写 `codeCurrency.get(code) !== 'USD'`，
+Map 对未收录的 code 返回 `undefined`，于是 `fund-meta` 里任何别的指数的份额都被算成
+「本指数人民币抓取成功」——加标普500 后纳指覆盖率立刻报出 **161%**。现在只认 `=== 'CNY'`。
+
+### 部署到独立域名（可选，当前没做）
+
+现在两个分站在同一份 `dist/` 里，`ndx.liqt91.top/sp500/` 直接可用。若要把标普500 放到
+`sp500.liqt91.top`：DNS 加 CNAME → EdgeOne 控制台绑定子域名，再加一条 rewrite
+（`/` → `/sp500/index.html`）即可，不需要第二次构建。
 
 ## 订阅功能
 

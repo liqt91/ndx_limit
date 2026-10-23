@@ -29,6 +29,9 @@ const OUT = path.join(ROOT, 'miniprogram', 'data', 'bundle.json');
 
 const CHECK_ONLY = process.argv.includes('--check');
 
+// 小程序只服务纳指（与 src/data/loader.ts 的 NDX 逐字一致）
+const NDX = '纳斯达克100';
+
 /* ── 读取源数据 ─────────────────────────────────────────────── */
 
 function readJson(rel, fallback) {
@@ -142,7 +145,11 @@ function dayInfo(date) {
 /* ── 组装 ───────────────────────────────────────────────────── */
 
 function build() {
-  const funds = readJson('funds.json', { funds: [] }).funds || [];
+  // ★ 小程序是「纳指额度」的只读壳，只装纳指份额。
+  //   funds.json 里另有标普500（有自己的网页分站），不在这里过滤的话，
+  //   bundle 会多 25 个份额，且首屏「N 家开门」直接从 17 变 24——小程序没有任何位置解释这个数。
+  const allFunds = readJson('funds.json', { funds: [] }).funds || [];
+  const funds = allFunds.filter((f) => f.indexKey === NDX);
   const history = readJson('history.json', {});
   const meta = readJson('fund-meta.json', {});
   const annRaw = readJson('announcements.json', { codes: {} });

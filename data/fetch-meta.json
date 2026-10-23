@@ -1,22 +1,31 @@
 {
-  "date": "2026-10-22",
-  "fetchedAt": "2026-10-22T09:40:12+08:00",
+  "date": "2026-10-23",
+  "fetchedAt": "2026-10-23T10:16:45+08:00",
   "slot": "morning",
   "runs": [
     {
       "slot": "morning",
-      "at": "2026-10-22T09:40:12+08:00",
-      "time": "09:40",
+      "at": "2026-10-23T10:16:45+08:00",
+      "time": "10:16",
       "opened": 7,
       "total": 135,
       "families": 17,
-      "changed": null
+      "changed": null,
+      "byIndex": {
+        "标普500": {
+          "opened": 2,
+          "total": 120,
+          "families": 7,
+          "degraded": false,
+          "changed": null
+        }
+      }
     }
   ],
   "shadow": {
     "available": true,
-    "checked": 54,
-    "agree": 54,
+    "checked": 74,
+    "agree": 74,
     "mismatch": [],
     "recovered": [],
     "gaps": {
@@ -25,12 +34,26 @@
       "excludedExchange": 3,
       "missing": []
     },
-    "warnings": []
+    "warnings": [],
+    "gapsByIndex": {
+      "纳斯达克100": {
+        "scoped": 63,
+        "known": 60,
+        "excludedExchange": 3,
+        "missing": []
+      },
+      "标普500": {
+        "scoped": 29,
+        "known": 25,
+        "excludedExchange": 4,
+        "missing": []
+      }
+    }
   },
   "ms": {
     "available": true,
-    "checked": 58,
-    "agree": 51,
+    "checked": 83,
+    "agree": 72,
     "mismatch": [
       {
         "code": "021000",
@@ -41,17 +64,6 @@
         "ms": {
           "status": "LIMITED",
           "limit": 200
-        }
-      },
-      {
-        "code": "019442",
-        "page": {
-          "status": "LIMITED",
-          "limit": 5
-        },
-        "ms": {
-          "status": "LIMITED",
-          "limit": 10
         }
       },
       {
@@ -100,6 +112,50 @@
       },
       {
         "code": "019175",
+        "page": {
+          "status": "STOPPED",
+          "limit": null
+        },
+        "ms": {
+          "status": "LIMITED",
+          "limit": 1
+        }
+      },
+      {
+        "code": "022523",
+        "page": {
+          "status": "STOPPED",
+          "limit": null
+        },
+        "ms": {
+          "status": "LIMITED",
+          "limit": 100
+        }
+      },
+      {
+        "code": "013404",
+        "page": {
+          "status": "STOPPED",
+          "limit": null
+        },
+        "ms": {
+          "status": "LIMITED",
+          "limit": 0
+        }
+      },
+      {
+        "code": "015545",
+        "page": {
+          "status": "STOPPED",
+          "limit": null
+        },
+        "ms": {
+          "status": "LIMITED",
+          "limit": 0
+        }
+      },
+      {
+        "code": "017642",
         "page": {
           "status": "STOPPED",
           "limit": null

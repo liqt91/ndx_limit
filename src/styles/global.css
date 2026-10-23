@@ -561,8 +561,11 @@ a { color: inherit; text-decoration: none; }
 /* 正方形格子：宽由 flex 均分决定，高跟着宽走。固定 26px 高时它是竖直长条，
    读者会下意识把「高」当数量读，于是又回到柱状图的误读上。
    边框一律用 outline 画：border 会让带框的格子比实心格子大 2px（aspect-ratio 算的是
-   内容盒），一行里就出现大小不一的方块，还会把整行拉伸——outline 不参与布局。 */
-.hc { flex: 1 1 0; min-width: 0; aspect-ratio: 1 / 1; position: relative; background: var(--rule); }
+   内容盒），一行里就出现大小不一的方块，还会把整行拉伸——outline 不参与布局。
+   ★ max-width 是「满 21 格时每格的宽度」：(100% - 20×3px) / 21。没有它，刚收录、
+     只有一两天数据的指数（标普500 首日）会被 flex:1 拉成一整块 280×280 的方块——
+     那看起来像个色块，而不是「只有一天数据」。 */
+.hc { flex: 1 1 0; min-width: 0; max-width: calc((100% - 60px) / 21); aspect-ratio: 1 / 1; position: relative; background: var(--rule); }
 .hc.l1 { background: var(--heat-1); }
 .hc.l2 { background: var(--heat-2); }
 .hc.l3 { background: var(--heat-3); }
@@ -1095,9 +1098,15 @@ a { color: inherit; text-decoration: none; }
   /* 小注整行落到标题下方：右侧对齐；slot 版是 inline-flex，要用 justify-content 而不是 text-align */
   .sec-a, .sec-extra { width: 100%; text-align: right; margin-top: 2px; }
   .sec-extra { justify-content: flex-end; flex-wrap: wrap; row-gap: 6px; }
+  /* 顶栏在窄屏折成两行：品牌一行、导航一行。
+     2026-10-23 导航从 4 项变 5 项（多了标普500 分站），390 宽下挤到会把
+     「纳指」「标普500」「我的基金」「历史」「订阅」全部拆成竖排两字——没横向滚动，
+     但读起来是乱码。nowrap 挡住词内折行，换行只发生在两个 flex 项之间。 */
+  .site-head-inner { flex-wrap: wrap; row-gap: 8px; }
   .site-brand { font-size: 14px; }
-  .site-nav { gap: 12px; }
-  .site-nav a { font-size: 13px; }
+  .site-nav { width: 100%; justify-content: space-between; gap: 8px; }
+  .site-nav a { font-size: 13px; white-space: nowrap; }
+  .site-nav .btn-sub { padding: 5px 10px; }
   .mast-lead { font-size: 23px; }
   /* 窄屏柱条更密（每组只剩几 px）且装饰带更高：再淡一档，别压标题 */
   .mast-trend .mt-opened { opacity: 0.26; }

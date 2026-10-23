@@ -25,7 +25,7 @@
 // 依赖：仅 Node 22 内置（复用 digest.mjs 的口径，避免覆盖率算法两处漂移）。
 
 import fs from 'node:fs';
-import { readJson, latestDate, todayShanghai, computeCoverage, MIN_COVERAGE, loadHolidays, isTradingDay, prevTradingDay } from './digest.mjs';
+import { readJson, latestDate, todayShanghai, computeCoverage, MIN_COVERAGE, loadHolidays, isTradingDay, prevTradingDay, fundsOfIndex, NDX } from './digest.mjs';
 
 const ALLOW_STALE = process.argv.includes('--allow-stale');
 
@@ -33,10 +33,14 @@ const history = readJson('history.json', {});
 const funds = readJson('funds.json', { funds: [] }).funds;
 const meta = readJson('fund-meta.json', {});
 
+// 早报只发纳指 → 新鲜度与覆盖率也只验纳指。
+// 标普500 抓失败不该让纳指的早报停发；反过来标普500 抓成功也不该给纳指的旧数据背书。
+const ndxCodes = new Set(fundsOfIndex(funds, NDX).flatMap((f) => f.codes.map((c) => c.code)));
+
 const holidays = loadHolidays();
 const today = todayShanghai();
-const date = latestDate(history);
-const coverage = computeCoverage(funds, meta);
+const date = latestDate(history, ndxCodes);
+const coverage = computeCoverage(funds, meta, NDX);
 
 const trading = isTradingDay(today, holidays);
 // 非交易日时，最新数据应为「最近交易日」而非今天

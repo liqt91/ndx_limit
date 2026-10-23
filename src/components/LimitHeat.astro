@@ -65,4 +65,8 @@ const aria = `最近 ${history.length} 天额度热力方块：${openedDays} 天
     ))
   }
 </div>
-<div class="heat-axis"><span>{firstDate}</span><span>{lastDate}</span></div>
+{/* 只有一天数据时（新收录的指数）首尾是同一个日期，重复显示两遍像渲染错误 */}
+<div class="heat-axis">
+  <span>{firstDate}</span>
+  {history.length > 1 && <span>{lastDate}</span>}
+</div>

@@ -29,6 +29,7 @@ const knownCodes = [...new Set(shares.map((s) => s.code))].sort();
   <h1 class="section-title">我的基金</h1>
   <p class="my-hint">
     把你买过的基金代码填进去，这里会优先显示你持有的那几只今天的状态与额度。代码只保存在本机浏览器，不会上传。
+    纳指100 与标普500 的份额都能加（本页跨两个指数，卡片按基金家族分组）。
   </p>
   <div class="my-add">
     <input id="codeInput" class="my-input" placeholder="输入基金代码，如 019736 或 019736,000834，回车添加"

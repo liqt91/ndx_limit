@@ -1,17 +1,41 @@
 ---
+// 顶栏。2026-10-23 起站内有两个指数分站（纳指100 / 标普500），导航第一项从「今日」
+// 变成指数名：两个页面长得一样，只有把指数名放进导航，读者才知道自己在看哪一个。
+import { INDEXES, NDX, SP500 } from '../data/loader';
+
+interface Props {
+  brand?: string;
+  /** 当前指数。省略时按路径判断（详情页/我的基金等非分站页面永远落在纳指） */
+  navKey?: string;
+}
+const { brand = '纳指开门日报', navKey } = Astro.props;
+
 const path = Astro.url.pathname;
 const isCurrent = (p: string) =>
   p === '/' ? path === '/' : path === p || path.startsWith(p + '/');
+
+const activeKey = navKey ?? (path.startsWith('/sp500') ? SP500 : NDX);
+const brandHref = activeKey === SP500 ? '/sp500/' : '/';
+// 只列两个指数；INDEXES 里若以后加第三个，导航会自动多一项。
+// 标签用短名（纳指 / 标普500）而不是全称「纳斯达克100」：390 宽下 6 个导航项 +
+// 品牌名会把「纳斯达克100」压成「纳斯达 / 克100」两行，订阅按钮也竖排。
+const indexNav = INDEXES.map((i) => ({
+  label: i.short,
+  href: i.path,
+  key: i.key,
+}));
 ---
 
 <header class="site-head">
   <div class="site-head-inner">
-    <a class="site-brand" href="/">
+    <a class="site-brand" href={brandHref}>
       <img src="/nasdaq-logo.svg" alt="" width="26" height="26" />
-      <span>纳指开门日报</span>
+      <span>{brand}</span>
     </a>
     <nav class="site-nav">
-      <a href="/" aria-current={isCurrent('/') ? 'page' : undefined}>今日</a>
+      {indexNav.map((i) => (
+        <a href={i.href} aria-current={activeKey === i.key ? 'page' : undefined}>{i.label}</a>
+      ))}
       <a href="/my" aria-current={isCurrent('/my') ? 'page' : undefined}>我的基金</a>
       <a href="/daily" aria-current={isCurrent('/daily') ? 'page' : undefined}>历史</a>
       <a class="btn-sub" href="/subscribe">订阅</a>

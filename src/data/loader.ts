@@ -20,6 +20,41 @@ import { todayCST, lastNDates, prettyDateCST, isTradingDay, prevTradingDay, shif
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 
+// ──────────────────────────────────────────────────────────────
+// 分指数（indexKey）
+//
+// 2026-10-23 起本站从「单一纳指站」扩为「多指数分站」：同一份 funds.json 里
+// 每个条目带 indexKey，页面按它切数据，抓取/邮件/小程序按它切口径。
+//
+// ★ 所有聚合（开门数、可投总额、变化清单、覆盖率）都必须带 indexKey——
+//   两个指数的份额混在一起算，首屏会从「17 家开门」变成「24 家」，是静默错误。
+// ★ 默认值一律 NDX：既有页面、早报、小程序不传参时行为与扩容前逐字节一致。
+// ──────────────────────────────────────────────────────────────
+export const NDX = '纳斯达克100';
+export const SP500 = '标普500';
+
+export interface IndexMeta {
+  key: string;
+  /** 短名，用在小节文案与对比里 */
+  short: string;
+  /** 站名（<title>、OG、页脚） */
+  brand: string;
+  /** 分站首页路径 */
+  path: string;
+  /** 页面主标题前的那半句，例如「标普500」 */
+  label: string;
+}
+
+export const INDEXES: IndexMeta[] = [
+  { key: NDX, short: '纳指', brand: '纳指开门日报', path: '/', label: '纳指' },
+  { key: SP500, short: '标普500', brand: '标普500开门日报', path: '/sp500/', label: '标普500' },
+];
+
+export function indexMeta(key: string = NDX): IndexMeta {
+  return INDEXES.find((i) => i.key === key) ?? INDEXES[0];
+}
+
+
 function readJson<T>(name: string, fallback: T): T {
   try {
     return JSON.parse(fs.readFileSync(path.join(DATA_DIR, name), 'utf8')) as T;
@@ -27,6 +62,25 @@ function readJson<T>(name: string, fallback: T): T {
     return fallback;
   }
 }
+
+/** funds.json 全量条目（不分指数）。 */
+function allFundEntries(): any[] {
+  return readJson<{ funds: any[] }>('funds.json', { funds: [] }).funds;
+}
+
+/** 按指数过滤后的 funds.json 条目。不传 indexKey = 全量（只有详情页/我的基金用）。 */
+function fundEntries(indexKey?: string): any[] {
+  const all = allFundEntries();
+  return indexKey ? all.filter((f) => f.indexKey === indexKey) : all;
+}
+
+/** 某指数收录的份额代码集合。用于把 history.json（按 code 平铺）切回单指数。 */
+function codesOf(indexKey?: string): Set<string> {
+  const out = new Set<string>();
+  for (const f of fundEntries(indexKey)) for (const c of f.codes) out.add(c.code);
+  return out;
+}
+
 
 // 中国 A股休市日集合（法定节假日实际放假日期，已含调休）。数据源 data/market-holidays.json。
 // 交易日判定只认「周末 + 此集合」；调休补班日若在周末仍休市，无需单独列出。
@@ -91,17 +145,20 @@ export function getToday(): string {
   return todayCST();
 }
 
-/** history 里出现过的最大日期（= 最近一次抓到的交易日）。空历史返回 null。 */
-function latestDataDate(history: Record<string, DayPoint[]>): string | null {
+/** history 里出现过的最大日期（= 最近一次抓到的交易日）。空历史返回 null。
+ *  传 indexKey 时只看该指数收录的代码——否则某个指数抓失败会被另一个指数的新鲜日期掩盖。 */
+function latestDataDate(history: Record<string, DayPoint[]>, indexKey?: string): string | null {
+  const codes = indexKey ? codesOf(indexKey) : null;
   let max: string | null = null;
   for (const code in history) {
+    if (codes && !codes.has(code)) continue;
     for (const d of history[code]) if (!max || d.date > max) max = d.date;
   }
   return max;
 }
 
-function assemble(today: string): DailySnapshot {
-  const funds = readJson<{ funds: any[] }>('funds.json', { funds: [] }).funds;
+function assemble(today: string, indexKey: string = NDX): DailySnapshot {
+  const funds = fundEntries(indexKey);
   const history = readHistory();
   const meta = readJson<Record<string, { name: string }>>('fund-meta.json', {});
   const overrides = readJson<Record<string, any>>('direct-overrides.json', {});
@@ -148,14 +205,22 @@ function assemble(today: string): DailySnapshot {
 
   // snapDate 用「数据实际日期」而不是构建日：早上数据还没更新时构建，
   // 页面必须承认自己展示的是哪一天的数据——用构建日会让它谎称「今天」。
-  return { snapDate: latestDataDate(history) ?? today, shares, monitoredCount: shares.length };
+  return { snapDate: latestDataDate(history, indexKey) ?? today, shares, monitoredCount: shares.length };
 }
 
-export function loadTodaySnapshot(): DailySnapshot {
+export function loadTodaySnapshot(indexKey: string = NDX): DailySnapshot {
   const history = readHistory();
-  const hasRealData = Object.keys(history).length > 0;
-  // 有真实抓取历史 → 用真实数据；否则回退 mock，保证本地/首次也能 build。
-  const snap = hasRealData ? assemble(getToday()) : buildSnapshot(getToday());
+  // 「有没有真实数据」也要按指数判断：标普500 首日还没抓过时不该回退 mock，
+  // 而应如实返回空快照（页面显示 0 家 + 过期提示），否则会渲染出编造的额度。
+  const codes = codesOf(indexKey);
+  const hasRealData = Object.keys(history).some((c) => codes.has(c));
+  // mock 只是「本地首建也能 build」的兜底，内容是纳指标本——绝不能喂给标普500 页面，
+  // 否则标普500 首日会渲染出 17 张纳指卡片（数字全是编的）。其他指数无数据就是空。
+  const snap = hasRealData
+    ? assemble(getToday(), indexKey)
+    : indexKey === NDX
+      ? buildSnapshot(getToday())
+      : { snapDate: getToday(), shares: [], monitoredCount: 0 };
   // 美元份额不在站内展示：只监控人民币份额。统一在此过滤，首页/我的基金/详情页
   // （getStaticPaths 同源）全部生效；scrape 仍继续抓美元数据，日后想展示删掉这两行即可。
   snap.shares = snap.shares.filter((s) => s.currency !== 'USD');
@@ -163,17 +228,37 @@ export function loadTodaySnapshot(): DailySnapshot {
   return snap;
 }
 
-/** 「我的基金」需要全量份额清单；前端按 localStorage 里的代码做纯展示过滤，不需要后端接口。 */
-export function loadAllShares(): FundShare[] {
-  return loadTodaySnapshot().shares;
+/** 「我的基金」需要全量份额清单；前端按 localStorage 里的代码做纯展示过滤，不需要后端接口。
+ *  不传 indexKey = 跨指数全量（用户持有的可能是任一指数的人民币份额）。 */
+export function loadAllShares(indexKey?: string): FundShare[] {
+  const history = readHistory();
+  // 完全无历史（本地首次未跑 scrape）→ 回退 mock，保证 /f/[code] 仍有页面可构建
+  if (!Object.keys(history).length) {
+    return buildSnapshot(getToday()).shares.filter((s) => s.currency !== 'USD');
+  }
+  const keys = indexKey ? [indexKey] : INDEXES.map((i) => i.key);
+  const out: FundShare[] = [];
+  for (const k of keys) {
+    const codes = codesOf(k);
+    // 该指数一条历史都没有 → 跳过，不产出全 UNKNOWN 的卡片
+    if (!Object.keys(history).some((c) => codes.has(c))) continue;
+    out.push(...assemble(getToday(), k).shares.filter((s) => s.currency !== 'USD'));
+  }
+  return out;
 }
 
 /** 美元份额清单（美元现汇/现钞类）。首页「美元家族」区块专用；其余页面仍默认只看人民币。 */
-export function loadUsdShares(): FundShare[] {
+export function loadUsdShares(indexKey?: string): FundShare[] {
   const history = readHistory();
   if (Object.keys(history).length === 0) return [];
-  const snap = assemble(getToday());
-  return snap.shares.filter((s) => s.currency === 'USD');
+  const keys = indexKey ? [indexKey] : INDEXES.map((i) => i.key);
+  const out: FundShare[] = [];
+  for (const k of keys) {
+    const codes = codesOf(k);
+    if (!Object.keys(history).some((c) => codes.has(c))) continue;
+    out.push(...assemble(getToday(), k).shares.filter((s) => s.currency === 'USD'));
+  }
+  return out;
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -189,19 +274,25 @@ export interface DailySummary {
   count: number; // 人民币监控组数
 }
 
-export function loadDailySummaries(n: number): DailySummary[] {
-  const funds = readJson<{ funds: any[] }>('funds.json', { funds: [] }).funds;
+export function loadDailySummaries(n: number, indexKey: string = NDX): DailySummary[] {
+  const funds = fundEntries(indexKey);
   const history = readHistory();
-  const hasReal = Object.keys(history).length > 0;
+  const codes = codesOf(indexKey);
+  const hasReal = Object.keys(history).some((c) => codes.has(c));
 
-  // 无真实抓取历史（本地首次未跑 scrape）→ 回退 mock 逐日生成，保证能 build
+  // 无真实抓取历史（本地首次未跑 scrape）→ 回退 mock 逐日生成，保证能 build。
+  // 同样只对纳指成立：其他指数没有 mock 标本，无数据就返回空数组（页面画不出趋势带）。
   if (!hasReal) {
+    if (indexKey !== NDX) return [];
     return lastNDates(n, getToday()).map((date) => summarizeSnapshot(buildSnapshot(date)));
   }
 
-  // 真实数据：从 history.json 按天聚合
+  // 真实数据：从 history.json 按天聚合（只看本指数的代码）
   const dateSet = new Set<string>();
-  for (const code in history) for (const d of history[code]) dateSet.add(d.date);
+  for (const code in history) {
+    if (!codes.has(code)) continue;
+    for (const d of history[code]) dateSet.add(d.date);
+  }
   const allDates = [...dateSet].sort().reverse().slice(0, n); // 最近 n 天，降序
 
   return allDates.map((date) => {
@@ -289,14 +380,15 @@ function classifyChange(from: DayPoint, to: DayPoint): ChangeKind {
   return 'other';
 }
 
-export function loadDailyChanges(): DailyChanges {
-  const funds = readJson<{ funds: any[] }>('funds.json', { funds: [] }).funds;
+export function loadDailyChanges(indexKey: string = NDX): DailyChanges {
+  const funds = fundEntries(indexKey);
   const history = readHistory();
   const meta = readJson<Record<string, { name: string }>>('fund-meta.json', {});
   const annMap = readAnnouncements();
   const today = getToday();
 
-  const hasReal = Object.keys(history).length > 0;
+  const codes = codesOf(indexKey);
+  const hasReal = Object.keys(history).some((c) => codes.has(c));
   if (!hasReal) return { date: today, prevDate: null, changes: [], opened: 0, stopped: 0, limitChanged: 0, hasData: false };
 
   const changes: ChangeRecord[] = [];
@@ -347,7 +439,7 @@ export function loadDailyChanges(): DailyChanges {
   return {
     date: today,
     // 无论今天有没有变化，都要给出对比基准日：否则无变化日页面会渲染成「较 null」
-    prevDate: arr_prevDate(history),
+    prevDate: arr_prevDate(history, codes),
     changes,
     opened,
     stopped,
@@ -356,9 +448,11 @@ export function loadDailyChanges(): DailyChanges {
   };
 }
 
-// 取任一份额「前一天」日期作为对比基准日（用于页面副标题“较 X”）
-function arr_prevDate(history: Record<string, DayPoint[]>): string | null {
+// 取任一份额「前一天」日期作为对比基准日（用于页面副标题“较 X”）。
+// 只看本指数的代码：跨指数取会拿到另一个指数的日期，标普500 首日就会显示「较 10-21」。
+function arr_prevDate(history: Record<string, DayPoint[]>, codes?: Set<string>): string | null {
   for (const code in history) {
+    if (codes && !codes.has(code)) continue;
     const arr = history[code];
     if (arr && arr.length >= 2) return arr[arr.length - 2].date;
   }
@@ -396,8 +490,8 @@ function summarizeSnapshot(snap: DailySnapshot): DailySummary {
 // ──────────────────────────────────────────────────────────────
 
 /** 聚合指定日期（含之前最近一条）的人民币开门数与可投总额。 */
-function aggregateForDate(date: string): { opened: number; total: number; count: number } {
-  const funds = readJson<{ funds: any[] }>('funds.json', { funds: [] }).funds;
+function aggregateForDate(date: string, indexKey: string = NDX): { opened: number; total: number; count: number } {
+  const funds = fundEntries(indexKey);
   const history = readHistory();
   // entries 成对收集：与 loadDailySummaries 同一修法——statuses/limits 分压两个数组时，
   // 组内暂停份额（limit=null）排在限额份额之前会索引错位、漏算额度。
@@ -520,10 +614,10 @@ export interface TradingContext {
 }
 
 /** 首页首屏所需的交易日上下文：今天是否交易日、（若休市）最近交易日快照、数据新鲜度。 */
-export function getTradingContext(dataDate?: string): TradingContext {
+export function getTradingContext(dataDate?: string, indexKey: string = NDX): TradingContext {
   const today = getToday();
   const isTrading = isTradingDay(today, HOLIDAYS);
-  const dd = dataDate ?? latestDataDate(readHistory()) ?? today;
+  const dd = dataDate ?? latestDataDate(readHistory(), indexKey) ?? today;
   const base = {
     today,
     isTrading,
@@ -535,6 +629,6 @@ export function getTradingContext(dataDate?: string): TradingContext {
   if (isTrading) return { ...base, lastTrading: null };
   // 休市时「最近交易日」用数据里最新的那一天，不用日历推算——推算出来的那天可能
   // 根本没抓到数据（抓取失败/长假），aggregate 会返回 0 家开门，比不给数字更误导。
-  const agg = aggregateForDate(dd);
+  const agg = aggregateForDate(dd, indexKey);
   return { ...base, lastTrading: { date: dd, ...agg } };
 }
