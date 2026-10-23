@@ -1,5 +1,5 @@
 ---
-// 旧路径兼容：/daily 曾是「交易日历 + 纳指每日快照」。拆分成两条路由后，
+// 旧路径兼容：/daily 曾是「交易日历 + 纳指每日快照」。2026-10-23 两节都并进了看板页底部，
 // 这里留一个跳转垫片，让日报邮件、书签、聊天记录里的旧链接不至于直接 404。
 import JumpPage from '../components/JumpPage.astro';
 import { NDX, indexMeta } from '../data/loader';
@@ -8,8 +8,8 @@ const meta = indexMeta(NDX);
 ---
 
 <JumpPage
-  to="/ndx100/daily"
+  to="/ndx100/#history"
   title={`历史 - ${meta.brand}`}
-  description={`${meta.label}的每日快照与交易日历。`}
-  linkText="历史页"
+  description={`${meta.label}的每日快照与交易日历，已并入看板页底部。`}
+  linkText="纳指100 看板"
 />

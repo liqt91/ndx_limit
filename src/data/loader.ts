@@ -37,6 +37,11 @@ export interface IndexMeta {
   key: string;
   /** 短名，用在小节文案与对比里 */
   short: string;
+  /** 超链接上的名字（导航、指数切换器）。
+   *  比 short 更短，并且两项**等长**：纳指对应的全称是「纳指100」，标普若在链接上写
+   *  「标普500」就比邻居长一截，同一排导航里一眼能看出某个是例外。正文文案仍用 short，
+   *  「标普500」出现在句子里才读得顺。 */
+  navLabel: string;
   /** 站名（<title>、OG、页脚） */
   brand: string;
   /** 分站首页路径 */
@@ -49,12 +54,24 @@ export interface IndexMeta {
 // 根 / 只留一个跳转空壳（src/pages/index.astro），所以这里没有 '/' 了——
 // 任何「meta.path === '/'」式的判断都必须改成按 key 判断，否则会静默失效。
 export const INDEXES: IndexMeta[] = [
-  { key: NDX, short: '纳指', brand: '纳指开门日报', path: '/ndx100/', label: '纳指' },
-  { key: SP500, short: '标普500', brand: '标普500开门日报', path: '/sp500/', label: '标普500' },
+  { key: NDX, short: '纳指', navLabel: '纳指', brand: '纳指开门日报', path: '/ndx100/', label: '纳指' },
+  { key: SP500, short: '标普500', navLabel: '标普', brand: '标普500开门日报', path: '/sp500/', label: '标普500' },
 ];
 
 export function indexMeta(key: string = NDX): IndexMeta {
   return INDEXES.find((i) => i.key === key) ?? INDEXES[0];
+}
+
+/**
+ * 路由 slug（ndx100 / sp500）——也就是 CSS 里 `data-board` 的取值。
+ *
+ * 从 path 推导而不是在 IndexMeta 里加一个字段：加指数时只改 funds.json、INDEXES
+ * 和 src/pages 下那三个短页面，不该再多一份要同步的清单。
+ * 两个地方用它：`<html data-board>`（整页身份）与 /my 的分段（每段一种印色），
+ * 两边必须得到同一个字符串，所以只留这一处定义。
+ */
+export function indexSlug(key: string): string | null {
+  return INDEXES.find((i) => i.key === key)?.path.replace(/\//g, '') ?? null;
 }
 
 

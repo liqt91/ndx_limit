@@ -11,7 +11,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import FamilyCard from '../components/FamilyCard.astro';
 import SectionHead from '../components/SectionHead.astro';
 import IndexSwitch from '../components/IndexSwitch.astro';
-import { loadAllShares, INDEXES } from '../data/loader';
+import { loadAllShares, INDEXES, indexSlug } from '../data/loader';
 import { classRank } from '../lib/status';
 import type { FundShare } from '../data/types';
 
@@ -65,7 +65,11 @@ const cnyTotal = knownCodes.length;
   <div id="myList">
     {
       sections.map((s) => (
-        <section class="my-sec" data-index={s.meta.key} data-label={s.meta.short}>
+        <section
+          class="my-sec"
+          data-index={s.meta.key}
+          data-board={indexSlug(s.meta.key) ?? undefined}
+          data-label={s.meta.short}>
           <SectionHead title={s.meta.key} aside={`${s.groups.length} 家`} />
           <div class="my-list">
             {s.groups.map((g) => (

@@ -1,7 +1,7 @@
 ---
 import '../styles/global.css';
 import SiteHeader from '../components/SiteHeader.astro';
-import { INDEXES } from '../data/loader';
+import { indexSlug } from '../data/loader';
 
 interface Props {
   title: string;
@@ -33,14 +33,14 @@ const {
 //   又表示按路径猜——把视觉身份挂在这种三态语义上，迟早会像 2026-10-23 那次
 //   aria-current 一样，在共用页上点亮一个板块。
 // slug 从 INDEXES.path 推导，避免再多一处「加指数要同步改」的清单。
-const indexSlug = indexKey
-  ? (INDEXES.find((i) => i.key === indexKey)?.path.replace(/\//g, '') ?? null)
-  : null;
+const indexSlugValue = indexKey ? indexSlug(indexKey) : null;
 
 // 手机浏览器地址栏染色。★ 这三行与 global.css 里 --paper 的三处定义是同一份事实，
 //   改了颜色必须两处同改——check:index 会逐字比对，对不上就红。
-const PAPER: Record<string, string> = { ndx100: '#e8eef6', sp500: '#f9f0dd' };
-const themeColor = (indexSlug && PAPER[indexSlug]) || '#faf9f6';
+//   2026-10-23 起两个板块共用暖纸，所以两行同值；仍按 slug 分开写，
+//   是为了以后真要拆成两套纸时不用改结构（断言也会一起提醒）。
+const PAPER: Record<string, string> = { ndx100: '#f9f0dd', sp500: '#f9f0dd' };
+const themeColor = (indexSlugValue && PAPER[indexSlugValue]) || '#f9f0dd';
 
 const year = new Date().getFullYear();
 // 分享卡片图：绝对 URL（微信、Telegram 都按绝对地址抓 og:image）
@@ -49,7 +49,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
 ---
 
 <!doctype html>
-<html lang="zh-CN" data-board={indexSlug ?? undefined}>
+<html lang="zh-CN" data-board={indexSlugValue ?? undefined}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -105,10 +105,37 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
 
     <!-- 离线兜底：断网时至少能打开上次抓到的那一版 -->
     <script is:inline>
+      // 本地（localhost / 127.0.0.1）不注册 SW，并且把装过的旧 SW 注销掉。
+      //
+      // 原因：sw.js 对静态资源是缓存优先，本地第一次访问就把 CSS 钉在那份缓存里，
+      // 之后改样式永远拿旧的；而页面导航是网络优先，所以 HTML 是新的、CSS 是旧的，
+      // 看起来像「改动没生效」。反过来停掉服务器后导航回落缓存，又能打开，
+      // 看起来像「服务还在跑」。两头都会让人误判，本地干脆别装。
+      var swHost = location.hostname;
+      var isLocalHost = swHost === 'localhost' || swHost === '127.0.0.1' || swHost === '[::1]';
+
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function () {
-          navigator.serviceWorker.register('/sw.js').catch(function () {});
-        });
+        if (isLocalHost) {
+          navigator.serviceWorker
+            .getRegistrations()
+            .then(function (regs) {
+              regs.forEach(function (r) {
+                r.unregister();
+              });
+              if (window.caches) {
+                caches.keys().then(function (keys) {
+                  keys.forEach(function (k) {
+                    caches.delete(k);
+                  });
+                });
+              }
+            })
+            .catch(function () {});
+        } else {
+          window.addEventListener('load', function () {
+            navigator.serviceWorker.register('/sw.js').catch(function () {});
+          });
+        }
       }
     </script>
   </body>

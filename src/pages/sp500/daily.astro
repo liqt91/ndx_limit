@@ -1,7 +1,15 @@
 ---
-// 标普500 的历史页。与 ndx100/daily.astro 同构，只换 indexKey。
-import DailyBoard from '../../components/DailyBoard.astro';
-import { SP500 } from '../../data/loader';
+// 旧路径兼容：与 ndx100/daily.astro 同构，只换指数。
+// 2026-10-23 起历史并入看板页底部，这里只剩跳转垫片。
+import JumpPage from '../../components/JumpPage.astro';
+import { SP500, indexMeta } from '../../data/loader';
+
+const meta = indexMeta(SP500);
 ---
 
-<DailyBoard indexKey={SP500} />
+<JumpPage
+  to="/sp500/#history"
+  title={`历史 - ${meta.brand}`}
+  description={`${meta.label}的每日快照与交易日历，已并入看板页底部。`}
+  linkText="标普500 看板"
+/>

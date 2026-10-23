@@ -7,6 +7,7 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import FamilyCard from '../components/FamilyCard.astro';
 import SectionHead from '../components/SectionHead.astro';
+import HistorySections from '../components/HistorySections.astro';
 import TrendBackdrop from '../components/TrendBackdrop.astro';
 import {
   loadTodaySnapshot,
@@ -62,6 +63,9 @@ const isOpen = (g: { shares: FundShare[] }) =>
   g.shares.some((s) => s.purchaseStatus === 'LIMITED' || s.purchaseStatus === 'OPEN');
 const openedCny = cny.filter(isOpen).length;
 const stoppedCny = cny.length - openedCny;
+// 美元分组里可买的家族数：口径与人民币同（组内任一份额可买即算开门），
+// 但两边各算各的、绝不相加——所以各自跟在自己的组标题右边
+const openedUsd = usdGroups.filter(isOpen).length;
 
 const totalAgency = snap.shares
   .filter(
@@ -81,9 +85,16 @@ const changeParts = [
 const hasChanges = changes.hasData && changeParts.length > 0;
 const verdictText = hasChanges ? changeParts.join('，') : '没有变化';
 
-// 小节编号：有「今日变化」时它占 01，人民币占 02、美元占 03；否则人民币 01、美元 02
-const idxMain = ctx.isTrading && hasChanges ? '02' : '01';
-const idxUsd = ctx.isTrading && hasChanges ? '03' : '02';
+// 小节编号：有「今日变化」时它占 01，然后依次 02 / 03 / 04。
+// ★ 2026-10-23 起「美元基金」不再是独立小节（并入「今天能买多少」当第二组），
+//   编号也跟着少一个。用「主号 + 偏移」算，不再手写三个三元表达式——
+//   那种写法的位移规则散在三行里，加一节就要改三处。
+const idxMainNum = ctx.isTrading && hasChanges ? 2 : 1;
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const idxMain = pad2(idxMainNum);
+// 历史两节接在主表之后，同一套位移
+const idxHistory = pad2(idxMainNum + 1);
+const idxCal = pad2(idxMainNum + 2);
 
 // 额度类变动直接显示「5 元 → 10 元」，比「限大额 → 限大额」有用
 const isLimitKind = (k: string) => k.startsWith('limit');
@@ -242,8 +253,10 @@ const ogDescription = noData
     index={idxMain}
     title={ctx.isTrading ? '今天能买多少' : `最近交易日额度（${ctx.lastTrading?.date ?? ''}）`}
   >
-    {/* 数量与图例同处一行：图例就是那把尺，四档颜色连读，读者拿它去对格子，不必换算任何数值 */}
-    <span slot="aside">{openedCny} 家可买</span>
+    {/* 图例就是那把尺，四档颜色连读，读者拿它去对格子，不必换算任何数值。
+        它同时管下面两个组（人民币 / 美元），所以留在节标题上，不下放到组里。
+        家数从节标题挪到各组标题右侧：两个币种各算各的，数字放在谁的头上谁才算得清
+        （放在节标题上会被读成「合计」，而这正是不能相加的东西）。 */}
     <span slot="aside" class="grid-legend">
       <span class="ramp-legend">
         <i class="lg l1"></i><i class="lg l2"></i><i class="lg l3"></i><i class="lg l4"></i>
@@ -257,22 +270,36 @@ const ogDescription = noData
     noData ? (
       <p class="empty">{meta.label}的数据还没抓到。抓取脚本今晚跑完后这里会显示名单里的 {snap.monitoredCount || 0} 个份额。</p>
     ) : (
-      <ul class="grid">
-        {cny.map((g) => <FamilyCard shares={g.shares} />)}
-      </ul>
+      <>
+        <div class="subhead">
+          <span class="sub-t">人民币</span>
+          <span class="sub-line"></span>
+          <span class="sub-a">{openedCny} 家可买</span>
+        </div>
+        <ul class="grid">
+          {cny.map((g) => <FamilyCard shares={g.shares} />)}
+        </ul>
+      </>
     )
   }
 
   {
     usdGroups.length > 0 && (
       <>
-        <SectionHead index={idxUsd} title="美元基金" />
+        <div class="subhead">
+          <span class="sub-t">美元</span>
+          <span class="sub-line"></span>
+          <span class="sub-a">{openedUsd} 家可买</span>
+        </div>
         <ul class="grid">
           {usdGroups.map((g) => <FamilyCard shares={g.shares} />)}
         </ul>
       </>
     )
   }
+
+  {/* 逐日快照 + 交易日历：2026-10-23 从独立的历史页并进来，旧路由留跳转壳 */}
+  <HistorySections indexKey={indexKey} historyIndex={idxHistory} calendarIndex={idxCal} />
 
   {/* 放在页面最末尾：脚本要改 H1 和下方小节标题，必须在这些节点解析完之后执行 */}
   <script is:inline define:vars={{ dataDate: ctx.dataDate, tradingMap, fetchedTime: ctx.updatedTime }}>

@@ -1,7 +1,8 @@
 ---
 // 指数切换器。两种形态，同一套皮肤：
-//   mode="link"   → 两个 <a>，换 URL。用在历史页：内容是公开数据，切换后能直接把
-//                   链接贴给别人（/sp500/daily 是个可以单独分享的东西）。
+//   mode="link"   → 两个 <a>，换 URL。**2026-10-23 起暂无调用点**：历史页并进看板页后，
+//                   站内再没有「同一个视图、两个可分享 URL」的地方。留着是因为独立
+//                   分站视图一旦恢复还得用它，别当成死代码删掉。
 //   mode="filter" → 两个 <button>，只改本地状态、不改 URL。用在我的基金：那里的
 //                   「指数」是你持仓的一个维度，每个人的组合都不同，没有可分享的
 //                   「标普持仓视图」。
@@ -12,7 +13,7 @@ interface Props {
   /** 当前选中的指数 key。link 版必传；filter 版传 null 表示「全部」 */
   current?: string | null;
   mode?: 'link' | 'filter';
-  /** link 版：拼在指数路径后的后缀，如 '/daily' */
+  /** link 版：拼在指数路径后的后缀（历史上是 '/daily'，现无调用点） */
   suffix?: string;
   /** filter 版：是否给「全部」选项 */
   allOption?: boolean;
@@ -22,7 +23,9 @@ const { current = null, mode = 'link', suffix = '', allOption = true, label = '�
 
 const items = INDEXES.map((i) => ({
   key: i.key,
-  label: i.short,
+  // 与顶栏导航同一份短名：两处都是「切指数」的链接，文案不一致会让人以为
+  // 切过去的不是同一个东西。
+  label: i.navLabel,
   href: i.path.replace(/\/$/, '') + suffix,
 }));
 ---

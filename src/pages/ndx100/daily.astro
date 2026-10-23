@@ -1,7 +1,16 @@
 ---
-// 两个指数的历史页。页面只声明指数，渲染在 DailyBoard 里。
-import DailyBoard from '../../components/DailyBoard.astro';
-import { NDX } from '../../data/loader';
+// 旧路径兼容：2026-10-23 起历史不再是独立页，逐日快照与交易日历都并进了看板页底部。
+// 这里留一个跳转垫片，让邮件、书签、聊天记录里的旧链接不至于 404。
+// ★ 跳到 #history 而不是页面顶部：后者等于跳了个寂寞——读者本来要的就是这一节。
+import JumpPage from '../../components/JumpPage.astro';
+import { NDX, indexMeta } from '../../data/loader';
+
+const meta = indexMeta(NDX);
 ---
 
-<DailyBoard indexKey={NDX} />
+<JumpPage
+  to="/ndx100/#history"
+  title={`历史 - ${meta.brand}`}
+  description={`${meta.label}的每日快照与交易日历，已并入看板页底部。`}
+  linkText="纳指100 看板"
+/>
