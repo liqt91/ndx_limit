@@ -67,7 +67,7 @@ async function startStack(opts = {}) {
   const today = cstToday();
   const staleDate = cstShiftDays(-1);
 
-  // dispatch 日志 fixture：今天盘前/早盘各一跳 + 下午报一跳，**故意不写 14:30 那条**，
+  // dispatch 日志 fixture：今天盘前/早盘各一跳 + 收盘前报一跳，**故意不写 14:30 那条**，
   // 用来验证「无记录的槽位记 unknown 而不是 missing」；failStack 把盘前那次换成 500。
   // 时刻按新调度表（07:50 / 09:40 / 14:30 / 14:45），降级视图按落点归槽。
   const lines = [
@@ -328,7 +328,7 @@ async function main() {
     check('四个槽位都是 ok/204', Array.isArray(s.dispatch.slots) && s.dispatch.slots.length === 4 && s.dispatch.slots.every((x) => x.state === 'ok' && x.code === 204), JSON.stringify(s.dispatch.slots));
     check('槽位顺序 = 三抓一报', s.dispatch.slots.map((x) => x.job + ':' + x.slot).join(',') === 'refresh:preopen,refresh:intraday,refresh:close,broadcast:close', JSON.stringify(s.dispatch.slots.map((x) => x.job + ':' + x.slot)));
     check('槽位标注触发方式 via=nonce', s.dispatch.slots.every((x) => x.via === 'nonce'), JSON.stringify(s.dispatch.slots.map((x) => x.via)));
-    check('槽位带中文标签（服务端下发，客户端不查表）', s.dispatch.slots.map((x) => x.label).join(',') === '盘前,早盘,收盘前,下午报', JSON.stringify(s.dispatch.slots.map((x) => x.label)));
+    check('槽位带中文标签（服务端下发，客户端不查表）', s.dispatch.slots.map((x) => x.label).join(',') === '盘前,早盘,收盘前,收盘前报', JSON.stringify(s.dispatch.slots.map((x) => x.label)));
     check('事件流可见收盘前槽位', s.dispatch.recent.some((e) => e.slot === 'close' && e.ok === true), JSON.stringify(s.dispatch.recent));
     check('事件流水进入面板（含今日与昨日）', Array.isArray(s.dispatch.recent) && s.dispatch.recent.length >= 3 && s.dispatch.recent.some((e) => e.cstDate === cstToday() && e.ok === true), JSON.stringify(s.dispatch.recent));
     check('历史未鉴权事件仍可读（旧数据兼容）', s.dispatch.recent.some((e) => e.via === 'anonymous' && e.code === 401), JSON.stringify(s.dispatch.recent));
@@ -436,7 +436,7 @@ async function main() {
       check('降级时 note 说明来源', String(s.dispatch.note || '').includes('EdgeOne 状态端点不可达'), s.dispatch.note);
       check('本地日志按落点归槽：盘前 / 早盘都读到 204', s.dispatch.slots[0].state === 'ok' && s.dispatch.slots[1].state === 'ok', JSON.stringify(s.dispatch.slots));
       check('本地日志：收盘前无记录 → unknown（不伪装成 missing）', s.dispatch.slots[2].state === 'unknown', JSON.stringify(s.dispatch.slots[2]));
-      check('本地日志：下午报按 12:00 分界归到 close', s.dispatch.slots[3].state === 'ok', JSON.stringify(s.dispatch.slots[3]));
+      check('本地日志：收盘前报按 12:00 分界归到 close', s.dispatch.slots[3].state === 'ok', JSON.stringify(s.dispatch.slots[3]));
       check('EO 不可达 → overall=warn', s.overall === 'warn', s.overall);
     } finally {
       await stopStack(down);
@@ -480,7 +480,7 @@ async function main() {
       const r4 = await postJson(eo.baseUrl + '/api/dispatch', { job: 'broadcast', mode: 'send', confirm: 'send' });
       check('EO 路径真发信带确认 ok', r4.status === 200 && r4.body.ok === true);
       check('真发信映射为 mode=send', seenBody().mode === 'send', JSON.stringify(seenBody()));
-      check('真发信带 edition（下午手点发下午报）', ['morning', 'close'].includes(seenBody().edition), JSON.stringify(seenBody()));
+      check('真发信带 edition（12:00 后手点发收盘前报）', ['morning', 'close'].includes(seenBody().edition), JSON.stringify(seenBody()));
     } finally {
       await stopStack(eo);
       rmSync(eo.dir, { recursive: true, force: true });

@@ -220,17 +220,18 @@ function parseDispatchLog(text) {
   return out;
 }
 
-// 一天四跳：盘前抓 07:50 → 早盘抓 09:40 → 收盘前抓 14:30 → 下午报 14:45（北京时间）。
+// 一天四跳：盘前抓 07:50 → 早盘抓 09:40 → 收盘前抓 14:30 → 收盘前报 14:45（北京时间）。
 // slot 与 dispatch.js 的 resolveSlot / KV 闸键一一对应：refresh 用 payload.slot、
 // broadcast 用 payload.edition。
 // ★ 07:50 与 09:40 都是 refresh，闸键必须靠 slot 区分（preopen / intraday）；
 //   09:40 这一抓专为覆盖早盘公告窗口（07:51 之后才发的当日额度调整）。
-// ★ 08:10 早报已下线（2026-10-21），现在每天只发一封下午报。
+// ★ 08:10 的早报已于 2026-10-21 下线，现在每天只发一封**收盘前报**（14:45，场外 15:00 截止前）。
+//   别再把这一跳叫「下午报」或「早报」——名字错了，补发时就容易挑错 edition。
 const SLOTS = [
   { job: 'refresh', wf: 'refresh.yml', hhmm: '07:50', slot: 'preopen', label: '盘前' },
   { job: 'refresh', wf: 'refresh.yml', hhmm: '09:40', slot: 'intraday', label: '早盘' },
   { job: 'refresh', wf: 'refresh.yml', hhmm: '14:30', slot: 'close', label: '收盘前' },
-  { job: 'broadcast', wf: 'broadcast.yml', hhmm: '14:45', slot: 'close', label: '下午报' },
+  { job: 'broadcast', wf: 'broadcast.yml', hhmm: '14:45', slot: 'close', label: '收盘前报' },
 ];
 // 按 job 索引而不是按 slot 索引：close 同时属于 refresh 与 broadcast，
 // 单靠 slot 名取不到唯一标签（以前 SLOT_LABEL[slot] 只够两槽用）。
@@ -506,7 +507,7 @@ async function runDispatch(job, mode) {
       // 手动触发也带时点：按当前时刻就近落槽（与调度同款三分法），
       // refresh 有 preopen/intraday/close 三档，broadcast 只有 morning/close 两版。
       // 鉴权调用不受每日闸与组合白名单限制，这里传 slot/edition 是为了语义正确——
-      // 下午手点 broadcast 发的应是下午报，不是早报重发。
+      // 12:00 之后手点 broadcast 发的应是收盘前报（close），不是盘前报重发。
       const mins = cstParts().minutes;
       const refreshSlot = mins >= 12 * 60 ? 'close' : mins >= 9 * 60 ? 'intraday' : 'preopen';
       const edition = mins >= 12 * 60 ? 'close' : 'morning';
@@ -725,7 +726,7 @@ var SOURCE_TEXT = { edgeone: 'EdgeOne 调度', 'local-log': '本地日志（降�
 var VIA_TEXT = { nonce: '调度触发', cron_secret: '鉴权手动', cron: 'cron 时代', anonymous: '未鉴权' };
 // 槽位中文名由服务端随 slot 对象下发（sl.label）；这里只保留事件流用的兜底映射，
 // 因为事件里的 slot 字符串没有附带 job 上下文。
-var SLOT_CN = { preopen: '盘前', intraday: '早盘', close: '收盘前', morning: '早报' };
+var SLOT_CN = { preopen: '盘前', intraday: '早盘', close: '收盘前', morning: '盘前报' };
 
 function slotDot(state) {
   if (state === 'ok') return 'ok';

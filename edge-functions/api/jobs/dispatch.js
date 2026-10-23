@@ -51,7 +51,7 @@ const JOBS = {
 const MAX_BODY = 4096;
 const MODE_ALIAS = { send: 'send', dry: 'dry-run', 'dry-run': 'dry-run' };
 
-// 时点（slot）：broadcast 用 payload.edition（早报 morning / 下午报 close），
+// 时点（slot）：broadcast 用 payload.edition（收盘前报 close / 盘前报 morning），
 // refresh 用 payload.slot（抓取时刻由 scrape.mjs 自己判定，这里只用于分闸）。
 // 为什么键里必须带 slot：一天多抓一报（07:50 / 09:40 / 14:30 + 14:45），闸不按时点分键，
 // 第二次调用会被 409 already_triggered_today 静默挡掉，后面的抓取永远发不出去
@@ -61,12 +61,13 @@ const MODE_ALIAS = { send: 'send', dry: 'dry-run', 'dry-run': 'dry-run' };
 // 07:51 之后发布，早间那一抓会漏掉（2026-10-21 实测 56 份额漏 2 个，而全天平均只变 1.3 个）。
 // 盘中额度本身几乎不动，所以这一抓的价值在覆盖早盘公告窗口，不是追波动。
 const REFRESH_SLOTS = ['preopen', 'intraday', 'close'];
+// 生产只有一个：close（14:45 收盘前报）。morning 是盘前报，保留给人工补发，调度表里没有它。
 const BROADCAST_SLOTS = ['morning', 'close'];
 
 // 调度表里真实存在的 job×slot 组合（必须与 edgeone.json 的 schedules 一致）：
 // 未鉴权调用只许这些组合。否则匿名者可以凭空造出调度表里没有的动作——最典型的就是
-// 用 edition=morning 发一封「早报」：早报的 schedule 已经下线，可闸键还在，
-// 白白多给所有订阅者发一封信。
+// 用 edition=morning 发一封「盘前报」：它的 schedule 已经下线，可闸键还在，
+// 白白多给所有订阅者多发一封信。
 const SCHEDULED = {
   refresh: ['preopen', 'intraday', 'close'],
   broadcast: ['close'],
@@ -179,18 +180,28 @@ async function recordEvent(kv, evt) {
   }
 }
 
-// "纳指开门日报 <digest@liqt91.top>" 或裸地址，两种写法都接（与 subscribe.js 一致）。
+// "QDII 开门日报 <digest@liqt91.top>" 或裸地址，两种写法都接（与 subscribe.js 一致）。
 function parseSender(raw) {
   const s = String(raw || '').trim();
   const m = s.match(/^(.*)<([^>]+)>\s*$/);
-  if (m) return { name: m[1].trim() || '纳指开门日报', email: m[2].trim() };
-  return { name: '纳指开门日报', email: s };
+  if (m) return { name: m[1].trim() || 'QDII 开门日报', email: m[2].trim() };
+  return { name: 'QDII 开门日报', email: s };
 }
+
+// 时点中文名按 job×slot 给全：刷新的 preopen/intraday/close 与群发的 close/morning 同名不同义，
+// 只按 slot 判会让「07:50 盘前抓取失败」的告警写成「早间 morning」，运维看过去不知道该重跑哪一跳。
+const SLOT_CN = {
+  'refresh:preopen': '盘前抓取 preopen',
+  'refresh:intraday': '早盘抓取 intraday',
+  'refresh:close': '收盘前抓取 close',
+  'broadcast:close': '收盘前报 close',
+  'broadcast:morning': '盘前报 morning',
+};
 
 function alertText(info) {
   return [
     `任务：${info.job}（${info.workflow}）`,
-    `时点：${info.slot === 'close' ? '收盘前 close' : '早间 morning'}`,
+    `时点：${SLOT_CN[`${info.job}:${info.slot}`] || info.slot || '(缺)'}`,
     `时间：${new Date().toISOString()}（CST ${cstDate()}）`,
     `GitHub 响应：HTTP ${info.status}`,
     info.detail ? `详情：${info.detail}` : null,
@@ -319,7 +330,7 @@ export async function onRequestPost({ request, env }) {
       return json({ ok: false, error: 'guard_not_configured', hint: '绑定 SUBS_KV，或改用 CRON_SECRET 鉴权调用' }, 500);
     }
     // 未鉴权只许调度表里真实存在的组合：闸键只挡「同一动作重复」，挡不住「多出一个动作」。
-    // 早报 schedule 已下线而 broadcast/morning 的闸键还在——不挡的话匿名者能凭空发一封早报。
+    // 盘前报 schedule 已下线而 broadcast/morning 的闸键还在——不挡的话匿名者能凭空多发一封信。
     if (!SCHEDULED[job].includes(slot)) {
       console.error('[dispatch] 越权组合（不在调度表内）：', JSON.stringify({ job, slot }));
       await bumpRejected(kv, { job, slot, error: 'slot_not_scheduled', status: 403 });

@@ -210,7 +210,7 @@ async function main() {
     check('refresh 与 broadcast 闸互不干扰', !globalThis.SUBS_KV._m.has(guardKey('refresh', 'preopen')) && !globalThis.SUBS_KV._m.has(guardKey('refresh', 'close')));
   }
 
-  // ---- 栈 3b：未鉴权发早报 → 403（早报 schedule 已下线，闸键还在，不挡就能凭空多发一封） ----
+  // ---- 栈 3b：未鉴权发盘前报 → 403（盘前报 schedule 已下线，闸键还在，不挡就能凭空多发一封） ----
   reset();
   {
     const r = await onRequestPost({ request: makeReq({ job: 'broadcast', mode: 'send', edition: 'morning', nonce: EO_NONCE }), env: makeEnv() });
@@ -222,24 +222,24 @@ async function main() {
     check('越权组合计入今日被拒', !!rj && rj.lastError === 'slot_not_scheduled' && rj.lastStatus === 403, JSON.stringify(rj));
   }
 
-  // ---- 栈 3c：带 CRON_SECRET 的早报手动重跑不受组合白名单限制 ----
+  // ---- 栈 3c：带 CRON_SECRET 的盘前报手动重跑不受组合白名单限制 ----
   {
     const r = await onRequestPost({ request: makeReq({ job: 'broadcast', mode: 'send', edition: 'morning', cron_secret: 'cron-secret-123' }), env: makeEnv() });
     const j = await r.json();
     check('鉴权后 edition=morning 放行：200', r.status === 200 && j.ok === true && j.slot === 'morning', `status=${r.status}`);
     const sent = lastGhBody();
-    check('手动早报透传 edition=morning', sent.inputs && sent.inputs.edition === 'morning', JSON.stringify(sent.inputs));
+    check('手动补发盘前报透传 edition=morning', sent.inputs && sent.inputs.edition === 'morning', JSON.stringify(sent.inputs));
   }
 
-  // ---- 栈 3d：下午报（edition=close）独立触发并透传 ----
+  // ---- 栈 3d：收盘前报（edition=close）独立触发并透传 ----
   reset();
   {
     const r = await onRequestPost({ request: makeReq({ job: 'broadcast', mode: 'send', edition: 'close', nonce: EO_NONCE }), env: makeEnv() });
     const j = await r.json();
     check('下午报受理：200', r.status === 200 && j.ok === true && j.slot === 'close', `status=${r.status}`);
     const sent = lastGhBody();
-    check('下午报透传 inputs.edition=close', sent.inputs && sent.inputs.edition === 'close' && sent.inputs.mode === 'send', JSON.stringify(sent.inputs));
-    check('下午报闸 key 独立已写', globalThis.SUBS_KV._m.has(guardKey('broadcast', 'close')));
+    check('收盘前报透传 inputs.edition=close', sent.inputs && sent.inputs.edition === 'close' && sent.inputs.mode === 'send', JSON.stringify(sent.inputs));
+    check('收盘前报闸 key 独立已写', globalThis.SUBS_KV._m.has(guardKey('broadcast', 'close')));
     check('下午报事件带 slot=close', events()[0] && events()[0].slot === 'close', JSON.stringify(events()[0]));
   }
 
@@ -434,7 +434,7 @@ async function main() {
       'schedule 名：refresh-0750 / refresh-0940 / refresh-1430 / broadcast-1445',
       !!byName['refresh-0750'] && !!byName['refresh-0940'] && !!byName['refresh-1430'] && !!byName['broadcast-1445']
     );
-    check('08:10 早报 schedule 已下线', !byName['broadcast-0810']);
+    check('08:10 的早报 schedule 已下线（现只有 14:45 收盘前报）', !byName['broadcast-0810']);
     const rf = byName['refresh-0750'] || {};
     const rf15 = byName['refresh-0940'] || {};
     const rf2 = byName['refresh-1430'] || {};

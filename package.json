@@ -10,6 +10,7 @@
     "import:history": "node scripts/import-history.mjs",
     "check:data": "node scripts/check-freshness.mjs",
     "check:index": "node scripts/check-index-isolation.mjs",
+ "check:broadcast": "node scripts/check-broadcast.mjs",
     "calendar:build": "node scripts/build-us-calendar.mjs",
     "calendar:check": "node scripts/build-us-calendar.mjs --check && node scripts/check-cn-holidays.mjs",
     "build": "astro build",

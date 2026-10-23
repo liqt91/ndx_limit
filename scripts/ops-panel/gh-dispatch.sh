@@ -9,7 +9,10 @@
 #   gh-dispatch.sh refresh                  # 触发 Daily Data Refresh（安全，不发信）
 #   gh-dispatch.sh broadcast                # 触发 Daily Broadcast，mode=send（真群发）
 #   gh-dispatch.sh broadcast dry            # 触发 Daily Broadcast，mode=dry-run（只打印不发信）
-#   gh-dispatch.sh broadcast send morning   # 显式指定 edition（调试用，一般不用传）
+#   gh-dispatch.sh broadcast send morning   # 显式指定 edition=盘前报（调试用，一般不用传）
+#
+# 版次（edition）：生产每天只发一封**收盘前报**（14:45，场外 15:00 截止前，edition=close）。
+#   edition=morning 是盘前报，无调度，只在人工补发时用。
 #
 # 凭据：环境变量 GH_DISPATCH_TOKEN，或文件 /root/.gh_dispatch_token（chmod 600）。
 # 退出码：0 = 已dispatch且 GitHub 返回 204；1 = GitHub 返回非 204；2 = 用法错误；3 = 缺 token。
@@ -19,11 +22,13 @@
 #     * 新增可选第二参数 dry（broadcast dry-run）；
 #     * 非 204 时退出码改为 1（以前静默返回 0）。
 #   2026-10-21 下午（三抓一报改版）：
-#     * broadcast 自动带 edition。原因：broadcast.yml 的 inputs.edition 默认值是
-#       **morning**，不传就发早报口径（正文写「07:50 抓、08:10 发」，没有「较今晨」段）。
+#     * broadcast 自动带 edition。当时 broadcast.yml 的 inputs.edition 默认值是 morning，
+#       不传就发盘前口径（正文写「07:50 抓、08:10 发」，没有「较盘前」段）——
 #       14:45 那一跳若不显式传 close，订阅者收到的会是措辞与视角都不对的邮件。
 #     * edition 缺省按当前小时判（12:00 前 morning、之后 close），与 scrape.mjs 的
-#       slot 判定、面板走 EdgeOne 时的 edition 判定同款，避免「上午手点发送却发了下午报」。
+#       slot 判定、面板走 EdgeOne 时的 edition 判定同款。
+#   2026-10-23：broadcast.yml 的默认值已改为 **close**，漏传也不会再发错口径；
+#     这里仍显式传，是为了「上午手点补发」时能明确要盘前报（morning）。
 #       ★ 这个判定依赖服务器本地时区＝Asia/Shanghai（实测已确认：crontab 的 50 7 落在
 #       北京 07:50）。注意 Debian/Ubuntu 的 cron **不认 CRON_TZ**（man 5 crontab：
 #       does not support per-user timezones），所以时刻与这里的小时判断都以系统时区为准。
@@ -56,7 +61,8 @@ case "${1:-}" in
       "")          mode="send" ;;
       *) echo "usage: $0 broadcast [dry|send] [morning|close]" >&2; exit 2 ;;
     esac
-    # edition 显式传就听传的，否则按当前小时判（见文件头变更记录）
+    # edition 显式传就听传的，否则按当前小时判（见文件头变更记录）：
+    # 12:00 前=morning（盘前报，人工补发场景），之后=close（收盘前报，生产时点）
     edition="${3:-}"
     if [ -z "$edition" ]; then
       if [ "$(date +%-H)" -ge 12 ]; then edition="close"; else edition="morning"; fi

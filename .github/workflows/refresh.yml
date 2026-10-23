@@ -62,6 +62,12 @@ jobs:
       - name: Verify index isolation
         run: node scripts/check-index-isolation.mjs --no-dist
 
+      # 发信口径门禁：订阅偏好裁剪（只订标普的人不许收到纳指的数字）、老记录默认只纳指、
+      # 三份指数白名单一致、默认版次是 close（收盘前报）。全是字符串拼装，错了不会抛异常，
+      # 只会在某个人信箱里安静地出现别人的数——所以必须进 CI，别靠人看。
+      - name: Verify broadcast rules
+        run: node scripts/check-broadcast.mjs
+
       # history.json 是 30 天柱状图的数据源，CI checkout 的是已提交版，不回写会逐天丢数据。
       # 无变化时跳过提交，避免每天产生空 commit。
       - name: Commit data back

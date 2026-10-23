@@ -64,7 +64,7 @@ function page(env, status) {
     `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex">
-<title>${m.title} - 纳指开门日报</title>
+<title>${m.title} - QDII 开门日报</title>
 <style>
   :root{--bg:#f6f7f9;--card:#fff;--fg:#1a1a1a;--muted:#666;--line:#e6e8eb;--accent:#1a1a1a;--accent-fg:#fff}
   @media (prefers-color-scheme:dark){:root{--bg:#111315;--card:#1a1d20;--fg:#e8eaed;--muted:#9aa0a6;--line:#2a2e33;--accent:#e8eaed;--accent-fg:#111315}}

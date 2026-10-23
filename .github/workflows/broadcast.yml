@@ -1,18 +1,23 @@
 name: Daily Broadcast
 
-# 每天早上/收盘前把日报群发给所有订阅人。**不抓数据，只发信**（抓取见 refresh.yml）。
+# 每天收盘前（14:45）把日报群发给所有订阅人。**不抓数据，只发信**（抓取见 refresh.yml）。
+#
+# 这一封是「收盘前报」：场外申购 15:00 截止，它回答的是「今天还能不能下单」。
+# 08:10 的早报已于 2026-10-21 下线，**生产每天只有这一封**，edition 只有一个真实取值 close。
+# 代码里仍保留 edition=morning（盘前视角），仅供人工补发，调度表里没有它。
 #
 # 为什么用独立 cron 而不是 workflow_run 串在抓取后面：
 #   workflow_run 校验的是「另一个 job 是否成功」，而真正该校验的是「数据是不是今天的」。
 #   独立 cron + check-freshness 门禁校验的是事实本身：抓取失败了就明确拒发并变红，
 #   而不是拿昨天的数据当今天推出去。顺带也不会被 GITHUB_TOKEN 的递归触发限制绊住。
 #
-# 定时由 EdgeOne schedules 触发（edgeone.json，北京 08:10 早报 / 14:45 下午报），
-# 抓取同源调度在 07:50 / 14:30，各留 20 / 15 分钟给抓取和 EdgeOne 重建。
-# 不再依赖 GitHub 自带 schedule——实测延迟可达 2h44m（2026-10-20）。
+# 定时由 EdgeOne schedules 触发（edgeone.json，北京 14:45），抓取在 07:50 / 09:40 / 14:30，
+# 留 15 分钟给抓取和 EdgeOne 重建。不再依赖 GitHub 自带 schedule——实测延迟可达 2h44m（2026-10-20）。
 #
 # edition 必须与 dispatch.js 的透传一起上线：workflow_dispatch 的 inputs 只认已声明
 # 的 input，broadcast 不带 edition 声明时，dispatch 传 edition=close 会被 GitHub 422 拒。
+# ★ 默认值必须是 close：漏传 edition 时（面板/curl/人手 dispatch）发的仍是收盘前报，
+#   而不是默默换成一封盘前口吻的信。这条由 check-broadcast.mjs 断言，别只写在注释里。
 
 on:
   workflow_dispatch:
@@ -25,12 +30,16 @@ on:
           - send
         default: dry-run
       edition:
-        description: 'morning 早报（默认）；close 下午报（收盘前最终额度）'
+        description: 'close 收盘前报（默认，生产时点）；morning 盘前报（人工补发用，无调度）'
         type: choice
         options:
-          - morning
           - close
-        default: morning
+          - morning
+        default: close
+      indices:
+        description: '留空=按订阅偏好与数据可用性自动决定；填了则只在其中发（逗号分隔：纳斯达克100,标普500）'
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -53,9 +62,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # 门禁：最新数据必须是应有交易日的数据（交易日=今天；休市日=最近交易日），
-      # 且人民币覆盖率达标。抓取失败/没跑完 → 退出码 2，本 job 变红，一封信都不发。
-      # 休市日时门禁放行但输出 skip=true，让下方 Send 步骤跳过群发。
+      # 门禁：每个指数各自验「最新数据是不是应有交易日的」「覆盖率够不够」。
+      # 全部不可用 → 退出码 2/3/4，一封信都不发；
+      # 部分不可用 → 放行但输出 usable（只发可用的指数）与 degraded（末尾标红，别让漏发静默）；
+      # 休市日 → 输出 skip=true，Send 步骤整体跳过。
       - name: Check data freshness
         id: freshness
         run: node scripts/check-freshness.mjs
@@ -76,6 +86,9 @@ jobs:
           SUBSCRIBERS_TOKEN: ${{ secrets.SUBSCRIBERS_TOKEN }}
           RATE_DELAY_MS: '200'
           DIGEST_EDITION: ${{ inputs.edition }}
+          # 手动触发时可以只发某几个指数；定时触发时 inputs.indices 为空，
+          # 于是用门禁算出来的 usable。两者都空 → send.mjs 自己按健康度决定。
+          DIGEST_INDICES: ${{ inputs.indices || steps.freshness.outputs.usable }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.mode }}" = "dry-run" ]; then
             echo "== 手动触发，mode=dry-run（edition=${{ inputs.edition }}）：只打印不发信 =="
@@ -83,3 +96,11 @@ jobs:
           else
             node scripts/send.mjs
           fi
+
+      # 有指数被剔除时不阻断发信（其他指数的订户该收还是要收），但必须把这次 run 标红：
+      # 退一步说，红色是运维唯一会看见的信号——绿色 + 日志里一行 warning 等于没发生。
+      - name: Flag dropped indices
+        if: steps.freshness.outputs.degraded == 'true'
+        run: |
+          echo "::error::有指数因数据不可用被剔除（见上方 Check data freshness 输出），这些指数的订户今天没有收到日报。"
+          exit 1

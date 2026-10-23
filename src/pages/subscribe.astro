@@ -3,14 +3,18 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
 // 订阅走自己的边缘函数（EdgeOne Edge Functions），不再依赖第三方表单：
 //   浏览器 POST /api/subscribe（同源，不跳转）→ 边缘函数写 KV → 返回 JSON
-// 每天 14:45 由 EdgeOne schedules 拉 /api/subscribers 取名单，再用 SMTP 群发。
+// 每天 14:45 由调度拉 /api/subscribers 取名单，再用 SMTP 群发（收盘前报）。
 // 访客全程只访问本站域名，国内不需要任何代理。
+//
+// 订阅范围（indices）是可选的：勾哪些指数就只收哪些，发信侧按 KV 里的 indices 裁剪正文。
+// 已确认的邮箱再提交一次只会合并范围（不重发确认信），这是「加订一个指数」的唯一入口。
 ---
 
 <BaseLayout title="订阅日报 - QDII 开门日报" siteName="QDII 开门日报" shortName="QDII 日报" navKey={null}>
   <h1 class="section-title">订阅日报</h1>
   <p class="my-hint">
-    每天下午收盘前，把当天纳指100 基金的开门与限购变化发到你的邮箱。只填邮箱，提交后去收件箱点一下确认链接就完成了。
+    每天收盘前（场外申购 15:00 截止前），把当天 QDII 基金的开门与限购变化发到你的邮箱。
+    只填邮箱，提交后去收件箱点一下确认链接就完成了。
   </p>
 
   <form class="form" id="sub-form" novalidate>
@@ -24,6 +28,20 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       inputmode="email"
       required
     />
+
+    <!-- 订阅范围：默认两个都勾。一个不勾会被拦下——不勾等于「订了个不收的信」，
+         与其静默按默认值发，不如让他明确选。 -->
+    <fieldset class="pick" id="pick">
+      <legend>订阅范围</legend>
+      <label class="pick-item" for="pick-ndx">
+        <input type="checkbox" id="pick-ndx" name="indices" value="纳斯达克100" checked />
+        <span>纳指100</span>
+      </label>
+      <label class="pick-item" for="pick-sp500">
+        <input type="checkbox" id="pick-sp500" name="indices" value="标普500" checked />
+        <span>标普500</span>
+      </label>
+    </fieldset>
 
     <!-- 蜜罐：视觉隐藏且不可聚焦，正常人填不到；被填即判断为机器人 -->
     <div class="hp" aria-hidden="true">
@@ -43,6 +61,9 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       提交后会收到一封确认信，点信里的链接才正式入名单（1 天内有效，未确认不会收到日报）
     </p>
     <p class="note">
+      只订一个指数就只收那一个。想改范围：回到这页再填一次邮箱即可，已经确认过的地址不会再要求确认
+    </p>
+    <p class="note">
       如果没看到来信，先翻一下垃圾箱，并把发件人加进白名单  ：）
     </p>
   </div>
@@ -58,12 +79,14 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       const status = document.getElementById('sub-status');
       const emailInput = document.getElementById('email');
       const trap = document.getElementById('trap');
+      const boxes = Array.from(form.querySelectorAll('input[name="indices"]'));
       const idleLabel = btn.textContent;
 
       const setStatus = (msg, kind) => {
         status.textContent = msg;
         status.className = 'form-status' + (kind ? ' is-' + kind : '');
       };
+      const picked = () => boxes.filter((b) => b.checked).map((b) => b.value);
 
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -71,6 +94,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         if (!email) {
           setStatus('请先填邮箱。', 'err');
           emailInput.focus();
+          return;
+        }
+        const indices = picked();
+        if (!indices.length) {
+          setStatus('至少选一个指数。', 'err');
           return;
         }
 
@@ -82,19 +110,28 @@ import BaseLayout from '../layouts/BaseLayout.astro';
           const res = await fetch('/api/subscribe', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ email, trap: trap ? trap.value : '' }),
+            body: JSON.stringify({ email, indices, trap: trap ? trap.value : '' }),
           });
           const data = await res.json().catch(() => ({}));
 
           if (res.ok && data.ok) {
             emailInput.disabled = true;
+            boxes.forEach((b) => (b.disabled = true));
             if (data.pending) {
               // 双重确认：还没入名单，得去邮箱点一下链接
               btn.textContent = '待确认';
               setStatus('确认邮件已发到 ' + email + '，点信里的链接才完成订阅（1 天内有效）。', 'ok');
+            } else if (data.duplicated) {
+              btn.textContent = '已订阅 ✓';
+              setStatus(
+                data.updated
+                  ? '订阅范围已更新为 ' + (data.indices || indices).join(' + ') + '，不用再确认。'
+                  : '这个邮箱已经在名单里了（' + (data.indices || indices).join(' + ') + '），不用重复订阅。',
+                'ok'
+              );
             } else {
               btn.textContent = '已订阅 ✓';
-              setStatus('已订阅。每天下午的日报会发到 ' + email + '。', 'ok');
+              setStatus('已订阅。每天收盘前的日报会发到 ' + email + '。', 'ok');
             }
             return;
           }

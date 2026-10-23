@@ -20,7 +20,7 @@
 // 依赖：仅 Node 22 内置。日报内容由 ./digest.mjs 统一构建。
 
 import fs from 'node:fs';
-import { buildDailyDigest } from './digest.mjs';
+import { buildBroadcastDigest, INDEX_KEYS } from './digest.mjs';
 
 const DRY_RUN = process.argv.includes('--dry-run');
 const WEBHOOK = process.env.NOTIFY_WEBHOOK || '';
@@ -101,9 +101,11 @@ function resolveEndpoint(key) {
 }
 
 function main() {
-  const d = buildDailyDigest();
+  // 管理员自通知看全量：两个指数都拼进来，任何一个数据不可用都在正文里明写
+  // （订阅者那边是按偏好裁剪的，站长这边不需要裁剪——巡检要看到「哪个指数今天没数据」）。
+  const d = buildBroadcastDigest({ edition: 'close', indices: INDEX_KEYS });
   const ops = opsReport();
-  const text = d.text + ops.text;
+  const text = (d.text || '今日没有可用指数（两个指数的数据都不完整）。') + ops.text;
 
   // 一天抓两次（早间 + 收盘前），但管理员通知不需要两封：
   // 收盘前那次只在巡检发现异常时才发，正常的「下午也一样」不值一封邮件。
@@ -146,9 +148,9 @@ async function send(msg, date) {
         accept: 'application/json',
       },
       body: JSON.stringify({
-        sender: { name: '纳指开门日报', email: process.env.MAIL_FROM },
+        sender: { name: 'QDII 开门日报', email: process.env.MAIL_FROM },
         to: [{ email: ALERT_EMAIL }],
-        subject: `【ndx】${date} 数据已更新`,
+        subject: `【QDII】${date} 数据已更新`,
         textContent: msg,
       }),
     });

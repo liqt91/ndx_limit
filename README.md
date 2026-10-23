@@ -185,7 +185,7 @@ node scripts/import-history.mjs --prefer=remote        # 同日冲突改以来�
 两个指数的份额躺在同一份 `history.json` 里，任何一处聚合忘了带 `indexKey`，首屏就会把两边的
 额度加在一起——页面照样渲染、数字照样像真的。为此：
 
-- `loader.ts` 的每个聚合函数都收 `indexKey`，**默认值一律是纳指**（既有页面、早报、小程序不传参时
+- `loader.ts` 的每个聚合函数都收 `indexKey`，**默认值一律是纳指**（既有页面、日报、小程序不传参时
   行为与扩容前逐字节一致）
 - `digest.mjs` 的 `aggregateCny` / `computeCoverage` / `summarizeDay` / `latestDate` 同样必须传
 - `scrape.mjs` 把 fetch-meta 的**顶层字段永远写成纳指**，其它指数放进 `runs[].byIndex`
@@ -212,20 +212,32 @@ Map 对未收录的 code 返回 `undefined`，于是 `fund-meta` 里任何别的
 1. **收邮箱（同域边缘函数）**：`/subscribe` 是本站原生表单，`fetch POST /api/subscribe`
    → `edge-functions/api/subscribe.js`，跑在 EdgeOne 边缘节点，写入 KV。
    - 邮箱归一化为小写、SHA-256 后做 key，重复订阅幂等；
+   - **订阅范围（`indices`）**：表单上勾「纳指100 / 标普500」，随请求体一起进来；
+     一个不勾会被前端拦下，接口收到空值则按「两个都要」处理。
    - 蜜罐字段 + Origin 校验防刷，另建议在控制台对 `/api/subscribe` 加限频规则；
    - 只收集邮箱一个字段，页面已写明用途与退订方式。
 2. **双重确认（默认开启）**：提交后不直接入名单，而是写 `pend_<sha>` 并调 Brevo 事务邮件 API
    发一封确认信，链接指到本站 `GET /api/confirm?t=<token>`。
    - 点了链接才把记录转成 `sub_<sha>`（真正入名单），确认链接 1 天有效；
+   - 值是 JSON `{email, indices, ts}`。**老记录是纯邮箱字符串，读时一律按「只订纳指」**
+     （2026-10-23 之前只有纳指日报，替老订阅者补上标普500 等于替他做决定）；
+   - 已确认的邮箱再提交一次只做**范围合并**（只增不减），不重发确认信——这是「加订一个指数」的入口；
    - 优势：别人无法拿你的邮箱「代填」让你收日报；打错的地址进不了名单——硬退信会毁掉新域名的发信信誉；
    - 同一邮箱 10 分钟内重复提交不重发（防被用来轰炸某人邮箱）；
    - 发信失败会回滚 `pend_`/`tok_` 并返回 502，不留「有记录、无链接」的死状态；
    - 需要退回「填了即入名单」时，把环境变量 `REQUIRE_CONFIRM` 设成 `false` 即可，不用改代码。
 3. **取名单（带鉴权的只读接口）**：`GET /api/subscribers`，需 `Authorization: Bearer <SUBSCRIBERS_TOKEN>`，
-   分页遍历 KV 返回 `{count, emails}`。
+   分页遍历 KV 返回 `{count, emails, subscribers:[{email,indices}], byIndex}`。
    **只返回已确认的 `sub_`**，`pend_`/`tok_` 一律不出现。名单放在自己的腾讯云账号里，换发信服务商不用迁移。
-4. **每日群发**：`broadcast.yml` 每天 08:20 拉名单 → `scripts/send.mjs` 用 SMTP 逐封发送。
+4. **每日群发（收盘前报）**：`broadcast.yml` 每天 14:45 拉名单 → `scripts/send.mjs` 用 SMTP 逐封发送。
+   场外申购 15:00 截止，所以这一封给的是当日快照 + 「较上一交易日」+「较盘前」。
    **无变化也发**（正文含「今日无变化」）。每封底部带签名退订链接。
+   - **按订阅范围裁剪**：每人一封，正文里只有他订的指数那一节（只订标普的人看不到纳指的数字）；
+   - **按指数各判数据可用性**：`check-freshness` 分指数验新鲜度与覆盖率，不可用的指数
+     不进 `DIGEST_INDICES`，其订户当天直接跳过（宁可不发，也不发旧数据）；
+     有指数被剔除时 job 末尾会把 run 标红。
+   - 口径由 `npm run check:broadcast` 守着（74 项：裁剪不串台、老记录默认纳指、
+     三处指数白名单一致、默认版次必须是 `close`）。
 5. **退订**：`GET /api/unsubscribe?e=<email>&t=<sha256(email + ':' + UNSUB_SECRET)>`，
    校验通过就真删 `sub_<sha>`。签名算法只存在于 `scripts/unsub.mjs`（发送侧）与
    `edge-functions/api/unsubscribe.js`（校验侧），测试直接 import 前者去敲后者，任一端改口径立刻红。
@@ -241,7 +253,7 @@ Map 对未收录的 code 返回 `undefined`，于是 `fund-meta` 里任何别的
 |---|---|
 | `SUBSCRIBERS_TOKEN` | ≥32 位随机串，`/api/subscribers` 的 Bearer 口令 |
 | `BREVO_API_KEY` | Brevo → SMTP & API → API Keys，用于发确认信 |
-| `MAIL_FROM` | 确认信发件人，如 `纳指开门日报 <digest@liqt91.top>`（域名须在 Brevo 验证过） |
+| `MAIL_FROM` | 确认信发件人，如 `QDII 开门日报 <digest@liqt91.top>`（域名须在 Brevo 验证过） |
 | `UNSUB_SECRET` | 退订链接签名密钥，与 GitHub Secrets 同名同值 |
 | `REQUIRE_CONFIRM` | 默认 `true`（双重确认）；填 `false` 退回单确认 |
 | `SITE_URL` | 默认 `https://qdii.liqt91.top`，确认/退订链接的域名前缀 |
@@ -254,7 +266,7 @@ Map 对未收录的 code 返回 `undefined`，于是 `fund-meta` 里任何别的
 | Secret | 用途 |
 |---|---|
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | SMTP 凭据（Brevo：`smtp-relay.brevo.com` 端口 `587`） |
-| `MAIL_FROM` | 发件人，如 `纳指开门日报 <digest@liqt91.top>` |
+| `MAIL_FROM` | 发件人，如 `QDII 开门日报 <digest@liqt91.top>` |
 | `SUBSCRIBERS_URL` | `https://qdii.liqt91.top/api/subscribers` |
 | `SUBSCRIBERS_TOKEN` | 与 EdgeOne 环境变量同名同值 |
 | `UNSUBSCRIBE_URL` | `https://qdii.liqt91.top/api/unsubscribe`；不配则日报不带退订链接（日志会警告） |

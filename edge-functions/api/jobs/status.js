@@ -41,7 +41,8 @@ function getKV(env) {
 const JOBS = ['refresh', 'broadcast'];
 // 每个 job 各自的时点集合，必须与 dispatch.js 的 REFRESH_SLOTS / BROADCAST_SLOTS 一致。
 // refresh 三个时点（07:50 盘前 / 09:40 早盘 / 14:30 收盘前）各占一个闸键；
-// broadcast 用 edition 当槽位，早报（morning）已无 schedule 但手动仍可发，所以两个都查。
+// broadcast 用 edition 当槽位：生产只有 close（收盘前报）；morning（盘前报）已无 schedule
+// 但人工补发仍可发，所以两个都查。
 const SLOTS = {
   refresh: ['preopen', 'intraday', 'close'],
   broadcast: ['morning', 'close'],

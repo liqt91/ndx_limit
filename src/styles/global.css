@@ -978,6 +978,35 @@ a { color: inherit; text-decoration: none; }
 }
 .form button:hover { opacity: .82; }
 .form button:disabled { cursor: default; opacity: .38; }
+/* 订阅范围（指数多选）：跟着纸感规矩走——不画框、不做药丸，只有一条细线与等宽小标。
+   fieldset 默认带边框与内边距，必须显式清掉，否则会在这个极简表单里冒出一个灰框。 */
+.form .pick { border: none; padding: 0; margin: 0 0 20px; }
+.form .pick legend {
+  padding: 0;
+  margin-bottom: 10px;
+  font-family: var(--mono);
+  font-size: 11.5px; font-weight: 400;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ink-3);
+}
+.form .pick-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 24px 0 0;
+  font-family: var(--sans);
+  font-size: 13.5px; font-weight: 400;
+  letter-spacing: 0; text-transform: none;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.form .pick-item input[type="checkbox"] {
+  width: 13px; height: 13px;
+  margin: 0;
+  accent-color: var(--ink);
+  cursor: pointer;
+}
+.form .pick-item input[type="checkbox"]:disabled { cursor: default; }
 .form-ok { color: var(--ok); font-weight: 500; margin-top: 12px; }
 .form-status { margin: 14px 0 0; font-size: 13.5px; line-height: 1.7; }
 .form-status.is-ok { color: var(--ok); }

@@ -277,7 +277,7 @@ async function main() {
   }
 
   // 分指数统计：覆盖率门禁按指数各算各的。标普500 抓不稳时只降级它自己，
-  // 不能连坐纳指——纳指的早报/页面是本站在跑的主业务。
+  // 不能连坐纳指——纳指的日报/页面是本站在跑的主业务。
   const perIndex = new Map();
   for (const k of indexKeys) {
     perIndex.set(k, { cnyTargets: 0, cnyOk: 0, recovered: 0, msRecovered: 0, status: {} });
@@ -382,7 +382,7 @@ async function main() {
   }
 
   // 其他指数不达标 → 只丢它今天的点（history 保留上次好数据，页面会亮「数据过期」），
-  // 不阻断纳指。标普500 抓失败不该让纳指的早报和页面停摆。
+  // 不阻断纳指。标普500 抓失败不该让纳指的日报和页面停摆。
   const degradedIndexes = [];
   for (const k of indexKeys) {
     if (k === NDX || coverage[k] >= MIN_COVERAGE) continue;
@@ -529,7 +529,7 @@ async function main() {
   // 只有「今天已经有别的时点跑过」时，这个差异才有意义；重跑同一时点时不要把它抹成空
   const changed = intraday.length ? intraday.slice(0, 20) : existingRun && existingRun.changed ? existingRun.changed : null;
 
-  // ★ fetch-meta 的顶层字段永远是纳指（早报、页面首屏、小程序都按这个读，语义不变）。
+  // ★ fetch-meta 的顶层字段永远是纳指（日报、页面首屏、小程序都按这个读，语义不变）。
   //   标普500 等其它指数放进 byIndex，缺字段 = 该指数今天没有有效聚合（被门禁丢弃）。
   const agg = aggregateCny(funds, pointByCode, NDX);
   const changedOf = (k) =>
