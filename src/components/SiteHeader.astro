@@ -1,21 +1,30 @@
 ---
-// 顶栏。2026-10-23 起站内有两个指数分站（纳指100 / 标普500），导航第一项从「今日」
-// 变成指数名：两个页面长得一样，只有把指数名放进导航，读者才知道自己在看哪一个。
+// 顶栏。2026-10-23 起站点在 qdii.liqt91.top，两个指数各占一个路径前缀：
+//   /ndx100 纳指100、/sp500 标普500；/my、/subscribe、/f/<code> 跨指数共用。
+// 导航第一项是指数名而不是「今日」：两个看板长得一样，只有把指数名放进导航，
+// 读者才知道自己在看哪一个。
 import { INDEXES, NDX, SP500 } from '../data/loader';
 
 interface Props {
   brand?: string;
-  /** 当前指数。省略时按路径判断（详情页/我的基金等非分站页面永远落在纳指） */
-  navKey?: string;
+  /** 当前指数。省略 = 按路径推断；显式 null = 共用页，指数项一律不高亮 */
+  navKey?: string | null;
 }
-const { brand = '纳指开门日报', navKey } = Astro.props;
+const { brand = 'QDII 开门日报', navKey } = Astro.props;
 
 const path = Astro.url.pathname;
-const isCurrent = (p: string) =>
-  p === '/' ? path === '/' : path === p || path.startsWith(p + '/');
+// 兼容带与不带尾斜杠两种写法（/ndx100 与 /ndx100/ 都可能出现在外部链接里）
+const isCurrent = (p: string) => {
+  const bare = p.replace(/\/$/, '');
+  return path === p || path === bare || path.startsWith(bare + '/');
+};
 
-const activeKey = navKey ?? (path.startsWith('/sp500') ? SP500 : NDX);
-const brandHref = activeKey === SP500 ? '/sp500/' : '/';
+// 区分「没传」与「显式传 null」：没传才按路径猜。
+// 共用页（/my）如果也按路径猜，会落到「纳指」上，于是「纳指」和「我的基金」
+// 同时带 aria-current —— 屏幕阅读器会念两个当前页。
+const activeKey = navKey === null ? null : (navKey ?? (path.startsWith('/sp500') ? SP500 : NDX));
+const brandHref = activeKey === SP500 ? '/sp500/' : '/ndx100/';
+
 // 只列两个指数；INDEXES 里若以后加第三个，导航会自动多一项。
 // 标签用短名（纳指 / 标普500）而不是全称「纳斯达克100」：390 宽下 6 个导航项 +
 // 品牌名会把「纳斯达克100」压成「纳斯达 / 克100」两行，订阅按钮也竖排。
@@ -24,6 +33,11 @@ const indexNav = INDEXES.map((i) => ({
   href: i.path,
   key: i.key,
 }));
+
+// 「历史」跟着当前指数走：标普500 站上点历史，不该落到纳指的历史页。
+// 共用页（/my）没有指数身份，默认给纳指——持仓只在标普的用户可以在我的基金里
+// 用筛选器切过去，比让导航去猜他的持仓更可靠。
+const dailyHref = activeKey === SP500 ? '/sp500/daily' : '/ndx100/daily';
 ---
 
 <header class="site-head">
@@ -37,7 +51,7 @@ const indexNav = INDEXES.map((i) => ({
         <a href={i.href} aria-current={activeKey === i.key ? 'page' : undefined}>{i.label}</a>
       ))}
       <a href="/my" aria-current={isCurrent('/my') ? 'page' : undefined}>我的基金</a>
-      <a href="/daily" aria-current={isCurrent('/daily') ? 'page' : undefined}>历史</a>
+      <a href={dailyHref} aria-current={isCurrent(dailyHref) ? 'page' : undefined}>历史</a>
       <a class="btn-sub" href="/subscribe">订阅</a>
     </nav>
   </div>

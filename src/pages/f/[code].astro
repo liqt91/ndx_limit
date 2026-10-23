@@ -17,7 +17,9 @@ const { share } = Astro.props as { share: FundShare };
 // 把人送回纳指首页是错的（两页长得一样，读者会以为额度变了）
 const meta = indexMeta(share.indexKey);
 const homeHref = meta.path;
-const homeLabel = meta.path === '/' ? '← 返回今日' : `← 返回${meta.label}`;
+// 按 indexKey 判断，不按 path 判断：2026-10-23 起两个指数都在 /<index> 下，
+// 「path === '/'」这种写法再也命中不了，会把两个指数的回跳文案都写成「← 返回标普500」。
+const homeLabel = `← 返回${meta.label}`;
 
 // 历史按从新到旧展示
 const history = [...share.history].reverse();

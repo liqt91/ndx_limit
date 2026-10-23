@@ -41,11 +41,11 @@ const CFG = {
     process.env.RAW_BASE ||
     `https://raw.githubusercontent.com/${process.env.REPO || 'liqt91/ndx_limit'}/main`
   ).replace(/\/+$/, ''),
-  siteOrigin: (process.env.SITE_ORIGIN || 'https://ndx.liqt91.top').replace(/\/+$/, ''),
+  siteOrigin: (process.env.SITE_ORIGIN || 'https://qdii.liqt91.top').replace(/\/+$/, ''),
   // EdgeOne 调度层（2026-10-21 起主触发路径）：status 只读端点 + 手动触发走的
   // CRON_SECRET。manual 优先走 EO 端点——服务器上的 PAT 过期不影响面板能触发，
   // 每次点击还顺带验证 EO 这条路径是活的。
-  eoStatusUrl: (process.env.EO_STATUS_URL || `${process.env.SITE_ORIGIN || 'https://ndx.liqt91.top'}/api/jobs/status`).replace(/\/+$/, ''),
+  eoStatusUrl: (process.env.EO_STATUS_URL || `${process.env.SITE_ORIGIN || 'https://qdii.liqt91.top'}/api/jobs/status`).replace(/\/+$/, ''),
   eoCronSecret: readSecret(process.env.EO_CRON_SECRET_FILE || '/root/.eo_cron_secret', 'EO_CRON_SECRET'),
   dispatchVia: process.env.DISPATCH_VIA || 'auto',
   dispatchScript: process.env.DISPATCH_SCRIPT || '/usr/local/bin/gh-dispatch.sh',

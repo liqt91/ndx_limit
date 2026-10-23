@@ -80,7 +80,7 @@ const familyHistory: DayPoint[] = allDates.map((date) => {
 });
 ---
 
-<div class="fam" data-codes={dataCodes} hidden={hidden}>
+<div class="fam" data-codes={dataCodes} data-index={first.indexKey} hidden={hidden}>
   <div class="fam-head">
     <div class="fam-name">
       {name}
@@ -109,6 +109,9 @@ const familyHistory: DayPoint[] = allDates.map((date) => {
         <a
           class="sh"
           href={`/f/${s.code}`}
+          data-code={s.code}
+          data-status={s.purchaseStatus}
+          data-limit={s.dailyLimit != null ? String(s.dailyLimit) : ''}
           aria-label={`${s.shareClass} 类 ${s.code}${s.dailyLimit != null ? ` 单日 ${s.dailyLimit} 元` : ''} · ${STATUS_LABEL[s.purchaseStatus]}`}
         >
           <span class="sh-txt">{s.shareClass}类 {s.code} {s.limitMissing ? '待核验' : `${s.dailyLimit ?? 0}元`}</span>

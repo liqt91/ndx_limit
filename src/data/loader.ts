@@ -45,8 +45,11 @@ export interface IndexMeta {
   label: string;
 }
 
+// 2026-10-23 换域并统一路径：根目录不再承载纳指看板，改成 /ndx100。
+// 根 / 只留一个跳转空壳（src/pages/index.astro），所以这里没有 '/' 了——
+// 任何「meta.path === '/'」式的判断都必须改成按 key 判断，否则会静默失效。
 export const INDEXES: IndexMeta[] = [
-  { key: NDX, short: '纳指', brand: '纳指开门日报', path: '/', label: '纳指' },
+  { key: NDX, short: '纳指', brand: '纳指开门日报', path: '/ndx100/', label: '纳指' },
   { key: SP500, short: '标普500', brand: '标普500开门日报', path: '/sp500/', label: '标普500' },
 ];
 

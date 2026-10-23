@@ -1,7 +1,7 @@
 ---
 interface Props {
-  /** 小节编号，如 "01" */
-  index: string;
+  /** 小节编号，如 "01"。省略则不画编号（我的基金按指数分段，编号会随筛选跳号） */
+  index?: string;
   title: string;
   /** 右侧等宽小注，如「较 10-18」 */
   aside?: string;
@@ -12,7 +12,7 @@ const hasSlot = Astro.slots.has('aside');
 ---
 
 <div class="sec">
-  <span class="sec-i">{index}</span>
+  {index && <span class="sec-i">{index}</span>}
   <h2 class="sec-t">{title}</h2>
   <span class="sec-line"></span>
   {

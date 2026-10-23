@@ -9,14 +9,16 @@ interface Props {
   siteName?: string;
   /** 添加到桌面时的短名（iOS 会截断长标题） */
   shortName?: string;
-  /** 当前指数（用于导航高亮），省略则按路径判断 */
-  navKey?: string;
+  /** 当前指数（用于导航高亮）。省略 = 按路径推断；显式传 null = 共用页，两个指数项都不高亮 */
+  navKey?: string | null;
 }
 const {
   title,
-  description = '每天下午，告诉你今天纳斯达克基金还能不能买、能买多少。',
-  siteName = '纳指开门日报',
-  shortName = '纳指日报',
+  // 共用页（我的基金 / 订阅 / 详情外）没有指数身份，默认值必须是中性的：
+  // 写死「纳指开门日报」会让标普500 用户在自己的页面上看到别人的站名。
+  description = '每天告诉你，QDII 场外申购份额今天能不能买、能买多少。',
+  siteName = 'QDII 开门日报',
+  shortName = 'QDII 日报',
   navKey,
 } = Astro.props;
 

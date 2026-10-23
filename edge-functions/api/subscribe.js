@@ -2,7 +2,7 @@
 //
 // 为什么要有它：站点是纯静态的，收表单必须有个「能执行代码」的地方。之前用第三方
 // 表单（Buttondown）导致国内打不开、且邮箱落在别人手里。这个函数让访客全程只访问
-// ndx.liqt91.top：同域提交、原地成功、不跳转、不出现第三方品牌。
+// qdii.liqt91.top：同域提交、原地成功、不跳转、不出现第三方品牌。
 //
 // 职责边界：只做「校验 → 去重 → 写 KV → （可选）发一封确认信」，然后立刻返回。
 // 每天群发是长任务（要重试、要日志），交给 GitHub Actions 跑，见 scripts/send.mjs。
@@ -23,8 +23,8 @@
 //        BREVO_API_KEY    Brevo → SMTP & API → API Keys
 //        MAIL_FROM        digest@liqt91.top（必须是在 Brevo 里验证过的发信域名）
 //        REQUIRE_CONFIRM  默认 true；填 false 退回「填了即入名单」的单确认
-//        SITE_URL         默认 https://ndx.liqt91.top
-//        ALLOWED_ORIGIN   默认 https://ndx.liqt91.top
+//        SITE_URL         默认 https://qdii.liqt91.top
+//        ALLOWED_ORIGIN   默认 https://qdii.liqt91.top
 //   3. 安全防护 → 加 1 条精确限频规则（免费版含 1 条），对 /api/subscribe 限 IP
 //
 // KV 最终一致性：写入后同节点立即可读，其它节点最长 60s 读到旧值。订阅是低频写，
@@ -106,7 +106,7 @@ function confirmationHtml(link, email) {
 async function sendConfirmation(env, email, token) {
   const apiKey = env.BREVO_API_KEY;
   const sender = parseSender(env.MAIL_FROM);
-  const site = String(env.SITE_URL || 'https://ndx.liqt91.top').replace(/\/+$/, '');
+  const site = String(env.SITE_URL || 'https://qdii.liqt91.top').replace(/\/+$/, '');
   const link = `${site}/api/confirm?t=${token}`;
 
   const r = await fetch('https://api.brevo.com/v3/smtp/email', {
@@ -130,7 +130,7 @@ async function sendConfirmation(env, email, token) {
 }
 
 export async function onRequestPost({ request, env }) {
-  const allowed = (env && env.ALLOWED_ORIGIN) || 'https://ndx.liqt91.top';
+  const allowed = (env && env.ALLOWED_ORIGIN) || 'https://qdii.liqt91.top';
   const origin = request.headers.get('origin') || '';
   // 浏览器同源 POST 会带 Origin；带了对不上就拒绝。缺失 Origin（curl/服务端）放行，
   // 真正的防刷靠蜜罐 + 控制台限频。

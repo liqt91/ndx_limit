@@ -1,0 +1,7 @@
+---
+// 标普500 的历史页。与 ndx100/daily.astro 同构，只换 indexKey。
+import DailyBoard from '../../components/DailyBoard.astro';
+import { SP500 } from '../../data/loader';
+---
+
+<DailyBoard indexKey={SP500} />

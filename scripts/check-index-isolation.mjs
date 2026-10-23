@@ -14,6 +14,8 @@
 //   4. fetch-meta.runs[].byIndex[k] == k 的重算值
 //   5. 若 dist/ 已构建：每个分站首页的家族数与「该指数 CNY + USD 家族数」逐项相等
 //   6. 若 dist/ 已构建：每个分站首页不含对方指数的家族名（渲染层不串台）
+//   7. 若 dist/ 已构建：路由结构——/ 与 /daily 是跳转壳，两个指数的历史页逐日数字
+//      各自等于本指数重算值，共用页（/my）不带两个当前页
 //
 // 用法：
 //   node scripts/check-index-isolation.mjs            # 有 dist 就一起验渲染层
@@ -24,7 +26,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readJson, aggregateCny, computeCoverage, NDX, SP500 } from './digest.mjs';
+import { readJson, aggregateCny, computeCoverage, summarizeDay, NDX, SP500 } from './digest.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CHECK_DIST = !process.argv.includes('--no-dist');
@@ -134,7 +136,7 @@ for (const k of indexes) {
 
 if (CHECK_DIST) {
   const dist = path.join(ROOT, 'dist');
-  if (!fs.existsSync(path.join(dist, 'index.html'))) {
+  if (!fs.existsSync(path.join(dist, 'ndx100', 'index.html'))) {
     console.log('\n6. 渲染层：dist/ 未构建，跳过（先 npm run build）');
   } else {
     console.log('\n6. 渲染层（dist）');
@@ -143,7 +145,7 @@ if (CHECK_DIST) {
       [...html.matchAll(/<div class="fam-name">([\s\S]*?)<\/div>/g)].map((m) => clean(m[1]));
 
     const pages = [
-      { file: 'index.html', key: NDX, brand: '纳指开门日报', other: '标普500' },
+      { file: path.join('ndx100', 'index.html'), key: NDX, brand: '纳指开门日报', other: '标普500' },
       { file: path.join('sp500', 'index.html'), key: SP500, brand: '标普500开门日报', other: '纳斯达克100' },
     ];
     for (const p of pages) {
@@ -169,6 +171,106 @@ if (CHECK_DIST) {
         p.key === NDX ? n.includes('标普500') : n.includes('纳斯达克')
       );
       eq(`${p.file} 未串入对方指数的家族`, leaked.length, 0);
+    }
+
+    // ── 7. 路由结构（2026-10-23 换域 + 路径重构后新增）──
+    console.log('\n7. 路由结构');
+    const readPage = (rel) => {
+      const full = path.join(dist, rel);
+      return fs.existsSync(full) ? fs.readFileSync(full, 'utf8') : null;
+    };
+
+    // 7.1 根路径只是跳转壳：真内容在 /ndx100/，不能让搜索引擎把两个 URL 当两页
+    const root = readPage('index.html');
+    ok('dist/index.html 存在', root !== null);
+    if (root) {
+      ok('根路径跳转到 /ndx100/', root.includes('content="0; url=/ndx100/"'));
+      ok('根路径 noindex（同一内容的第二个 URL 不该被收录）', root.includes('name="robots" content="noindex'));
+      ok('根路径 canonical 指向 /ndx100/', /rel="canonical" href="[^"]*\/ndx100\/"/.test(root));
+      ok('根路径仍带 og:image（贴链接不该是白卡）', root.includes('property="og:image"'));
+    }
+
+    // 7.2 旧路径不能 404
+    const oldDaily = readPage(path.join('daily', 'index.html'));
+    ok('/daily 兼容壳存在且跳 /ndx100/daily', !!oldDaily && oldDaily.includes('url=/ndx100/daily'));
+
+    // 7.3 两套历史页：行数一致、逐日数字各自等于本指数重算值
+    for (const k of indexes) {
+      const rel = path.join(k === NDX ? 'ndx100' : 'sp500', 'daily', 'index.html');
+      const html = readPage(rel);
+      ok(`${rel} 存在`, html !== null);
+      if (!html) continue;
+      const rows = [...html.matchAll(/<li class="dayrow">([\s\S]*?)<\/li>/g)].map((m) => clean(m[1]));
+      // 日期从 history 推：与 loader 同一份数据、同一个排序（降序取 15 天）
+      const dates = [
+        ...new Set(
+          Object.entries(history)
+            .filter(([code]) => codeSets[k].has(code))
+            .flatMap(([, arr]) => arr.map((p) => p.date))
+        ),
+      ]
+        .sort()
+        .reverse()
+        .slice(0, 15);
+      eq(`${k} 历史页行数`, rows.length, Math.min(15, dates.length));
+      const mismatch = [];
+      dates.forEach((d, i) => {
+        const row = rows[i] || '';
+        const want = summarizeDay(funds, history, d, k);
+        // 行文本形如「10月23日 周五 7 家开门 · 共监控 17 家（人民币） 135 元」
+        const m = row.match(/(\d+) 家开门 · 共监控 (\d+) 家（人民币） (\d+) 元/);
+        if (!m) {
+          mismatch.push(`${d} 行解析失败`);
+          return;
+        }
+        if (+m[1] !== want.opened || +m[3] !== want.total) {
+          mismatch.push(`${d} 页面=${m[1]}/${m[3]} 重算=${want.opened}/${want.total}`);
+        }
+      });
+      ok(`${k} 历史页逐日 opened/total == 重算`, mismatch.length === 0, mismatch.slice(0, 3).join('; '));
+    }
+
+    // 7.4 两边首行数字必须不同：相同就说明有一边取错了指数
+    const firstNums = (h) => {
+      // 必须先取出一行再剥标签：直接对整篇 HTML 匹配，`<b>` 会把数字和文字隔开
+      const row = (h.match(/<li class="dayrow">([\s\S]*?)<\/li>/) || [])[1];
+      const m = row ? clean(row).match(/(\d+) 家开门 · 共监控 (\d+) 家（人民币） (\d+) 元/) : null;
+      return m ? `${m[1]}/${m[2]}/${m[3]}` : '';
+    };
+    const ndxFirst = firstNums(readPage(path.join('ndx100', 'daily', 'index.html')) || '');
+    const spFirst = firstNums(readPage(path.join('sp500', 'daily', 'index.html')) || '');
+    ok('两套历史页首行数字不同', ndxFirst !== '' && ndxFirst !== spFirst, `${ndxFirst} vs ${spFirst}`);
+
+    // 7.5 共用页 /my：只能有一个当前页，且收录两边的份额
+    const my = readPage(path.join('my', 'index.html'));
+    ok('dist/my/index.html 存在', my !== null);
+    if (my) {
+      // 「两个 aria-current」是这个页面在加指数时的确踩过的 bug（SiteHeader 缺省
+      // navKey 会落到纳指，于是「纳指」和「我的基金」同时声称自己是当前页）
+      const currents = [...my.matchAll(/aria-current="page"[^>]*>([^<]*)</g)].map((m) => m[1]);
+      eq('/my 的 aria-current 恰好 1 个', currents.length, 1);
+      eq('/my 的当前页是「我的基金」', currents[0], '我的基金');
+      const known = JSON.parse((my.match(/id="knownCodes"[^>]*>([^<]*)</) || [])[1] || '[]');
+      const cnyUnion = new Set(
+        indexes.flatMap((k) =>
+          funds
+            .filter((f) => f.indexKey === k && f.currency !== 'USD')
+            .flatMap((f) => f.codes.map((c) => c.code))
+        )
+      );
+      eq('/my 的 knownCodes == 两指数人民币份额并集', known.length, cnyUnion.size);
+      const idxInPage = [...new Set([...my.matchAll(/data-index="([^"]*)"/g)].map((m) => m[1]))].sort();
+      eq('/my 按指数分段，段集合 == 指数集合', idxInPage.join(','), [...indexes].sort().join(','));
+    }
+
+    // 7.6 详情页回跳：纳指的份额回纳指，标普的回标普
+    for (const [k, label] of [
+      [NDX, '纳指'],
+      [SP500, '标普500'],
+    ]) {
+      const code = [...codeSets[k]][0];
+      const html = readPage(path.join('f', code, 'index.html')) || '';
+      ok(`/f/${code} 回跳指向${label}`, html.includes(`← 返回${label}`));
     }
   }
 }

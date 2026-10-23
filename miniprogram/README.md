@@ -1,6 +1,6 @@
 # 纳指开门日报 · 微信小程序
 
-这是网页版（<https://ndx.liqt91.top>）的**只读展示壳**。真身在网页版，小程序里不放任何开户、
+这是网页版（<https://qdii.liqt91.top>）的**只读展示壳**。真身在网页版，小程序里不放任何开户、
 购买、跳转入口——这是它能被个人主体上架的前提。
 
 ```
@@ -22,7 +22,7 @@
    备案只影响上架，不影响开发与体验版。
 
 > 域名 ICP 备案不用做：小程序不直连任何自有域名（邮箱订阅由云函数转发），
-> `ndx.liqt91.top` 托管在境外，无法备案也不影响。
+> `qdii.liqt91.top` 托管在境外，无法备案也不影响。
 
 ## 二、云开发环境
 
@@ -37,7 +37,7 @@ module.exports = {
   CLOUD_ENV: '你的环境 ID',
   CLOUD_BUNDLE: 'cloud://你的环境 ID/data/bundle.json',
   SUBSCRIBE_TEMPLATE_ID: '订阅消息模板 ID',
-  API_SUBSCRIBE: 'https://ndx.liqt91.top/api/subscribe',
+  API_SUBSCRIBE: 'https://qdii.liqt91.top/api/subscribe',
   ...
 };
 ```

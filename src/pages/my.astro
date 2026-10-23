@@ -1,35 +1,53 @@
 ---
+// 我的基金：**跨指数共用一页**。
+//
+// 为什么不像历史页那样复制成两条路由：历史是内容（/sp500/daily 可以贴给别人），
+// 持仓是人的属性——没有人希望自己在两个分站各维护一份持仓。所以指数在这里
+// 只是一个**筛选维度**（IndexSwitch filter 版，只改本地状态不改 URL）。
+//
+// 数据仍是服务端渲染的全量卡片（两个指数的人民币份额），前端按 localStorage
+// 里的代码做纯展示过滤，不上传、不请求接口。
 import BaseLayout from '../layouts/BaseLayout.astro';
 import FamilyCard from '../components/FamilyCard.astro';
-import { loadAllShares } from '../data/loader';
+import SectionHead from '../components/SectionHead.astro';
+import IndexSwitch from '../components/IndexSwitch.astro';
+import { loadAllShares, INDEXES } from '../data/loader';
 import { classRank } from '../lib/status';
 import type { FundShare } from '../data/types';
 
 const shares = loadAllShares();
-const byGroup = new Map<string, { currency: string; shares: FundShare[] }>();
-for (const s of shares) {
-  const k = `${s.company}|${s.baseName}|${s.currency}`;
-  if (!byGroup.has(k)) byGroup.set(k, { currency: s.currency, shares: [] });
-  byGroup.get(k)!.shares.push(s);
-}
-// 与首页同一条规则：卡片上的类别次序固定成 A → C → D → E → F
-for (const g of byGroup.values()) {
-  g.shares.sort((a, b) => classRank(a.shareClass) - classRank(b.shareClass));
-}
-const groups = [...byGroup.values()];
+
+// 先按指数分段，段内再按基金家族分组。
+// 两段顺序跟随 INDEXES（纳指在前），不按「谁有持仓」排序——卡片是静态渲染的，
+// 排序若跟着持仓变，页面的结构会随每个人不同，反而更难扫读。
+const sections = INDEXES.map((meta) => {
+  const list = shares.filter((s) => s.indexKey === meta.key);
+  const byGroup = new Map<string, { currency: string; shares: FundShare[] }>();
+  for (const s of list) {
+    const k = `${s.company}|${s.baseName}|${s.currency}`;
+    if (!byGroup.has(k)) byGroup.set(k, { currency: s.currency, shares: [] });
+    byGroup.get(k)!.shares.push(s);
+  }
+  // 与首页同一条规则：卡片上的类别次序固定成 A → C → D → E → F
+  for (const g of byGroup.values()) {
+    g.shares.sort((a, b) => classRank(a.shareClass) - classRank(b.shareClass));
+  }
+  return { meta, groups: [...byGroup.values()] };
+}).filter((s) => s.groups.length > 0);
 
 // 防呆用的白名单：把本页能显示的份额代码注入页面，客户端据此校验输入。
-// 用 loadAllShares()（只含人民币份额）而不是全量 56 个：本页渲染的卡片也只来自
+// 用 loadAllShares()（只含人民币份额）而不是全量 84 个：本页渲染的卡片也只来自
 // 这份数据，把美元代码放进来会出现「校验通过但仍无卡片显示」的新坑。
-// 56 个代码全为 6 位数字（见 data/funds.json），所以规则是「6 位数字 + 在册」。
+// 84 个代码全为 6 位数字（见 data/funds.json），所以规则是「6 位数字 + 在册」。
 const knownCodes = [...new Set(shares.map((s) => s.code))].sort();
+const cnyTotal = knownCodes.length;
 ---
 
-<BaseLayout title="我的基金 - 纳指开门日报">
+<BaseLayout title="我的基金 - QDII 开门日报" siteName="QDII 开门日报" shortName="QDII 日报" navKey={null}>
   <h1 class="section-title">我的基金</h1>
   <p class="my-hint">
-    把你买过的基金代码填进去，这里会优先显示你持有的那几只今天的状态与额度。代码只保存在本机浏览器，不会上传。
-    纳指100 与标普500 的份额都能加（本页跨两个指数，卡片按基金家族分组）。
+    把你的基金代码填进来，这里会显示它们今天的状态与额度。纳指100 与标普500 合计
+    {cnyTotal} 只人民币份额，两个指数可以混着加；代码只保存在本机浏览器，不会上传。
   </p>
   <div class="my-add">
     <input id="codeInput" class="my-input" placeholder="输入基金代码，如 019736 或 019736,000834，回车添加"
@@ -37,12 +55,24 @@ const knownCodes = [...new Set(shares.map((s) => s.code))].sort();
     <p class="my-msg" id="codeMsg" role="status" aria-live="polite"></p>
   </div>
   <div class="chips" id="chips"></div>
+
+  {/* 持仓小结：跟着筛选走。分指数给数、绝不相加——两个指数的额度不是同一件东西 */}
+  <p class="my-sum" id="mySum" aria-live="polite"></p>
   <div id="empty" class="empty">还没有添加基金。在上方输入代码试试（例如 019736）。</div>
+
+  <IndexSwitch mode="filter" allOption={true} label="按指数筛选" />
 
   <div id="myList">
     {
-      groups.map((g) => (
-        <FamilyCard shares={g.shares} dataCodes={g.shares.map((s) => s.code).join(' ')} hidden={true} />
+      sections.map((s) => (
+        <section class="my-sec" data-index={s.meta.key} data-label={s.meta.short}>
+          <SectionHead title={s.meta.key} aside={`${s.groups.length} 家`} />
+          <div class="my-list">
+            {s.groups.map((g) => (
+              <FamilyCard shares={g.shares} dataCodes={g.shares.map((x) => x.code).join(' ')} hidden={true} />
+            ))}
+          </div>
+        </section>
       ))
     }
   </div>
@@ -51,12 +81,20 @@ const knownCodes = [...new Set(shares.map((s) => s.code))].sort();
   <script id="knownCodes" type="application/json" set:html={JSON.stringify(knownCodes)} />
 
   <script>
+    // ★ key 保持 `nasdaq-my-codes`：它从单指数时代就在用，而持仓本来就是跨指数共用的。
+    //   改成 qdii-my-codes 会把所有老用户的持仓清空——为了命名干净付这个代价不值得。
     const KEY = 'nasdaq-my-codes';
+    const FILTER_KEY = 'qdii-my-filter';
+
     const input = document.getElementById('codeInput') as HTMLInputElement;
     const msg = document.getElementById('codeMsg') as HTMLElement;
     const chips = document.getElementById('chips') as HTMLElement;
     const empty = document.getElementById('empty') as HTMLElement;
     const list = document.getElementById('myList') as HTMLElement;
+    const sum = document.getElementById('mySum') as HTMLElement;
+    const buttons = [...document.querySelectorAll<HTMLButtonElement>('.idx-switch button[data-idx]')];
+    const secs = [...list.querySelectorAll<HTMLElement>('.my-sec')];
+    const INDEX_KEYS = secs.map((s) => s.dataset.index || '');
 
     // 本站收录的代码全集（构建时注入）。不在其中的代码一律不收——
     // 否则用户会看到「添加成功但下面空着」，以为页面坏了。
@@ -64,6 +102,15 @@ const knownCodes = [...new Set(shares.map((s) => s.code))].sort();
       JSON.parse(document.getElementById('knownCodes')?.textContent || '[]')
     );
     const CODE_RE = /^\d{6}$/;
+
+    /** 当前筛选：'all' 或某个 indexKey。URL hash 优先，其次上次的选择 */
+    let filter: string = (() => {
+      const h = location.hash.replace('#', '');
+      if (h === 'all' || INDEX_KEYS.includes(h)) return h;
+      const saved = localStorage.getItem(FILTER_KEY);
+      if (saved === 'all' || (saved && INDEX_KEYS.includes(saved))) return saved;
+      return 'all';
+    })();
 
     function load(): string[] {
       try {
@@ -110,20 +157,114 @@ const knownCodes = [...new Set(shares.map((s) => s.code))].sort();
       msg.className = 'my-msg' + (kind ? ' is-' + kind : '');
     }
 
-    function applyFilter() {
-      const set = new Set(load());
-      let visible = 0;
-      list.querySelectorAll('.fam').forEach((el) => {
-        const elCodes = (el.getAttribute('data-codes') || '').split(' ');
-        const match = elCodes.some((c) => set.has(c));
-        if (match) {
-          (el as HTMLElement).removeAttribute('hidden');
-          visible++;
-        } else {
-          (el as HTMLElement).setAttribute('hidden', '');
+    function syncButtons() {
+      for (const b of buttons) {
+        const on = (b.dataset.idx || '') === filter;
+        b.classList.toggle('is-on', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      }
+    }
+
+    /** 某段里被持仓命中的份额行（DOM 只读，不额外维护状态） */
+    function heldIn(sec: HTMLElement, held: Set<string>): HTMLElement[] {
+      return [...sec.querySelectorAll<HTMLElement>('.sh')].filter(
+        (a) => a.dataset.code && held.has(a.dataset.code)
+      );
+    }
+
+    function renderSummary(held: Set<string>) {
+      // 先算数据再拼句子：单指数时要用到额度，多指数时每个指数各带一份，
+      // 先把字符串拼好就没法在两种句式间复用（第一版就漏掉了单指数那一路的「元」）。
+      const stats: { label: string; held: number; buyable: number; limit: number }[] = [];
+      let totalHeld = 0;
+      let totalBuyable = 0;
+
+      for (const sec of secs) {
+        if (filter !== 'all' && sec.dataset.index !== filter) continue;
+        const rows = heldIn(sec, held);
+        if (!rows.length) continue;
+        let buyable = 0;
+        let limit = 0;
+        for (const a of rows) {
+          const st = a.dataset.status;
+          if (st === 'LIMITED' || st === 'OPEN') {
+            buyable++;
+            if (a.dataset.limit) limit += Number(a.dataset.limit);
+          }
         }
-      });
-      empty.style.display = visible === 0 ? 'block' : 'none';
+        totalHeld += rows.length;
+        totalBuyable += buyable;
+        stats.push({ label: sec.dataset.label || '', held: rows.length, buyable, limit });
+      }
+
+      if (!stats.length) {
+        sum.innerHTML = '';
+        return;
+      }
+
+      const label = secs.find((s) => s.dataset.index === filter)?.dataset.label ?? '';
+      // 分指数给数、绝不相加：两个指数的额度是两件独立的事
+      const head =
+        (filter === 'all' ? `你持有 <b>${totalHeld}</b> 只` : `你在${label}持有 <b>${totalHeld}</b> 只`) +
+        ` · <b>${totalBuyable}</b> 只可买`;
+      const money = (n: number) => (n > 0 ? ` · <b>${n}</b> 元` : '');
+
+      sum.innerHTML =
+        stats.length === 1
+          ? head + money(stats[0].limit)
+          : `${head} —— ${stats
+              .map((s) => `${s.label} <b>${s.held}</b> 只 · <b>${s.buyable}</b> 只可买${money(s.limit)}`)
+              .join('；')}`;
+    }
+
+    function applyFilter() {
+      const held = new Set(load());
+      let visible = 0;
+
+      for (const sec of secs) {
+        const inScope = filter === 'all' || sec.dataset.index === filter;
+        let n = 0;
+        for (const el of sec.querySelectorAll<HTMLElement>('.fam')) {
+          const codes = (el.dataset.codes || '').split(' ').filter(Boolean);
+          const match = codes.some((c) => held.has(c));
+          if (match) {
+            el.removeAttribute('hidden');
+            n++;
+          } else {
+            el.setAttribute('hidden', '');
+          }
+        }
+        // 段内一张都没命中（或不在筛选范围）→ 整段连同小节头一起收起，
+        // 否则页面上会留一排「0 家」的空标题
+        if (inScope && n > 0) sec.removeAttribute('hidden');
+        else sec.setAttribute('hidden', '');
+        if (inScope) visible += n;
+      }
+
+      // 两列网格里「谁在右列」只能由 JS 算：`.fam[hidden]` 仍占着 nth-child 的位置，
+      // 纯 CSS 的 `:nth-child(2n)` 在筛选后会把右边线画在半宽处。
+      for (const box of list.querySelectorAll<HTMLElement>('.my-list')) {
+        const shown = [...box.querySelectorAll<HTMLElement>('.fam')].filter((f) => !f.hasAttribute('hidden'));
+        shown.forEach((el, i) => {
+          const inRightCol = i % 2 === 1 || (i === shown.length - 1 && shown.length % 2 === 1);
+          el.classList.toggle('is-right', inRightCol);
+        });
+      }
+
+      renderSummary(held);
+
+      // 空态文案分两种：完全没加过，和「这个指数下没有」。后者必须说清是筛选造成的，
+      // 否则读者会以为自己把代码弄丢了。
+      if (visible === 0) {
+        const label = secs.find((s) => s.dataset.index === filter)?.dataset.label;
+        empty.textContent =
+          filter === 'all'
+            ? '还没有添加基金。在上方输入代码试试（例如 019736）。'
+            : `你在${label ?? '这个指数'}还没有持有基金；切到「全部」可以看到其它指数的持仓。`;
+        empty.style.display = 'block';
+      } else {
+        empty.style.display = 'none';
+      }
     }
 
     function renderChips() {
@@ -195,6 +336,20 @@ const knownCodes = [...new Set(shares.map((s) => s.code))].sort();
       }
     });
 
+    for (const b of buttons) {
+      b.addEventListener('click', () => {
+        const next = b.dataset.idx || 'all';
+        if (next === filter) return;
+        filter = next;
+        localStorage.setItem(FILTER_KEY, filter);
+        // hash 让「切到标普」这一状态刷新后还在，也能用后退回到全部
+        history.replaceState(null, '', filter === 'all' ? location.pathname : '#' + filter);
+        syncButtons();
+        applyFilter();
+      });
+    }
+
+    syncButtons();
     renderChips();
     applyFilter();
 

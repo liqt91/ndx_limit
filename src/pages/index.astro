@@ -1,7 +1,14 @@
 ---
-// 纳斯达克100 分站首页。渲染逻辑全在 IndexBoard 里，这里只声明指数。
-import IndexBoard from '../components/IndexBoard.astro';
-import { NDX } from '../data/loader';
+// 根路径 = 入口。真正的看板在 /ndx100/，这里只跳一次。
+// 取一个今日数字写进 OG，纯粹是为了「贴根域名出去时不至于是一张白卡」。
+import JumpPage from '../components/JumpPage.astro';
+import { NDX, indexMeta, loadDailySummaries } from '../data/loader';
+
+const meta = indexMeta(NDX);
+const t = loadDailySummaries(1, NDX)[0];
+const description = t
+  ? `${meta.label}：今天 ${t.opened} 家开门，${t.total.toLocaleString('zh-CN')} 元可投。`
+  : `${meta.label}场外 QDII 申购额度看板。`;
 ---
 
-<IndexBoard indexKey={NDX} />
+<JumpPage to="/ndx100/" title={meta.brand} description={description} linkText="纳指100 看板" />

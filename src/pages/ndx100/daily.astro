@@ -1,0 +1,7 @@
+---
+// 两个指数的历史页。页面只声明指数，渲染在 DailyBoard 里。
+import DailyBoard from '../../components/DailyBoard.astro';
+import { NDX } from '../../data/loader';
+---
+
+<DailyBoard indexKey={NDX} />

@@ -1,0 +1,71 @@
+---
+// 入口垫片：一个纯粹的跳转页。
+//
+// 为什么不用平台 rewrite：静态站里 meta refresh 是唯一「哪儿都成立」的跳转——
+// 不依赖 EdgeOne 的 redirects 配置，本地 `python -m http.server` 预览行为也一致。
+// 代价是分享根域名时对方先看到一屏空壳，所以这里仍要写全 OG 标签（借用目标看板
+// 今天的数字），否则贴出去的链接是一张白卡。
+//
+// 为什么带 noindex：/ 与 /ndx100/ 是同一份内容，让搜索引擎只认后者。
+interface Props {
+  /** 目标路径，如 /ndx100/ */
+  to: string;
+  title: string;
+  description: string;
+  /** 链接文字，如「纳指100 看板」 */
+  linkText: string;
+}
+const { to, title, description, linkText } = Astro.props;
+const site = Astro.site ? String(Astro.site).replace(/\/$/, '') : '';
+const canonical = `${site}${to}`;
+const ogImage = `${site}/og.png`;
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="refresh" content={`0; url=${to}`} />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="robots" content="noindex, follow" />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="QDII 开门日报" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+    <meta name="theme-color" content="#faf9f6" />
+
+    <style>
+      /* 内联最小样式：这个页面不该等 CSS 下载完才决定长什么样 */
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #faf9f6;
+        color: #14130f;
+        font-family: system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+        font-size: 14px;
+        line-height: 1.7;
+      }
+      a { color: #14130f; }
+      p { margin: 0; }
+    </style>
+  </head>
+  <body>
+    <p>正在前往 <a href={to}>{linkText}</a>…</p>
+  </body>
+</html>

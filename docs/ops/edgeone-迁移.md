@@ -175,9 +175,9 @@ KV 事件流水 `job_events`（≤50 条，最新在前，事件带 `slot`），
    - `BREVO_API_KEY` / `MAIL_FROM`：已存在（订阅链路在用），确认即可
 2. `git push` → EdgeOne 自动重建，`edge-functions/` 与 `edgeone.json` 一起部署。
 3. 验证路由可达（嵌套路径映射需实测，两个嵌套路由都要验）：
-   `curl -i -X POST https://ndx.liqt91.top/api/jobs/dispatch -d '{}'` → 期望 400（证明路由通、
+   `curl -i -X POST https://qdii.liqt91.top/api/jobs/dispatch -d '{}'` → 期望 400（证明路由通、
    函数在；401/404 都说明映射有问题，看日志分析）；
-   `curl -s https://ndx.liqt91.top/api/jobs/status` → 期望 200 JSON（含 `cstToday`、`jobs`、
+   `curl -s https://qdii.liqt91.top/api/jobs/status` → 期望 200 JSON（含 `cstToday`、`jobs`、
    `rejected`、`events`；KV 没绑定时是 500 `kv_not_configured`，那也是「函数在」的证据）。
 4. 观察首个 07:50 schedule 触发：日志分析里应有 `[dispatch] refresh/preopen → refresh.yml HTTP 204`；
    KV 里出现 `job_sent_refresh_preopen_<日期>`；09:40 / 14:30 两条同理多出 `_intraday` / `_close`

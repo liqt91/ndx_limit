@@ -11,7 +11,7 @@
  * 零依赖（Node 18+ 自带 fetch）。只能在线上跑，本地跑没有意义：
  * 本地静态服务器不会因为你在旁边 npm run build 就中断。
  *
- *   node scripts/probe-deploy.mjs --url https://ndx.liqt91.top --minutes 8
+ *   node scripts/probe-deploy.mjs --url https://qdii.liqt91.top --minutes 8
  *   node scripts/probe-deploy.mjs --url ... --interval 3 --json out.json
  *
  * 建议用法：先跑起探测，再去触发一次 refresh（或直接推一个空提交），
@@ -24,7 +24,7 @@ const args = parseArgs(process.argv.slice(2));
 if (args.help) {
   console.log(`用法：node scripts/probe-deploy.mjs --url <站点根地址> [选项]
 
-  --url <url>        必填，例如 https://ndx.liqt91.top
+  --url <url>        必填，例如 https://qdii.liqt91.top
   --minutes <n>      探测时长，默认 8
   --interval <n>     采样间隔（秒），默认 5
   --timeout <n>      单请求超时（秒），默认 10
@@ -35,7 +35,7 @@ if (args.help) {
 
 const base = String(args.url || '').replace(/\/+$/, '');
 if (!base) {
-  console.error('缺少 --url（例：--url https://ndx.liqt91.top）');
+  console.error('缺少 --url（例：--url https://qdii.liqt91.top）');
   process.exit(2);
 }
 const totalMs = Number(args.minutes || 8) * 60_000;

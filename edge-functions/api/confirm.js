@@ -29,7 +29,7 @@ async function sha256Hex(text) {
 }
 
 function siteUrl(env) {
-  return String((env && env.SITE_URL) || 'https://ndx.liqt91.top').replace(/\/+$/, '');
+  return String((env && env.SITE_URL) || 'https://qdii.liqt91.top').replace(/\/+$/, '');
 }
 
 // status: ok | already | expired | invalid

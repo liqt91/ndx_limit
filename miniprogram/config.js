@@ -15,11 +15,11 @@ module.exports = {
   SUBSCRIBE_TEMPLATE_ID: '',
 
   /** 邮箱订阅接口（由云函数转发，避开小程序的 request 合法域名限制） */
-  API_SUBSCRIBE: 'https://ndx.liqt91.top/api/subscribe',
-  API_UNSUBSCRIBE: 'https://ndx.liqt91.top/api/unsubscribe',
+  API_SUBSCRIBE: 'https://qdii.liqt91.top/api/subscribe',
+  API_UNSUBSCRIBE: 'https://qdii.liqt91.top/api/unsubscribe',
 
   /** 网页版地址：只在「关于」页作为纯文本给出，不做成可点跳转 */
-  SITE_URL: 'https://ndx.liqt91.top',
+  SITE_URL: 'https://qdii.liqt91.top',
   SITE_NAME: '纳指开门日报',
 
   /** 缓存 key 与最长有效期（小时） */

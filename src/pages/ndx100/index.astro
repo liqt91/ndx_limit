@@ -1,0 +1,8 @@
+---
+// 纳斯达克100 看板。渲染逻辑全在 IndexBoard 里，这里只声明指数。
+// 2026-10-23 起它从 / 挪到 /ndx100（根路径改成一个跳转垫片）。
+import IndexBoard from '../../components/IndexBoard.astro';
+import { NDX } from '../../data/loader';
+---
+
+<IndexBoard indexKey={NDX} />

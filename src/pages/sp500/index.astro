@@ -1,9 +1,9 @@
 ---
-// 标普500 分站首页。与 index.astro 共用 IndexBoard，只换 indexKey。
+// 标普500 看板。与 ndx100/index.astro 共用 IndexBoard，只换 indexKey。
 // 口径上它和纳指完全独立：各算各的开门数、可投总额、今日变化与覆盖率
 // （见 src/data/loader.ts 的 indexKey 参数与 scripts/scrape.mjs 的分指数门禁）。
-import IndexBoard from '../components/IndexBoard.astro';
-import { SP500 } from '../data/loader';
+import IndexBoard from '../../components/IndexBoard.astro';
+import { SP500 } from '../../data/loader';
 ---
 
 <IndexBoard indexKey={SP500} />

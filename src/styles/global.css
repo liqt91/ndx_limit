@@ -884,6 +884,51 @@ a { color: inherit; text-decoration: none; }
 .my-msg.is-ok { color: var(--ok); }
 .my-msg.is-err { color: var(--stop); }
 
+/* ── 指数切换器 ────────────────────────────────────────────────────
+   两处用到：历史页（两个 <a>，换 URL）、我的基金（两个 <button>，只改本地状态）。
+   语义不同但皮肤一致——读者不该被迫分辨两者区别。
+   不做药丸、不做分段底色：切的是「哪个指数」，不是「哪个视图」，
+   一行小字 + 当前项一条下划线，与整站的编辑风一致。 */
+.idx-switch { display: flex; flex-wrap: wrap; align-items: baseline; gap: 18px; margin: 0 0 22px; }
+.idx-switch a, .idx-switch button, .idx-switch span {
+  font-family: var(--sans);
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink-3);
+  background: none;
+  border: 0;
+  padding: 0 0 2px;
+  cursor: pointer;
+  text-decoration: none;
+}
+.idx-switch a:hover, .idx-switch button:hover { color: var(--ink); }
+/* 当前项在链接版里是个 <span>（点它没意义），鼠标不该显示成可点 */
+.idx-switch span { cursor: default; }
+.idx-switch .is-on { color: var(--ink); border-bottom: 1px solid var(--ink); }
+
+/* 持仓小结：一句话，跟着筛选走。数字用等宽，避免「10 元」与「100 元」抖动 */
+.my-sum { font-size: 13.5px; line-height: 1.8; color: var(--ink-2); margin: 0 0 6px; }
+.my-sum b { font-family: var(--mono); font-weight: 400; color: var(--ink); }
+.my-sum:empty { display: none; }
+/* 持仓清单：两列，皮肤与首页看板一致，但「哪张卡在右列」由 JS 标 .is-right 决定。
+   不能直接用 .grid 的 `:nth-child(2n)`：它数的是**全部** DOM 子节点，被 hidden 的
+   兄弟节点也算在内，筛选后奇偶彻底对不上，右边线就会悬在半宽处。 */
+.my-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  border-top: 1px solid var(--rule);
+}
+.my-list > .fam {
+  border: none;
+  border-bottom: 1px solid var(--rule);
+  border-right: 1px solid var(--rule);
+  padding: 18px 20px 16px;
+}
+.my-list > .fam.is-right { border-right: none; }
+.my-list > .fam[hidden] { display: none; }
+
+
 /* 空态：只留一句话。原先上下各一条横线，但输入线就在它上方不远处，
    再夹两条线等于把这小块横切成三段，读起来比不画线更碎。 */
 .empty {
@@ -1089,6 +1134,10 @@ a { color: inherit; text-decoration: none; }
 @media (max-width: 860px) {
   .grid { grid-template-columns: 1fr; }
   .grid > .fam { border-right: none; padding: 18px 0 16px; }
+  /* 持仓清单跟随看板一起退回单列：两列下 390 宽每张卡只有 170px，
+     21 格热力会被压成 5px 的小点 */
+  .my-list { grid-template-columns: 1fr; }
+  .my-list > .fam { border-right: none; padding: 18px 0 16px; }
 }
 @media (max-width: 620px) {
   .grid > .fam { padding: 16px 0 14px; }

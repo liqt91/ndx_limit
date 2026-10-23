@@ -1,0 +1,65 @@
+---
+// 指数切换器。两种形态，同一套皮肤：
+//   mode="link"   → 两个 <a>，换 URL。用在历史页：内容是公开数据，切换后能直接把
+//                   链接贴给别人（/sp500/daily 是个可以单独分享的东西）。
+//   mode="filter" → 两个 <button>，只改本地状态、不改 URL。用在我的基金：那里的
+//                   「指数」是你持仓的一个维度，每个人的组合都不同，没有可分享的
+//                   「标普持仓视图」。
+// 视觉一致是为了读者不必分辨两者区别；语义不同是因为语义本来就不同。
+import { INDEXES } from '../data/loader';
+
+interface Props {
+  /** 当前选中的指数 key。link 版必传；filter 版传 null 表示「全部」 */
+  current?: string | null;
+  mode?: 'link' | 'filter';
+  /** link 版：拼在指数路径后的后缀，如 '/daily' */
+  suffix?: string;
+  /** filter 版：是否给「全部」选项 */
+  allOption?: boolean;
+  label?: string;
+}
+const { current = null, mode = 'link', suffix = '', allOption = true, label = '切换指数' } = Astro.props;
+
+const items = INDEXES.map((i) => ({
+  key: i.key,
+  label: i.short,
+  href: i.path.replace(/\/$/, '') + suffix,
+}));
+---
+
+{
+  mode === 'link' ? (
+    <nav class="idx-switch" aria-label={label}>
+      {items.map((i) =>
+        i.key === current ? (
+          // 当前项不渲染成 <a>：点它只是重新加载同一页。
+          // 也不用 aria-current="page"——站点导航里那个「纳指」已经声明了当前页，
+          // 这里再来一个，屏幕阅读器就会念两次「当前页」。
+          <span class="is-on" aria-current="true">
+            {i.label}
+          </span>
+        ) : (
+          <a href={i.href}>{i.label}</a>
+        )
+      )}
+    </nav>
+  ) : (
+    <div class="idx-switch" role="group" aria-label={label}>
+      {allOption && (
+        <button type="button" data-idx="all" class={current === null ? 'is-on' : undefined} aria-pressed={current === null ? 'true' : 'false'}>
+          全部
+        </button>
+      )}
+      {items.map((i) => (
+        <button
+          type="button"
+          data-idx={i.key}
+          class={i.key === current ? 'is-on' : undefined}
+          aria-pressed={i.key === current ? 'true' : 'false'}
+        >
+          {i.label}
+        </button>
+      ))}
+    </div>
+  )
+}

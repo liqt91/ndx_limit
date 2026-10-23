@@ -8,9 +8,11 @@
  *
  * 缓存名带版本号：改完 sw.js 记得把 VER 往上加一位，否则老缓存不会失效。
  */
-const VER = 'ndx-v1';
+const VER = 'qdii-v2';
 const CACHE = `${VER}`;
-const PRECACHE = ['/', '/favicon.svg', '/og.png', '/manifest.webmanifest'];
+// 预缓存的是 /ndx100/ 而不是 /：根路径现在只是个跳转垫片，
+// 断网时回落到它会拿到一页「正在前往」，等于没有内容。
+const PRECACHE = ['/ndx100/', '/favicon.svg', '/og.png', '/manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
@@ -45,7 +47,7 @@ self.addEventListener('fetch', (e) => {
           caches.open(CACHE).then((c) => c.put(req, copy));
           return res;
         })
-        .catch(() => caches.match(req).then((r) => r || caches.match('/')))
+        .catch(() => caches.match(req).then((r) => r || caches.match('/ndx100/')))
     );
     return;
   }

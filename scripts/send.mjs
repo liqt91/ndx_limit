@@ -14,7 +14,7 @@
 //   SUBSCRIBERS_TOKEN                若 SUBSCRIBERS_URL 需要鉴权，会以 Bearer 头发送
 //   SUBSCRIBERS_FILE                 本地 JSON / CSV / 换行分隔 文件（手动测试用）
 //   RATE_DELAY_MS                    每封间隔毫秒（默认 200，避免触发频率限制）
-//   UNSUBSCRIBE_URL                  退订接口，如 https://ndx.liqt91.top/api/unsubscribe
+//   UNSUBSCRIBE_URL                  退订接口，如 https://qdii.liqt91.top/api/unsubscribe
 //   UNSUB_SECRET                     与 EdgeOne 环境变量同名同值，用于签退订链接
 //   UNSUBSCRIBE_MAILTO               退订邮箱（可选），会一起写进 List-Unsubscribe 头
 //

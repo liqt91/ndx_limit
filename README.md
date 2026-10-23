@@ -9,11 +9,16 @@
 ## 功能
 
 - **今日**：代销总可投、开门/暂停统计、每只基金份额卡片 + 近 30 天开门柱状图
-  - `/` 纳斯达克100（主站，域名 `ndx.liqt91.top`）
+  - `/ndx100/` 纳斯达克100（域名 `qdii.liqt91.top`）
   - `/sp500/` 标普500（同一份构建产物里的第二个分站，2026-10-23 上线）
+  - `/` 只是跳转垫片：`meta refresh` 到 `/ndx100/`，带 `noindex` 与 canonical，不承载内容
 - **详情** `/f/[code]`：单只基金份额的状态变化记录、历史快照、相关公告（两个指数共用一套路由）
-- **历史** `/daily`：交易日历（两个指数通用）+ 最近 15 天每日快照摘要（纳指口径）
+- **历史** `/ndx100/daily` 与 `/sp500/daily`：交易日历（两个指数通用）+ 最近 15 天每日快照，**按指数各一份**
+  - 两条真路由 + 顶部切换器，不是单页筛选：历史是内容页，`/sp500/daily` 要能直接贴给别人
+  - 旧路径 `/daily` 留了跳转壳
 - **我的基金** `/my`：在浏览器 localStorage 里存基金代码，纯前端过滤展示（不上传，跨两个指数）
+  - 按指数分段 + 「全部 / 纳指 / 标普500」**真筛选**（只改本地状态与 URL hash，不换页面）
+  - 顶部持仓小结分指数给数、**绝不相加**（两个指数的额度是两件独立的事）
 - **订阅** `/subscribe`：本站原生表单，同域边缘函数收邮箱（见下）
 
 > 注：只展示**人民币份额**。美元份额仍在 `funds.json` 目录与抓取范围内（历史数据继续累积），
@@ -40,10 +45,22 @@ npm run preview    # 预览构建产物
    **不要**填裸 `astro build`——EdgeOne 构建 shell 里没有全局 astro，裸跑会 `command not found`（exit 127）。
 3. 首次部署即用当前代码 + 已提交的 `data/` 构建出一个线上站点，分配 `*.edgeone.app` 默认域名。
    - 国内版：国内 CDN 快，绑自定义域名需 **ICP 备案**；国际版：免备案、全球快但国内慢。
-4. **绑定自定义子域名 `ndx.liqt91.top`（推荐）**：在 EdgeOne 项目「自定义域名」里添加 `ndx.liqt91.top`，
-   按控制台提示在 DNS 给 `ndx` 加一条 **CNAME**（指向 EdgeOne 提供的地址，或把 `liqt91.top` 整体 NS 托管给 EdgeOne），
-   等证书下发后该子域名即生效。同时把 `astro.config.mjs` 的 `site` 改成 `https://ndx.liqt91.top`（已填好），
+4. **绑定自定义子域名 `qdii.liqt91.top`（推荐）**：在 EdgeOne 项目「自定义域名」里添加 `qdii.liqt91.top`，
+   按控制台提示在 DNS 给 `qdii` 加一条 **CNAME**（指向 EdgeOne 提供的地址，或把 `liqt91.top` 整体 NS 托管给 EdgeOne），
+   等证书下发后该子域名即生效。`astro.config.mjs` 的 `site` 已填 `https://qdii.liqt91.top`，
    这样 sitemap / canonical / 绝对链接都用正式域名，搜索引擎与分享卡片不会指向 `*.edgeone.app`。
+
+   > **⚠ 换域后必须同步三个环境变量，漏一个就静默失败**
+   >
+   > | 变量 | 位置 | 漏了会怎样 |
+   > |---|---|---|
+   > | `ALLOWED_ORIGIN` | EdgeOne 项目环境变量 | 订阅表单被 **403** 拒掉，页面只显示「提交失败」 |
+   > | `SITE_URL` | 同上 | 确认信 / 退订链接指向旧域，点开是 404 |
+   > | `SUBSCRIBERS_URL` / `UNSUBSCRIBE_URL` | GitHub Secrets | 发信 job 拉不到名单 / 邮件没有退订链接 |
+   >
+   > 代码里的默认值已全部改成 `qdii.liqt91.top`，但**线上实际值以控制台为准**。
+   > 2026-10-23 实测：`liqt91.top` 有解析，`ndx` / `sp500` / `qdii` 三个子域当时都没解析——
+   > 绑域名是部署的必做步骤，不是可选项。
 
 ### 2. GitHub Actions（两个独立 workflow，已内置）
 
@@ -145,8 +162,12 @@ node scripts/import-history.mjs --prefer=remote        # 同日冲突改以来�
 
 | 指数 | 路由 | 站名 | 份额（场外） |
 |---|---|---|---|
-| 纳斯达克100 | `/` | 纳指开门日报 | 60（41 人民币 + 19 美元），17 家公司 |
+| 纳斯达克100 | `/ndx100/` | 纳指开门日报 | 60（41 人民币 + 19 美元），17 家公司 |
 | 标普500 | `/sp500/` | 标普500开门日报 | 25（16 人民币 + 9 美元），7 家公司 |
+
+根 `/` 不承载内容，只做一次 `meta refresh` 到 `/ndx100/`（带 `noindex` + canonical）。
+两个指数的历史页各占一条路由（`/ndx100/daily`、`/sp500/daily`），`/my`、`/subscribe`、
+`/f/<code>` 跨指数共用。
 
 两个分站共用：抓取管线、数据文件（`history.json` 按 code 平铺）、交易日历、订阅名单、
 边缘函数、小程序（小程序只装纳指）。差异只有 `indexKey` 与由它派生的文案。
@@ -155,7 +176,7 @@ node scripts/import-history.mjs --prefer=remote        # 同日冲突改以来�
 
 1. `data/funds.json` 加条目，`indexKey` 填新指数名（同一指数的不同币种必须共用同一个 indexKey）
 2. `src/data/loader.ts` 的 `INDEXES` 加一项（key / short / brand / path / label）
-3. `src/pages/` 加一个三行的页面：`<IndexBoard indexKey="..." />`
+3. `src/pages/` 加两个三行的页面：`<index>/index.astro` 与 `<index>/daily.astro`
 
 抓取会自动纳入新条目（`scrape.mjs` 遍历 `funds.json`），覆盖率门禁也按 `indexKey` 各算各的。
 
@@ -168,8 +189,10 @@ node scripts/import-history.mjs --prefer=remote        # 同日冲突改以来�
   行为与扩容前逐字节一致）
 - `digest.mjs` 的 `aggregateCny` / `computeCoverage` / `summarizeDay` / `latestDate` 同样必须传
 - `scrape.mjs` 把 fetch-meta 的**顶层字段永远写成纳指**，其它指数放进 `runs[].byIndex`
-- `scripts/check-index-isolation.mjs`（`npm run check:index`）是专门的门禁，29 项断言覆盖
-  代码集合互斥、覆盖率 ≤100%、fetch-meta 与重算值一致、dist 渲染层不串台。
+- `scripts/check-index-isolation.mjs`（`npm run check:index`）是专门的门禁，49 项断言覆盖
+  代码集合互斥、覆盖率 ≤100%、fetch-meta 与重算值一致、dist 渲染层不串台；2026-10-23 换路由后
+  又加了一节「路由结构」：根路径必须是跳 /ndx100 的壳、`/daily` 兼容壳存在、两个历史页逐日数字
+  各自等于本指数重算值且彼此不同、`/my` 的 `aria-current` 恰好一个、`knownCodes` 等于两指数并集。
   已进 `refresh.yml`（`--no-dist`）；本地带 dist 跑能连渲染层一起验。
 
 **踩过的坑（都写成了断言）**：`computeCoverage` 原本写 `codeCurrency.get(code) !== 'USD'`，
@@ -178,7 +201,7 @@ Map 对未收录的 code 返回 `undefined`，于是 `fund-meta` 里任何别的
 
 ### 部署到独立域名（可选，当前没做）
 
-现在两个分站在同一份 `dist/` 里，`ndx.liqt91.top/sp500/` 直接可用。若要把标普500 放到
+现在两个分站在同一份 `dist/` 里，`qdii.liqt91.top/sp500/` 直接可用。若要把标普500 放到
 `sp500.liqt91.top`：DNS 加 CNAME → EdgeOne 控制台绑定子域名，再加一条 rewrite
 （`/` → `/sp500/index.html`）即可，不需要第二次构建。
 
@@ -221,8 +244,8 @@ Map 对未收录的 code 返回 `undefined`，于是 `fund-meta` 里任何别的
 | `MAIL_FROM` | 确认信发件人，如 `纳指开门日报 <digest@liqt91.top>`（域名须在 Brevo 验证过） |
 | `UNSUB_SECRET` | 退订链接签名密钥，与 GitHub Secrets 同名同值 |
 | `REQUIRE_CONFIRM` | 默认 `true`（双重确认）；填 `false` 退回单确认 |
-| `SITE_URL` | 默认 `https://ndx.liqt91.top`，确认/退订链接的域名前缀 |
-| `ALLOWED_ORIGIN` | 默认 `https://ndx.liqt91.top`，跨站提交会被 403 |
+| `SITE_URL` | 默认 `https://qdii.liqt91.top`，确认/退订链接的域名前缀 |
+| `ALLOWED_ORIGIN` | 默认 `https://qdii.liqt91.top`，跨站提交会被 403 |
 
 - 安全防护 → 给 `/api/subscribe` 加精确限频（免费版含 1 条该规则，优先给它）。
 
@@ -232,9 +255,9 @@ Map 对未收录的 code 返回 `undefined`，于是 `fund-meta` 里任何别的
 |---|---|
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | SMTP 凭据（Brevo：`smtp-relay.brevo.com` 端口 `587`） |
 | `MAIL_FROM` | 发件人，如 `纳指开门日报 <digest@liqt91.top>` |
-| `SUBSCRIBERS_URL` | `https://ndx.liqt91.top/api/subscribers` |
+| `SUBSCRIBERS_URL` | `https://qdii.liqt91.top/api/subscribers` |
 | `SUBSCRIBERS_TOKEN` | 与 EdgeOne 环境变量同名同值 |
-| `UNSUBSCRIBE_URL` | `https://ndx.liqt91.top/api/unsubscribe`；不配则日报不带退订链接（日志会警告） |
+| `UNSUBSCRIBE_URL` | `https://qdii.liqt91.top/api/unsubscribe`；不配则日报不带退订链接（日志会警告） |
 | `UNSUB_SECRET` | 与 EdgeOne 环境变量同名同值 |
 | `UNSUBSCRIBE_MAILTO`（可选） | 追加 `<mailto:>` 到 `List-Unsubscribe` 头 |
 | `NOTIFY_WEBHOOK` + `NOTIFY_CHANNEL`（可选） | 站长自通知：`feishu`（默认）/`wechat`（Server酱） |
