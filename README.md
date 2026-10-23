@@ -90,19 +90,29 @@ npm run ci:build                  # 本地：抓取 + 构建一步到位（= scr
 
 ### 历史回填（一次性，`scripts/import-history.mjs`）
 
-`scrape.mjs` 只能从今天起逐日累积，新站上线时 30 天柱状图只有一两根柱子。回填脚本从
-`https://nasdaq.jaelchen.cn/f/{code}` 的「历史快照」表取近 30 天数据，合并进 `data/history.json`：
+`scrape.mjs` 只能从今天起逐日累积，新站上线时 30 天柱状图只有一两根柱子。回填脚本从同套代码的
+另一个部署（`nasdaq.jaelchen.cn` / `sp500.jaelchen.cn`）的「历史快照」表取近 30 天数据，
+合并进 `data/history.json`。**源站按指数分**，`--index` 决定抓哪个站、写哪些份额，
+两个指数的数据不会互串：
 
 ```bash
-node scripts/import-history.mjs --dry-run    # 只打印报告，不写盘（先跑这个）
-node scripts/import-history.mjs              # 全量回填（56 只份额，含 19 个美元份额）
-node scripts/import-history.mjs --prefer=remote   # 同日冲突改以来源站为准
+node scripts/import-history.mjs --dry-run              # 只打印报告，不写盘（先跑这个）
+node scripts/import-history.mjs                        # 所有配了源站的指数依次回填
+node scripts/import-history.mjs --index=标普500        # 只回填一个指数
+node scripts/import-history.mjs --prefer=remote        # 同日冲突改以来源站为准（今日点仍受保护）
 ```
 
 - **只写 A 股交易日**：来源站按自然日给数（周末/假日只是重复上个交易日），这里用 `digest.mjs`
   的 `isTradingDay` 过滤掉，与 `scrape.mjs` 口径一致。
 - **同日冲突默认保留本地值**：本地是当天亲自抓的。已知口径差异——天天基金写「限大额」但补一句
   「该基金暂不开放购买」时，本站判 `STOPPED`（见 `parseTrading` 注释），来源站判 `LIMITED`。
+- **最新一天永远不被覆盖**：连 `--prefer=remote` 也不许改，那是本站当天的实测，来源站只是同一天的
+  另一份读数。`npm run check:index` 之外，`D:/tmp` 下的负向验证脚本会注入关掉这行保护、确认它真的在拦。
+- **「限大额」但来源没给金额 → 判 `STOPPED`**，不写成可买。来源站只读东财「交易状态」字段，
+  而东财对这类份额同时写着「该基金暂不开放购买」（022523、017642/017643 实测都是）；照搬会让
+  热力图上亮出 3 只假绿。与 2026-10-20 定下的口径一致（`docs/worklog/2026-10-20.md`）。
+- **源站没有的份额**（标普500 站不收大成等权重那 4 只）算「未收录」，不计入成功率分母——
+  否则每次跑都固定扣几个百分点，80% 门禁会被慢慢耗尽。
 - **单只失败不清空**：抓取失败的份额跳过，保留原历史；解析成功率低于 80% 直接拒绝写盘。
 - 顺带把 `nav`（单位净值）写进 `DayPoint`（可选字段，页面暂不展示，留作以后画净值曲线）。
 
