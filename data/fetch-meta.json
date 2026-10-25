@@ -1,21 +1,12 @@
 {
-  "date": "2026-10-23",
-  "fetchedAt": "2026-10-23T14:30:13+08:00",
-  "slot": "close",
+  "date": "2026-10-26",
+  "fetchedAt": "2026-10-26T07:50:11+08:00",
+  "slot": "morning",
   "runs": [
     {
       "slot": "morning",
-      "at": "2026-10-23T09:40:15+08:00",
-      "time": "09:40",
-      "opened": 7,
-      "total": 135,
-      "families": 17,
-      "changed": null
-    },
-    {
-      "slot": "close",
-      "at": "2026-10-23T14:30:13+08:00",
-      "time": "14:30",
+      "at": "2026-10-26T07:50:11+08:00",
+      "time": "07:50",
       "opened": 7,
       "total": 135,
       "families": 17,
