@@ -400,6 +400,19 @@ function classifyChange(from: DayPoint, to: DayPoint): ChangeKind {
   return 'other';
 }
 
+/** 变化种类展示次序：开门 > 暂停 > 额度上调 > 下调 > 新限额 > 取消限额 > 未知。
+ *  三处变化排序（今日 / 历史逐日 / 日内）共用同一把尺，避免不同位置顺序漂移。 */
+const CHANGE_ORDER: Record<ChangeKind, number> = {
+  opened: 0,
+  stopped: 1,
+  'limit-up': 2,
+  'limit-down': 3,
+  'limit-set': 4,
+  'limit-clear': 5,
+  unknown: 6,
+  other: 7,
+};
+
 export function loadDailyChanges(indexKey: string = NDX): DailyChanges {
   const funds = fundEntries(indexKey);
   const history = readHistory();
@@ -438,17 +451,8 @@ export function loadDailyChanges(indexKey: string = NDX): DailyChanges {
   }
 
   // 排序：开门 > 暂停 > 额度变动 > 未知；同类按公司名稳定排序
-  const order: Record<ChangeKind, number> = {
-    opened: 0,
-    stopped: 1,
-    'limit-up': 2,
-    'limit-down': 3,
-    'limit-set': 4,
-    'limit-clear': 5,
-    unknown: 6,
-    other: 7,
-  };
-  changes.sort((a, b) => order[a.kind] - order[b.kind] || a.company.localeCompare(b.company));
+  // 排序复用模块级 CHANGE_ORDER
+  changes.sort((a, b) => CHANGE_ORDER[a.kind] - CHANGE_ORDER[b.kind] || a.company.localeCompare(b.company));
 
   const opened = changes.filter((c) => c.kind === 'opened').length;
   const stopped = changes.filter((c) => c.kind === 'stopped').length;
@@ -477,6 +481,172 @@ function arr_prevDate(history: Record<string, DayPoint[]>, codes?: Set<string>):
     if (arr && arr.length >= 2) return arr[arr.length - 2].date;
   }
   return null;
+}
+
+// 取某交易日「前一交易日」作为对比基准日（用于历史日报副标题「较 X」）。
+// 语义与 arr_prevDate 一致，只是以给定 date 为锚而非「最后一天」。
+function prevDateFor(date: string, history: Record<string, DayPoint[]>, codes?: Set<string>): string | null {
+  for (const code in history) {
+    if (codes && !codes.has(code)) continue;
+    const arr = history[code];
+    if (!arr) continue;
+    const i = arr.findIndex((d) => d.date === date);
+    if (i > 0) return arr[i - 1].date;
+  }
+  return null;
+}
+
+/** 最近 n 个交易日的逐日变化（降序）。日报墙按任意日期取「当天 vs 前一交易日」。
+ *  口径与 loadDailyChanges（今日）一致：仅对比人民币份额、仅保留有实质意义的变动、
+ *  排序 opened > stopped > 额度变动。无真实抓取历史（本地未跑 scrape）→ 空数组。 */
+export function loadDailyChangeHistory(n: number, indexKey: string = NDX): DailyChanges[] {
+  const funds = fundEntries(indexKey);
+  const history = readHistory();
+  const meta = readJson<Record<string, { name: string }>>('fund-meta.json', {});
+  const annMap = readAnnouncements();
+  const codes = codesOf(indexKey);
+
+  const hasReal = Object.keys(history).some((c) => codes.has(c));
+  if (!hasReal) return [];
+
+  const dateSet = new Set<string>();
+  for (const code in history) {
+    if (!codes.has(code)) continue;
+    for (const d of history[code]) dateSet.add(d.date);
+  }
+  const allDates = [...dateSet].sort().reverse().slice(0, n);
+
+  // 排序复用模块级 CHANGE_ORDER
+
+  return allDates.map((date) => {
+    const changes: ChangeRecord[] = [];
+    for (const f of funds) {
+      if (f.currency === 'USD') continue; // 仅对比展示中的人民币份额
+      for (const c of f.codes) {
+        const arr = history[c.code];
+        if (!arr) continue;
+        const i = arr.findIndex((d) => d.date === date);
+        if (i <= 0) continue; // 至少两天才有对比
+        const to = arr[i];
+        const from = arr[i - 1];
+        const kind = classifyChange(from, to);
+        if (kind === 'other') continue; // 仅保留有实质意义的变动
+        changes.push({
+          code: c.code,
+          shortName: meta[c.code]?.name || `${f.company}${f.baseName}${c.cls}类`,
+          company: f.company,
+          baseName: f.baseName,
+          shareClass: c.cls,
+          fromStatus: from.status,
+          toStatus: to.status,
+          fromLimit: from.limit,
+          toLimit: to.limit,
+          kind,
+          ann: pickRecentAnnouncement(annMap, c.code, date),
+        });
+      }
+    }
+    // 排序：开门 > 暂停 > 额度变动 > 未知；同类按公司名稳定排序
+    changes.sort((a, b) => CHANGE_ORDER[a.kind] - CHANGE_ORDER[b.kind] || a.company.localeCompare(b.company));
+    const opened = changes.filter((c) => c.kind === 'opened').length;
+    const stopped = changes.filter((c) => c.kind === 'stopped').length;
+    const limitChanged = changes.filter((c) =>
+      ['limit-up', 'limit-down', 'limit-set', 'limit-clear'].includes(c.kind)
+    ).length;
+    return {
+      date,
+      prevDate: prevDateFor(date, history, codes),
+      changes,
+      opened,
+      stopped,
+      limitChanged,
+      hasData: true,
+    };
+  });
+}
+
+// ──────────────────────────────────────────────────────────────
+// 日内变化（较盘前 / 较同日上一次运行）—— 邮件日报的第 3 段
+//
+// 同一天早间 run 与收盘前 run 之间的差异，回答「盘中额度有没有动」。
+// 数据只存在于 data/fetch-meta.json 当天的 runs[]（每天最多两条：morning / close），
+// 历史日没有逐日 intraday 记录，所以日报墙只在「最新一天」能补上这一段——
+// 这与真实邮件本身一致：每一封邮件也只有它当天的 intraday，历史邮件的盘中差异并未留存。
+// ──────────────────────────────────────────────────────────────
+export interface IntradayBlock {
+  /** 展示用对比标签，如「较盘前 10:16」「较同日 10:16」「较同日上一次运行」 */
+  prevLabel: string;
+  /** 当天的日内变化清单（已按 CHANGE_ORDER 排序） */
+  changes: ChangeRecord[];
+}
+
+/** 读取某指数「最新一天」的日内变化；没有 close run 或盘中无变化则返回 null。 */
+export function loadDailyIntraday(indexKey: string = NDX): IntradayBlock | null {
+  const meta = loadFetchMeta();
+  if (!meta.date || !meta.runs.length) return null;
+  const closeRun = meta.runs.find((r) => r.slot === 'close');
+  const run = closeRun || meta.runs[meta.runs.length - 1];
+  const perRun = indexKey === NDX ? run.changed : run.byIndex?.[indexKey]?.changed;
+  const intraday = Array.isArray(perRun) ? perRun : [];
+
+  const slotTime = (slot: string) => meta.runs.find((r) => r.slot === slot)?.time || null;
+  const morningTime = slotTime('morning');
+  // 没有 close 那次运行就没得比：此时 history 里的点来自更早的时点，
+  // 「较盘前 10:16：没有变化」等于自己跟自己比，是句废话（本地 dry-run 常见）。
+  if (!closeRun && !morningTime) return null;
+  const prevLabel = !morningTime
+    ? '较同日上一次运行'
+    : morningTime < '12:00'
+      ? `较盘前 ${morningTime}`
+      : `较同日 ${morningTime}`;
+
+  if (!intraday.length) return null; // 无变化或收盘前那次没跑成 → 邮件里这一段本就不存在
+
+  const metaNames = readJson<Record<string, { name: string }>>('fund-meta.json', {});
+  const funds = fundEntries(indexKey);
+  const nameOf = (code: string): string => {
+    if (metaNames[code]?.name) return metaNames[code].name;
+    for (const f of funds) for (const c of f.codes) if (c.code === code) return `${f.company}${f.baseName}${c.cls}类`;
+    return code;
+  };
+
+  const changes: ChangeRecord[] = intraday
+    .map((c) => {
+      const from = c.from;
+      const to = c.to;
+      const kind = classifyChange(from, to);
+      if (kind === 'other') return null;
+      return {
+        code: c.code,
+        shortName: nameOf(c.code),
+        company: '',
+        baseName: '',
+        shareClass: '',
+        fromStatus: from.status,
+        toStatus: to.status,
+        fromLimit: from.limit ?? null,
+        toLimit: to.limit ?? null,
+        kind,
+      } as ChangeRecord;
+    })
+    .filter((c): c is ChangeRecord => c !== null);
+
+  if (!changes.length) return null;
+  changes.sort((a, b) => CHANGE_ORDER[a.kind] - CHANGE_ORDER[b.kind] || a.shortName.localeCompare(b.shortName));
+  return { prevLabel, changes };
+}
+
+/** 当日快照的抓取时刻说明（邮件第 1 段末尾的括号内容）。
+ *  仅最新一天有——历史日没有逐日时刻记录，旧邮件的「14:45 抓取」也没留存。 */
+export function loadDataTimeNote(): { date: string | null; note: string } {
+  const meta = loadFetchMeta();
+  if (!meta.date) return { date: null, note: '' };
+  const slotTime = (slot: string) => meta.runs.find((r) => r.slot === slot)?.time || null;
+  const closeTime = slotTime('close');
+  const dataTime = closeTime || slotTime('morning') || null;
+  // 时刻必须说准：拿盘前那次的数据冒充「收盘前抓取」比不说更糟
+  const note = closeTime ? `${closeTime} 抓取` : dataTime ? `${dataTime} 抓取，收盘前那次没跑成` : '';
+  return { date: meta.date, note };
 }
 
 function summarizeSnapshot(snap: DailySnapshot): DailySummary {
@@ -565,6 +735,8 @@ export interface FetchRun {
   total: number;
   /** 与同日另一次运行相比的差异；当天只跑过一次时为 null */
   changed: { code: string; from: DayPoint; to: DayPoint }[] | null;
+  /** 分指数口径下的日内差异（scrape 按指数分好）。纳指读 run.changed，其余指数读这里。 */
+  byIndex?: Record<string, { opened?: number; total?: number; changed?: { code: string; from: DayPoint; to: DayPoint }[] | null }>;
 }
 
 export interface FetchMeta {

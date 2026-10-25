@@ -1,0 +1,50 @@
+---
+import type { PurchaseStatus } from '../data/types';
+import { STATUS_SHORT } from '../lib/status';
+
+interface Props {
+  items: {
+    kind: string;
+    shortName: string;
+    fromStatus: PurchaseStatus;
+    toStatus: PurchaseStatus;
+    fromLimit: number | null;
+    toLimit: number | null;
+  }[];
+}
+const { items } = Astro.props;
+
+// 变化行两端的状态/额度文案：与首页「今日变化」、邮件日报同一套说法。
+const isLimitKind = (k: string) => k.startsWith('limit');
+const fmtLimit = (v: number | null) => (v == null ? '未公布' : `${v} 元`);
+const fmtSide = (s: PurchaseStatus, limit: number | null) =>
+  s === 'LIMITED' && limit != null ? `限 ${limit} 元` : STATUS_SHORT[s];
+---
+
+<ul class="changelog-list">
+  {
+    items.map((c) => (
+      <li class={`cl-row cl-${c.kind}`}>
+        <span class="cl-name">
+          <i class={`cl-dot cl-dot-${c.kind}`} />
+          <span class="cl-title">{c.shortName}</span>
+        </span>
+        <span class="cl-transition">
+          {isLimitKind(c.kind) ? (
+            <>
+              <span class="cl-from">{fmtLimit(c.fromLimit)}</span>
+              <span class="cl-arrow">→</span>
+              <span class="cl-to">{fmtLimit(c.toLimit)}</span>
+            </>
+          ) : (
+            <>
+              <span class="cl-from">{fmtSide(c.fromStatus, c.fromLimit)}</span>
+              <span class="cl-arrow">→</span>
+              <span class="cl-to">{fmtSide(c.toStatus, c.toLimit)}</span>
+            </>
+          )}
+        </span>
+      </li>
+    ))
+  }
+</ul>

@@ -255,6 +255,40 @@ export function monthGridsAround(date: string, before: number, after: number): M
   return out;
 }
 
+// ── 周视图 ──────────────────────────────────────────────────────────────────
+
+export interface WeekGrid {
+  monday: string; // 周一日期
+  label: string; // 「10.19–25」（跨月则「10.28–11.03」），现只覆盖周一~周五
+  days: DayInfo[]; // 7 个，周一..周日（组件渲染时过滤掉周末）
+}
+
+/** date 所在周的周一。dow 0=周日…6=周六，周一起算则回退 (dow+6)%7 天。 */
+export function mondayOf(date: string): string {
+  return shiftDate(date, -((dowOf(date) + 6) % 7));
+}
+
+export function weekGrid(monday: string): WeekGrid {
+  const m1 = Number(monday.slice(5, 7));
+  const d1 = Number(monday.slice(8, 10));
+  // 周历只展示交易日（周一~周五），标签也用当周实际范围（周五），不再把周末算进跨度。
+  const fri = shiftDate(monday, 4);
+  const m2 = Number(fri.slice(5, 7));
+  const d2 = Number(fri.slice(8, 10));
+  const label = m1 === m2 ? `${m1}.${d1}–${d2}` : `${m1}.${d1}–${m2}.${d2}`;
+  const days = Array.from({ length: 7 }, (_, i) => dayInfo(shiftDate(monday, i)));
+  return { monday, label, days };
+}
+
+/** 以 today 所在周为最新一周，往前 weeksBack 周、往后 weeksFwd 周，返回 [最旧…最新…未来]。
+ *  调用方倒序即可让最新周置顶；weeksFwd>0 时末尾多追加未来周。 */
+export function weeksAround(today: string, weeksBack: number, weeksFwd = 0): WeekGrid[] {
+  const thisMon = mondayOf(today);
+  const out: WeekGrid[] = [];
+  for (let i = weeksBack; i >= -weeksFwd; i--) out.push(weekGrid(shiftDate(thisMon, -i * 7)));
+  return out;
+}
+
 // ── 未来「美股休市」明细（页面上要单独列出来的那几天）───────────────────────
 
 export interface UpcomingClosure {

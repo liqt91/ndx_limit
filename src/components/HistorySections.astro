@@ -1,113 +1,41 @@
 ---
-// 指数页底部的两节：每日快照 + 交易日历。
+// 指数页底部的「交易日历」（竖向周行，内嵌每日可投额度）。
 //
-// 2026-10-23 之前它们是独立的历史页（/ndx100/daily、/sp500/daily）。拆掉的理由：
-// 历史本来就是「这个指数」的属性，为了看它换一页不划算；而交易日历虽然对两个指数
-// 通用，摆在这里读作「这个指数什么时候能交易」，也成立。
-// ★ 旧路由没有真的消失，还留着 JumpPage 壳（/ndx100/daily → /ndx100/#history），
-//   邮件、书签、聊天记录里的旧链接仍然落得下来。
+// 2026-10-23 之前「每日快照」是独立的历史页（/ndx100/daily），后来并进来；
+// 2026-10-25 先与「交易日历」合并成一张月历，格子塞日期+额度，太密太挤；
+// 当天又改为「周历」：每周一行、七格大格子，过去的交易日直接写额度，密度骤降。
 //
-// 标题不写「每日快照 · 标普500」——这块只出现在对应指数的页面上，页面本身已经
-// 说明了是哪个指数，标题重复一遍是噪音（2026-10-23 用户指出）。
+// 锚点挂在整块上：旧链接 /ndx100/daily 跳到 #history 要落在这节的顶上。
 //
-// ★ 为什么是分页而不是 <details>：先做过一版「铺 7 天 + 折起 8 天」，长度是收住了，
-//   但「想翻到更早的某一天」只能一次全铺开，摊开后又回到长列表。现在每页 8 天、
-//   页码 1/2/3，最多 24 天：每页高度固定，翻页是个有目标的动作。
-//   可见性靠 radio 的 :checked 驱动（零 JS），页码是 <label>，键盘 Tab 进分组后
-//   方向键就能翻页。★ 页数上限 MAX_PAGES 与 global.css 里那几条「当前页」高亮规则
-//   是一对：加页要同步加规则，check:index 有断言盯着（少了只是不高亮，翻页照样能用）。
+// 数据零新增：loadDailySummaries 已按日期给 {opened,total}，做成 Map 按 DayInfo.date 查表；
+// 取数窗 60 天，窗口按「最早有数据那周的周一 → 本周」对齐，不渲染空周。
 import SectionHead from './SectionHead.astro';
-import TradingCalendar from './TradingCalendar.astro';
+import WeekCal from './WeekCal.astro';
 import { loadDailySummaries, getToday } from '../data/loader';
-import { dowOf } from '../data/dates';
+import { weeksAround, mondayOf } from '../data/trading-days';
 
 interface Props {
   indexKey: string;
-  /** 逐日快照的小节编号，接在美元分组之后由 IndexBoard 算 */
-  historyIndex: string;
-  /** 交易日历的小节编号 */
-  calendarIndex: string;
+  /** 交易日历小节编号（接在「今天能买多少」之后） */
+  index: string;
 }
-const { indexKey, historyIndex, calendarIndex } = Astro.props;
+const { indexKey, index } = Astro.props;
 
 const today = getToday();
-const PAGE = 8;
-const MAX_PAGES = 3;
-const summaries = loadDailySummaries(PAGE * MAX_PAGES, indexKey);
-const pages: (typeof summaries)[] = [];
-for (let i = 0; i < summaries.length; i += PAGE) pages.push(summaries.slice(i, i + PAGE));
+const totals = new Map<string, { opened: number; total: number }>();
+for (const s of loadDailySummaries(60, indexKey)) {
+  totals.set(s.date, { opened: s.opened, total: s.total });
+}
 
-// 日期写成 10-23 + 一个字星期：整行压成一条账目，一眼能看出「10-12 周一 → 10-09 周五」
-// 中间跳掉的是周末而不是漏抓。dowOf 用纯字符串 + Date.UTC，不走本地时区
-// （构建机在 UTC，new Date('2026-10-12') 会算成前一天）。
-const WD = ['日', '一', '二', '三', '四', '五', '六'];
-const md = (d: string) => d.slice(5);
-const wd = (d: string) => WD[dowOf(d)];
+// 窗口对齐：从「最早有数据的周一」到「本周」，刚好覆盖全部历史交易日，不渲染空周。
+const dates = [...totals.keys()].sort();
+const earliest = dates[0] ?? today;
+const weeksBack = Math.max(0, Math.ceil((Date.parse(today) - Date.parse(mondayOf(earliest))) / 604800000));
+// 最新周置底：远周在上、近周在下、未来一周在最底，按时间正向铺开（旧→新→未来）
+const weeks = weeksAround(today, weeksBack, 1);
 ---
 
-{/* 锚点挂在整块上：旧链接 /ndx100/daily 跳到 #history 要落在「历史」这一节的顶上，
-    而不是页面顶部——后者等于跳了个寂寞 */}
 <div id="history">
-  <SectionHead index={historyIndex} title="每日快照" aside={`人民币 · 最近 ${summaries.length} 个交易日`} />
-
-  {
-    summaries.length === 0 ? (
-      <p class="empty">还没有历史数据。</p>
-    ) : (
-      <div class="daybook">
-        {pages.map((rows, i) => (
-          <>
-            <input
-              class="dp"
-              type="radio"
-              name="daypage"
-              id={`dayp-${i + 1}`}
-              checked={i === 0}
-              aria-label={`第 ${i + 1} 页`}
-            />
-            <table class="tbl daytbl">
-              <thead>
-                <tr>
-                  <th>日期</th>
-                  <th class="num">开门</th>
-                  <th class="num">监控</th>
-                  <th class="lead"></th>
-                  <th class="num">可投额度</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((s) => (
-                  <tr class="dayrow">
-                    <td>
-                      {md(s.date)}
-                      <span class="day-wd">{wd(s.date)}</span>
-                    </td>
-                    <td class="num">{s.opened}</td>
-                    <td class="num">{s.count}</td>
-                    {/* 虚线引导：日期和数目之间的空地要么被这条线串起来，要么就只是没内容的空白
-                        （窄屏上它会自己缩没，那时列间距已经足够近，不需要引导） */}
-                    <td class="lead"><span></span></td>
-                    <td class="num">
-                      {s.total}
-                      <span class="day-unit">元</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </>
-        ))}
-        {pages.length > 1 && (
-          <nav class="daynav" aria-label="每日快照翻页">
-            {pages.map((_, i) => (
-              <label for={`dayp-${i + 1}`}>{i + 1}</label>
-            ))}
-          </nav>
-        )}
-      </div>
-    )
-  }
-
-  <SectionHead index={calendarIndex} title="交易日历" aside="上月 · 本月 · 下月" />
-  <TradingCalendar today={today} />
+  <SectionHead index={index} title="交易日历" />
+  <WeekCal weeks={weeks} today={today} totals={totals} />
 </div>

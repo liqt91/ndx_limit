@@ -70,7 +70,7 @@ const cnyTotal = knownCodes.length;
           data-index={s.meta.key}
           data-board={indexSlug(s.meta.key) ?? undefined}
           data-label={s.meta.short}>
-          <SectionHead title={s.meta.key} aside={`${s.groups.length} 家`} />
+          <SectionHead title={s.meta.label} />
           <div class="my-list">
             {s.groups.map((g) => (
               <FamilyCard shares={g.shares} dataCodes={g.shares.map((x) => x.code).join(' ')} hidden={true} />

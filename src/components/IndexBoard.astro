@@ -85,16 +85,16 @@ const changeParts = [
 const hasChanges = changes.hasData && changeParts.length > 0;
 const verdictText = hasChanges ? changeParts.join('，') : '没有变化';
 
-// 小节编号：有「今日变化」时它占 01，然后依次 02 / 03 / 04。
+// 小节编号：有「今日变化」时它占 01，然后依次 02 / 03。
 // ★ 2026-10-23 起「美元基金」不再是独立小节（并入「今天能买多少」当第二组），
-//   编号也跟着少一个。用「主号 + 偏移」算，不再手写三个三元表达式——
-//   那种写法的位移规则散在三行里，加一节就要改三处。
+//   编号也跟着少一个。用「主号 + 偏移」算，不再手写三个三元表达式。
+// ★ 2026-10-25 「每日快照」与「交易日历」合并为一节（交易日历内嵌每日额度），
+//   底部只剩一节，接在主表之后。
 const idxMainNum = ctx.isTrading && hasChanges ? 2 : 1;
 const pad2 = (n: number) => String(n).padStart(2, '0');
 const idxMain = pad2(idxMainNum);
-// 历史两节接在主表之后，同一套位移
-const idxHistory = pad2(idxMainNum + 1);
-const idxCal = pad2(idxMainNum + 2);
+// 交易日历接在主表之后，同一套位移
+const idxCal = pad2(idxMainNum + 1);
 
 // 额度类变动直接显示「5 元 → 10 元」，比「限大额 → 限大额」有用
 const isLimitKind = (k: string) => k.startsWith('limit');
@@ -210,7 +210,7 @@ const ogDescription = noData
   {
     hasChanges && ctx.isTrading && (
       <>
-        <SectionHead index="01" title="今日变化" aside={`共 ${changes.changes.length} 处`} />
+        <SectionHead index="01" title="今日变化" />
         <div class="changelog">
           <ul class="changelog-list">
             {changes.changes.map((c) => (
@@ -260,7 +260,6 @@ const ogDescription = noData
     <span slot="aside" class="grid-legend">
       <span class="ramp-legend">
         <i class="lg l1"></i><i class="lg l2"></i><i class="lg l3"></i><i class="lg l4"></i>
-        <em>申购额度</em>
       </span>
       <span><i class="lg off"></i>暂停</span>
     </span>
@@ -298,8 +297,8 @@ const ogDescription = noData
     )
   }
 
-  {/* 逐日快照 + 交易日历：2026-10-23 从独立的历史页并进来，旧路由留跳转壳 */}
-  <HistorySections indexKey={indexKey} historyIndex={idxHistory} calendarIndex={idxCal} />
+  {/* 交易日历（内嵌每日额度）：2026-10-25 与「每日快照」合并，旧路由留跳转壳 */}
+  <HistorySections indexKey={indexKey} index={idxCal} />
 
   {/* 放在页面最末尾：脚本要改 H1 和下方小节标题，必须在这些节点解析完之后执行 */}
   <script is:inline define:vars={{ dataDate: ctx.dataDate, tradingMap, fetchedTime: ctx.updatedTime }}>

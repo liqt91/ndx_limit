@@ -74,6 +74,11 @@
   --accent-changed: #b5732a;
   --accent-faint: #c6c1b1;
 
+  /* 日历「可申购日」格：淡绿底 + 可投绿字，与状态点 --accent-open 同源。
+     只给底色，不给字号——额度数字大小由 .d-amt 控制，避免和 --heat 量级色混淆。 */
+  --cal-trade-bg: #e7f1ec;
+  --cal-amt: var(--accent-open);
+
   /* 兼容旧变量名（页面既有 class 引用） */
   --bg: var(--paper);
   --card: var(--surface);
@@ -729,6 +734,17 @@ a { color: inherit; text-decoration: none; }
   .fam-shares { font-size: 11px; column-gap: 12px; }
 }
 
+/* 窄屏：左列收窄、格子略缩，五列仍并排（每格约 40px，额度数字保留） */
+@media (max-width: 600px) {
+  .wk-head-spacer { flex-basis: 46px; width: 46px; }
+  .wk-head-days span { font-size: 10px; }
+  .wk-lbl { flex-basis: 46px; width: 46px; }
+  .wk-lbl b { font-size: 11.5px; }
+  .wk-d { min-height: 52px; padding: 5px 5px 8px; }
+  .wk-dt { font-size: 11px; }
+  .wk-amt { font-size: 13px; }
+}
+
 /* ── 21 天额度热力方块：只有颜色深浅 ───────────────────────────────────
    阈值固定在 lib/amount-scale.ts（30 / 300 / 600，左开右闭：30 元还算第一档），
    所以 20 元和 400 元在首页、详情页、任何一天都是同一个颜色，不需要看图例换算。
@@ -792,50 +808,70 @@ a { color: inherit; text-decoration: none; }
   margin: 34px 0 6px;
 }
 
-/* ── 交易日历（/daily）──────────────────────────────────────────────
-   只有两档字色：能买是墨色，买不到一律同一种灰。
-   原因不写进格子（格子里没地方讲），交给悬停提示的三行字——
-   用删除线/下划线/色点去编码四种状态，等于逼读者先读图例再读日历。 */
+/* ── 交易日历（竖向周行）────────────────────────────────────────────
+   每周一行，左列标周范围+周次，右 7 格大格子。
+   过去且有数据的交易日 → 写额度，底部一道青条（= 当晚可申购）；
+   周末 / 假期 / 未来 → 灰格留白，无额度无青条。
+   原因不写进格子，交给悬停提示的三行字（见下方「悬停提示」段）。 */
 
-.cal-months {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 26px 26px;
-  margin-top: 4px;
+.wk { margin-top: 4px; }
+/* 周几表头：结构轴（一二三四五），下方一道发丝线，像账册栏首 —— 不用卡片、不用框 */
+.wk-head { display: flex; gap: 12px; padding-bottom: 5px; border-bottom: 1px solid var(--rule); }
+.wk-head-spacer { flex: 0 0 58px; width: 58px; }
+.wk-head-days { flex: 1; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.wk-head-days span {
+  text-align: center; font-family: var(--mono); font-size: 11px;
+  color: var(--ink-3); letter-spacing: 0.08em;
 }
-.cal-m-h {
-  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
-  padding-bottom: 7px; margin-bottom: 3px;
-  border-bottom: 1px solid var(--rule);
+/* 每周一行，行间用发丝线分隔（卷轴纸上没有格子的卡片框，只有横 ruling） */
+.wk-row { display: flex; align-items: stretch; gap: 12px; }
+.wk-row + .wk-row { border-top: 1px solid var(--rule); }
+/* 本周：极淡中性底 + 左侧一道青线书签，纯视觉、不靠文字也能定位 */
+.wk-row.is-this-week { background: rgba(0, 0, 0, 0.022); }
+.wk-row.is-this-week .wk-lbl { box-shadow: inset 2px 0 0 var(--accent-open); }
+.wk-lbl {
+  flex: 0 0 58px; width: 58px;
+  display: flex; flex-direction: column; justify-content: center; gap: 2px; line-height: 1.2;
+  padding: 9px 0;
 }
-.cal-m-t { font-size: 14.5px; font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; }
-.cal-m-n { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); white-space: nowrap; }
-.cal-m-p {
-  margin-left: 5px; padding: 0 3px;
-  border: 1px solid var(--rule-2); color: var(--warn); font-size: 11.5px;
-}
-.cal-empty { font-size: 12.5px; color: var(--ghost); line-height: 1.7; margin: 12px 0 0; }
-
-.cal-m-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
-.cal-w {
-  font-family: var(--mono); font-size: 11.5px; color: var(--ghost);
-  text-align: center; padding: 7px 0 4px; letter-spacing: 0.04em;
-}
-.cal-d {
+.wk-lbl b { font-family: var(--mono); font-size: 12.5px; font-weight: 500; color: var(--ink); letter-spacing: -0.01em; }
+.wk-lbl .wk-now { font-style: normal; font-family: var(--sans); font-size: 10.5px; font-weight: 600; color: var(--accent-open); letter-spacing: 0.04em; }
+.wk-days { flex: 1; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.wk-d {
   position: relative;
-  display: flex; align-items: center; justify-content: center;
-  aspect-ratio: 1 / 1;
-  font-family: var(--mono); font-size: 14px; line-height: 1;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink);
+  display: flex; flex-direction: column; justify-content: space-between;
+  min-height: 54px; padding: 9px 2px 11px;
+  background: transparent;
 }
-/* 可申购：两市都开，今晚能下单 */
-.cal-d.is-trade { color: var(--ink); font-weight: 500; }
-/* 买不到：周末、A 股法定假日、美股假日、覆盖不到 —— 统一这一种灰 */
-.cal-d.is-off { color: var(--cal-off); font-weight: 400; }
-.cal-d.is-pad { color: transparent; }
-/* 今天只加方框，不改字色 —— 今天若买不到，它依然是灰的 */
-.cal-d.is-today { outline: 1px solid var(--ink); outline-offset: -2px; font-weight: 700; }
+/* 可申购日：最深的墨 + 加粗日期，与休市日的浅灰拉开强对比；
+   底部一道加粗青线 = 当晚可申购（账册里给可买日加的标注线，非卡片色块）。
+   未来的可申购日同理只标线、无额度，预告「那天能买」。 */
+.wk-d.is-trade .wk-dt { color: var(--ink); font-weight: 600; }
+.wk-d.is-trade::after {
+  content: ''; position: absolute; left: 8px; right: 8px; bottom: 6px;
+  height: 3px; background: var(--accent-open); border-radius: 2px;
+}
+/* 买不到 / 未来休市：浅灰日期 + 浅灰原因，整格退后，靠墨色淡出来和「可买」分层 */
+.wk-d.is-off { justify-content: center; }
+.wk-d.is-off .wk-dt { color: var(--ink-3); font-weight: 400; }
+/* 今天：细青环，不改底色（今天是周末也不变色，只描一圈） */
+.wk-d.is-today { outline: 1.5px solid var(--accent-open); outline-offset: -2px; border-radius: 3px; }
+/* 日期数字：安静的锚点，置顶 */
+.wk-dt { font-family: var(--mono); font-size: 13px; color: var(--ink-2); line-height: 1.1; }
+/* 额度数字是格子里的主角 */
+.wk-amt { font-family: var(--mono); font-size: 16px; font-weight: 500; color: var(--ink); letter-spacing: -0.01em; line-height: 1; margin-bottom: 6px; }
+.wk-amt u { font-style: normal; font-size: 11px; font-weight: 400; color: var(--ink-2); text-decoration: none; margin-left: 1px; }
+/* 休市原因：安静的灰字，居中，纯纸上墨迹（无边框无底色） */
+.wk-reason { font-size: 11px; line-height: 1.25; color: var(--ink-3); text-align: center; padding: 0 2px; word-break: keep-all; }
+
+/* 悬停/聚焦提示沿用 .cal-tip 皮肤（见下方「悬停提示」段），这里只接触发与贴边对齐 */
+.wk-d:hover .cal-tip,
+.wk-d:focus .cal-tip,
+.wk-d:focus-visible .cal-tip { display: flex; }
+.wk-d:hover, .wk-d:focus-visible { z-index: 30; }
+.wk-d:focus-visible { outline: 1px solid var(--rule-2); outline-offset: -2px; }
+.wk-d:first-child .cal-tip { left: 0; transform: none; }
+.wk-d:last-child .cal-tip { left: auto; right: 0; transform: none; }
 
 /* ── 悬停提示：全站唯一的 tooltip 皮肤 ─────────────────────────────────
    一张浮起来的纸片：白底 + 1px 细线，不用阴影圆角（与全站一致）。
@@ -914,19 +950,7 @@ a { color: inherit; text-decoration: none; }
 .ct-v.ct-off { color: var(--ink-3); font-weight: 400; }
 .ct-why { color: var(--ink-2); }
 
-/* 窄屏：三列会把格子压到 20px 以下，宁可变一列 */
-@media (max-width: 680px) {
-  .cal-months { grid-template-columns: minmax(0, 1fr); gap: 24px; }
-  .cal-d { font-size: 15px; }
-  /* 单列时格子约 48px，七列横排：左三列左对齐、右四列右对齐才不会顶出视口 */
-  .cal-d:nth-child(7n + 1) .cal-tip,
-  .cal-d:nth-child(7n + 2) .cal-tip,
-  .cal-d:nth-child(7n + 3) .cal-tip { left: 0; right: auto; transform: none; }
-  .cal-d:nth-child(7n + 4) .cal-tip,
-  .cal-d:nth-child(7n + 5) .cal-tip,
-  .cal-d:nth-child(7n + 6) .cal-tip,
-  .cal-d:nth-child(7n) .cal-tip { left: auto; right: 0; transform: none; }
-}
+/* 周历提示贴边已由 .wk-d:first/last-child 处理（每周恰好七格），无需按断点重排 */
 
 /* ── 每日快照：一条账目一行，分页 ──
    表格本体沿用 .tbl（详情页的历史表也是它），只把行距压紧。
@@ -1244,6 +1268,59 @@ a { color: inherit; text-decoration: none; }
 .note { color: var(--ink-3); font-size: 12.5px; margin: 0 0 12px; line-height: 1.85; }
 /* 蜜罐：移出视口而非 display:none，避免部分爬虫识别 */
 .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+/* ── 订阅页日报墙：最近 30 个交易日的日报归档，卷轴纸感 ──
+   每天一条像一封邮件（纳指段 + 标普段同屏），与真实群发邮件同源。
+   无卡片框：靠发丝线分行 + 留白，和全站卷轴风一致。 */
+.digest-section { margin-top: 44px; }
+.digest-title { font-size: 15px; font-weight: 500; color: var(--ink); margin: 0 0 6px; letter-spacing: -0.01em; }
+.digest-hint { color: var(--ink-2); font-size: 13.5px; line-height: 1.8; margin: 0 0 16px; }
+.dw {
+  max-height: 560px;
+  overflow-y: auto;
+  border-top: 1px solid var(--rule);
+  padding-right: 4px;
+  scrollbar-width: thin;
+}
+.dw-day { padding: 16px 0; border-bottom: 1px solid var(--rule); }
+.dw-date {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 13.5px; font-weight: 500; color: var(--ink);
+  margin-bottom: 10px;
+}
+.dw-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-open); flex: none; }
+.dw-idx { padding: 8px 0 4px; }
+.dw-idx + .dw-idx { border-top: 1px solid color-mix(in srgb, var(--rule) 55%, transparent); margin-top: 4px; }
+.dw-idx-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+.dw-idx-name { font-size: 13px; font-weight: 500; color: var(--ink-2); }
+.dw-idx-sum { font-size: 13px; color: var(--ink); }
+.dw-idx-sum b { font-weight: 500; color: var(--accent-open); font-family: var(--mono); }
+.dw-delta { font-size: 13px; color: var(--ink-3); line-height: 1.5; margin-bottom: 2px; }
+.dw-no-data { font-size: 12.5px; color: var(--ink-3); font-style: italic; margin: 2px 0 0; }
+
+/* 第 1 段末尾的抓取时刻说明：弱于正文，点明数据时点 */
+.dw-note { font-size: 11.5px; color: var(--ink-3); margin-left: 4px; font-family: var(--mono); }
+
+/* 第 3 段「盘中」：与第 2 段「较上一交易日」用发丝线 + 缩进区分，仍是同一张纸的语言 */
+.dw-intraday { margin: 6px 0 2px; padding: 6px 0 2px 10px; border-left: 2px solid color-mix(in srgb, var(--rule-2) 60%, transparent); }
+.dw-delta-intra { display: flex; align-items: center; gap: 6px; }
+.dw-intra-tag {
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em;
+  color: var(--accent-open); border: 1px solid color-mix(in srgb, var(--accent-open) 45%, transparent);
+  border-radius: 3px; padding: 0 4px; line-height: 16px;
+}
+
+/* 日报墙里的变化清单：比首页更紧凑，仍复用 .changelog-list 圆点语言 */
+.dw .changelog-list { margin-top: 4px; }
+.dw .changelog-list .cl-row { padding: 7px 0; }
+.dw .changelog-list .cl-name { font-size: 13px; }
+.dw .changelog-list .cl-transition { font-size: 12.5px; }
+.dw-empty { color: var(--ink-3); font-size: 13.5px; line-height: 1.7; }
+
+@media (max-width: 600px) {
+  .dw .changelog-list .cl-row { flex-wrap: wrap; row-gap: 4px; }
+  .dw .changelog-list .cl-transition { margin-left: auto; }
+}
 
 /* ── 页脚：底栏左版权、右备案号位 ── */
 .foot {

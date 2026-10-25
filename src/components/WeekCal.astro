@@ -1,0 +1,102 @@
+---
+// 竖向周历：每周一行，左列标周范围（不再带「第 N 周」次级小字），右 5 格大格子（仅交易日）。
+// 过去且有数据的交易日 → 写额度，底部一道青条（= 当晚可申购）；
+// 周末 / 假期 / 未来 → 灰格留白，无额度无青条。
+// 悬停提示沿用全站 .cal-tip 皮肤（A股 / 美股 / 额度·开门数）。
+import type { WeekGrid, DayInfo } from '../data/trading-days';
+import { openWord, mondayOf } from '../data/trading-days';
+
+const { weeks, today, totals } = Astro.props;
+// 含 today 的那一周（today 是周日时，这一周的周一仍落在当前周）= 本周，单独标出
+const curMonday = mondayOf(today);
+
+interface Props {
+  weeks: WeekGrid[];
+  today: string;
+  /** 日期 → 当日聚合（开门数 / 可投总额）。只含「过去且有数据」的交易日。 */
+  totals: Map<string, { opened: number; total: number }>;
+}
+
+// 额度量级自适应：满 1 万才用「万」，否则用「元」（真实额度多为几百~几万，
+// 强行除以 1 万会变成 0.05万 这种既错又难看的写法）。精确金额仍交给悬停提示。
+function fmtAmt(total: number): { n: string; u: string } {
+  if (total >= 10000) {
+    const wan = total / 10000;
+    const n = wan >= 10 ? `${Math.round(wan)}` : wan.toFixed(1);
+    return { n, u: '万' };
+  }
+  return { n: `${Math.round(total)}`, u: '元' };
+}
+
+// 非交易日（灰格）里直写的休市原因：优先具体假日名，否则状态级措辞。
+// 过去的休市日与「即将到来的休市日」都写出，方便预判哪天不能买；
+// 美股假日名加「美国·」前缀，与国内「劳动节(5/1)」区分开，避免误读。
+function offReason(d: DayInfo): string {
+  if (d.state === 'US_CLOSED') return d.usHoliday ? `美国·${d.usHoliday}` : '美股休市';
+  if (d.state === 'CN_CLOSED' || d.state === 'BOTH_CLOSED') return d.cnReason;
+  if (d.state === 'UNKNOWN') return '日历未覆盖';
+  return '';
+}
+---
+
+<div class="wk-head">
+  <span class="wk-head-spacer" aria-hidden="true"></span>
+  <div class="wk-head-days">
+    <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span>
+  </div>
+</div>
+
+{weeks.map((w) => (
+  <div class:list={['wk-row', { 'is-this-week': w.monday === curMonday }]}>
+    <div class="wk-lbl">
+      {w.monday === curMonday && <em class="wk-now">本周</em>}
+      <b>{w.label}</b>
+    </div>
+    <div class="wk-days">
+      {w.days.filter((d) => !d.weekend).map((d) => {
+        const isFuture = d.date > today;
+        const isTrade = d.state === 'TRADING';
+        const t = totals.get(d.date);
+        const showAmt = !!t && !isFuture;
+        const amt = showAmt ? fmtAmt(t!.total) : null;
+        // 交易日（含未来）无原因 —— 靠「青色下划线 + 墨色日期」表达「可买」；
+        // 非交易日（过去与即将到来的休市日）写出原因，方便预判哪天不能买。
+        const reason = isTrade ? null : offReason(d);
+        const cls = ['wk-d'];
+        if (isTrade) cls.push('is-trade');
+        else cls.push('is-off');
+        if (d.date === today) cls.push('is-today');
+        const aria = t
+          ? `${d.title}；可投 ¥${t.total.toLocaleString('zh-CN')} · ${t.opened} 家开门`
+          : d.title;
+        return (
+          <span class={cls.join(' ')} tabindex="0" aria-label={aria}>
+            <span class="wk-dt">{d.day}</span>
+            {amt && <span class="wk-amt">{amt.n}<u>{amt.u}</u></span>}
+            {reason && <span class="wk-reason">{reason}</span>}
+            <span class="cal-tip" aria-hidden="true">
+              <b class="ct-d">{d.md} {d.weekZh}</b>
+              <span class="ct-r">
+                <i class="ct-k">A 股</i>
+                <b class:list={['ct-v', { 'ct-off': !d.cnOpen }]}>{openWord(d.cnOpen)}</b>
+                <span class="ct-why">· {d.cnReason}</span>
+              </span>
+              <span class="ct-r">
+                <i class="ct-k">美股</i>
+                <b class:list={['ct-v', { 'ct-off': !d.usOpen }]}>{openWord(d.usOpen)}</b>
+                <span class="ct-why">· {d.usReason}</span>
+              </span>
+              {t && (
+                <span class="ct-r">
+                  <i class="ct-k">额度</i>
+                  <b class="ct-v">¥{t.total.toLocaleString('zh-CN')}</b>
+                  <span class="ct-why">· {t.opened} 家开门</span>
+                </span>
+              )}
+            </span>
+          </span>
+        );
+      })}
+    </div>
+  </div>
+))}

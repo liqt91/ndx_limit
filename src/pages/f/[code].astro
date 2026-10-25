@@ -71,13 +71,12 @@ const heroCls =
   </section>
 
   <nav class="ext-links" aria-label="在其它平台查看本基金的页面">
-    <span class="ext-links-label">在其它平台查看</span>
     <a href={`https://fund.eastmoney.com/${share.code}.html`} target="_blank" rel="noopener noreferrer">天天基金</a>
     <a href={`https://finance.sina.com.cn/fund/quotes/${share.code}/bc.shtml`} target="_blank" rel="noopener noreferrer">新浪财经</a>
     <a href={`https://www.morningstar.cn/fund/${share.code}.html`} target="_blank" rel="noopener noreferrer">晨星网</a>
   </nav>
 
-  <SectionHead index="01" title="历史记录 · 近 30 天" aside={`${history.length} 天`} />
+  <SectionHead index="01" title="历史记录 · 近 30 天" />
   <table class="tbl">
     <thead>
       <tr>
@@ -104,7 +103,7 @@ const heroCls =
   {
     anns.length > 0 && (
       <>
-        <SectionHead index="02" title="申购相关公告" aside={`${anns.length} 条`} />
+        <SectionHead index="02" title="申购相关公告" />
         <ul class="ann-list">
           {anns.map((a) => (
             <li class="ann-row">

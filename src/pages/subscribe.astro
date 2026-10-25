@@ -1,5 +1,46 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import DigestWall from '../components/DigestWall.astro';
+import { loadDailySummaries, loadDailyChangeHistory, loadDailyIntraday, loadDataTimeNote, NDX, SP500 } from '../data/loader';
+
+// 订阅页日报墙：最近 30 个交易日的日报归档，每天一条 = 一封邮件的样子
+// （纳指段 + 标普段同屏，与真实群发邮件同源）。让访客订阅前先预览「会收到什么」。
+const N_DAYS = 30;
+const ndxSum = loadDailySummaries(N_DAYS, NDX);
+const ndxChg = loadDailyChangeHistory(N_DAYS, NDX);
+const spSum = loadDailySummaries(N_DAYS, SP500);
+const spChg = loadDailyChangeHistory(N_DAYS, SP500);
+const spSumMap = new Map(spSum.map((s) => [s.date, s]));
+const spChgMap = new Map(spChg.map((c) => [c.date, c]));
+
+// 邮件第 1 段的「抓取时刻」与第 3 段「较盘前/日内变化」只存在于 fetch-meta.json 的
+// 最新一天（历史日未留存逐日 intraday 与时刻），所以只有最新那张卡片能完整镜像邮件。
+const timeNote = loadDataTimeNote();
+const ndxIntra = loadDailyIntraday(NDX);
+const spIntra = loadDailyIntraday(SP500);
+const latestDate = timeNote.date; // 与 intraday 同源（都来自 fetch-meta 当天）
+
+const days = ndxSum.map((s) => ({
+  date: s.date,
+  label: s.label,
+  segs: [
+    {
+      label: '纳指100',
+      summary: s,
+      changes: ndxChg.find((c) => c.date === s.date) ?? null,
+      dataNote: s.date === latestDate ? timeNote.note : '',
+      intraday: s.date === latestDate ? ndxIntra : null,
+    },
+    {
+      label: '标普500',
+      summary: spSumMap.get(s.date) ?? null,
+      changes: spChgMap.get(s.date) ?? null,
+      dataNote: s.date === latestDate ? timeNote.note : '',
+      intraday: s.date === latestDate ? spIntra : null,
+    },
+  ],
+}));
+
 
 // 订阅走自己的边缘函数（EdgeOne Edge Functions），不再依赖第三方表单：
 //   浏览器 POST /api/subscribe（同源，不跳转）→ 边缘函数写 KV → 返回 JSON
@@ -71,6 +112,14 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   <noscript>
     <p class="note">订阅需要开启 JavaScript。也可以在浏览器的开发者工具里关闭脚本限制后重试。</p>
   </noscript>
+
+  <!-- 日报墙：放在表单与说明之后，让访客订阅前先看到「订阅后会收到这样的日报」。
+       每天一条 = 一封邮件的样子（纳指段 + 标普段同屏），与真实群发邮件同源。 -->
+  <section class="digest-section" aria-label="最近日报">
+    <h2 class="digest-title">最近日报</h2>
+    <p class="digest-hint">这就是订阅后会收到的邮件：每天收盘前一条，含当日可投总额与开门家数，以及相对上一交易日的变化。</p>
+    <DigestWall days={days} />
+  </section>
 
   <script>
     const form = document.getElementById('sub-form');

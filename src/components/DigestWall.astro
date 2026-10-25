@@ -1,0 +1,86 @@
+---
+import type { DailySummary, DailyChanges, IntradayBlock } from '../data/loader';
+import type { PurchaseStatus } from '../data/types';
+import { STATUS_SHORT } from '../lib/status';
+import ChangeList from './ChangeList.astro';
+
+interface Seg {
+  label: string; // 纳指100 / 标普500
+  summary: DailySummary | null;
+  changes: DailyChanges | null;
+  /** 邮件第 1 段末尾的抓取时刻说明（最新一天才有，如「10:16 抓取」） */
+  dataNote?: string;
+  /** 邮件第 3 段：较盘前/日内的盘中变化（最新一天才有） */
+  intraday?: IntradayBlock | null;
+}
+interface DigestDay {
+  date: string;
+  label: string; // 日期标签，如 10.24 周五
+  segs: Seg[]; // [纳指段, 标普段] —— 一封邮件里两个指数同屏
+}
+
+interface Props {
+  days: DigestDay[];
+}
+
+const { days } = Astro.props;
+
+// 变化行两端的状态/额度文案：与首页「今日变化」、邮件日报同一套说法。
+const isLimitKind = (k: string) => k.startsWith('limit');
+const fmtSide = (s: PurchaseStatus, limit: number | null) =>
+  s === 'LIMITED' && limit != null ? `限 ${limit} 元` : STATUS_SHORT[s];
+const fmtTotal = (v: number) => v.toLocaleString('en-US');
+---
+
+{
+  days.length === 0 ? (
+    <p class="dw-empty">暂无历史日报可展示（本地尚未抓取数据）。</p>
+  ) : (
+    <div class="dw">
+      {days.map((day) => (
+        <div class="dw-day">
+          <div class="dw-date">
+            <span class="dw-dot" />
+            {day.label} · 收盘前报
+          </div>
+          {day.segs.map((seg) => (
+            <div class="dw-idx">
+              <div class="dw-idx-h">
+                <span class="dw-idx-name">{seg.label}</span>
+                {seg.summary && (
+                  <span class="dw-idx-sum">
+                    {seg.summary.opened} 家开门 · 合计 <b>{fmtTotal(seg.summary.total)}</b> 元可投
+                    {seg.dataNote && <span class="dw-note">（{seg.dataNote}）</span>}
+                  </span>
+                )}
+              </div>
+              {seg.changes ? (
+                <>
+                  <div class="dw-delta">
+                    {seg.changes.changes.length ? (
+                      <>较 {seg.changes.prevDate}：{seg.changes.opened} 处开门 · {seg.changes.stopped} 处暂停 · {seg.changes.limitChanged} 处额度变动</>
+                    ) : (
+                      <>较 {seg.changes.prevDate}：今日无变化，申购状态与额度都和上一交易日一致。</>
+                    )}
+                  </div>
+                  {seg.changes.changes.length > 0 && <ChangeList items={seg.changes.changes} />}
+                </>
+              ) : (
+                !seg.summary && <div class="dw-no-data">暂无数据</div>
+              )}
+              {seg.intraday && (
+                <div class="dw-intraday">
+                  <div class="dw-delta dw-delta-intra">
+                    <span class="dw-intra-tag">盘中</span>
+                    {seg.intraday.prevLabel}：{seg.intraday.changes.length} 处变化
+                  </div>
+                  {seg.intraday.changes.length > 0 && <ChangeList items={seg.intraday.changes} />}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
