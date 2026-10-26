@@ -279,6 +279,11 @@
       "status": "STOPPED",
       "limit": null,
       "nav": 3.1568
+    },
+    {
+      "date": "2026-10-26",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "161130": [
@@ -8637,6 +8642,11 @@
       "status": "STOPPED",
       "limit": null,
       "nav": 3.1004
+    },
+    {
+      "date": "2026-10-26",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "050025": [
@@ -8771,6 +8781,11 @@
       "status": "STOPPED",
       "limit": null,
       "nav": 5.6086
+    },
+    {
+      "date": "2026-10-26",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "006075": [
@@ -8905,6 +8920,11 @@
       "status": "STOPPED",
       "limit": null,
       "nav": 5.4279
+    },
+    {
+      "date": "2026-10-26",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "018738": [
@@ -9039,6 +9059,11 @@
       "status": "STOPPED",
       "limit": null,
       "nav": 5.6068
+    },
+    {
+      "date": "2026-10-26",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "007721": [
@@ -9173,6 +9198,11 @@
       "status": "STOPPED",
       "limit": null,
       "nav": 2.2605
+    },
+    {
+      "date": "2026-10-26",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "007722": [
@@ -9307,6 +9337,11 @@
       "status": "STOPPED",
       "limit": null,
       "nav": 2.2179
+    },
+    {
+      "date": "2026-10-26",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "022523": [
@@ -9441,6 +9476,11 @@
       "status": "STOPPED",
       "limit": null,
       "nav": 2.2172
+    },
+    {
+      "date": "2026-10-26",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "096001": [
@@ -9553,6 +9593,11 @@
       "date": "2026-10-23",
       "status": "LIMITED",
       "limit": 50
+    },
+    {
+      "date": "2026-10-26",
+      "status": "LIMITED",
+      "limit": 50
     }
   ],
   "008401": [
@@ -9663,6 +9708,11 @@
     },
     {
       "date": "2026-10-23",
+      "status": "LIMITED",
+      "limit": 50
+    },
+    {
+      "date": "2026-10-26",
       "status": "LIMITED",
       "limit": 50
     }
@@ -9799,6 +9849,11 @@
       "status": "STOPPED",
       "limit": null,
       "nav": 1.7297
+    },
+    {
+      "date": "2026-10-26",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "017030": [
@@ -9933,6 +9988,11 @@
       "status": "STOPPED",
       "limit": null,
       "nav": 1.7095
+    },
+    {
+      "date": "2026-10-26",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "017641": [
@@ -10067,6 +10127,11 @@
       "status": "LIMITED",
       "limit": 10,
       "nav": 1.7094
+    },
+    {
+      "date": "2026-10-26",
+      "status": "LIMITED",
+      "limit": 10
     }
   ],
   "019305": [
@@ -10201,6 +10266,11 @@
       "status": "LIMITED",
       "limit": 10,
       "nav": 1.6926
+    },
+    {
+      "date": "2026-10-26",
+      "status": "LIMITED",
+      "limit": 10
     }
   ],
   "018064": [
@@ -10335,6 +10405,11 @@
       "status": "STOPPED",
       "limit": null,
       "nav": 1.7121
+    },
+    {
+      "date": "2026-10-26",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "018065": [
@@ -10469,6 +10544,11 @@
       "status": "STOPPED",
       "limit": null,
       "nav": 1.6945
+    },
+    {
+      "date": "2026-10-26",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "003718": [
@@ -10603,6 +10683,11 @@
       "status": "STOPPED",
       "limit": null,
       "nav": 0.4698
+    },
+    {
+      "date": "2026-10-26",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "012861": [
@@ -10737,6 +10822,11 @@
       "status": "STOPPED",
       "limit": null,
       "nav": 0.4614
+    },
+    {
+      "date": "2026-10-26",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "013425": [
@@ -10871,6 +10961,11 @@
       "status": "STOPPED",
       "limit": null,
       "nav": 0.8347
+    },
+    {
+      "date": "2026-10-26",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "013499": [
@@ -11005,6 +11100,11 @@
       "status": "STOPPED",
       "limit": null,
       "nav": 0.8078
+    },
+    {
+      "date": "2026-10-26",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "013404": [
@@ -11117,6 +11217,11 @@
       "date": "2026-10-23",
       "status": "STOPPED",
       "limit": null
+    },
+    {
+      "date": "2026-10-26",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "015545": [
@@ -11227,6 +11332,11 @@
     },
     {
       "date": "2026-10-23",
+      "status": "STOPPED",
+      "limit": null
+    },
+    {
+      "date": "2026-10-26",
       "status": "STOPPED",
       "limit": null
     }
@@ -11363,6 +11473,11 @@
       "status": "STOPPED",
       "limit": null,
       "nav": 0.2544
+    },
+    {
+      "date": "2026-10-26",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "017643": [
@@ -11497,6 +11612,11 @@
       "status": "STOPPED",
       "limit": null,
       "nav": 0.2544
+    },
+    {
+      "date": "2026-10-26",
+      "status": "STOPPED",
+      "limit": null
     }
   ],
   "018066": [
@@ -11631,6 +11751,11 @@
       "status": "STOPPED",
       "limit": null,
       "nav": 0.2564
+    },
+    {
+      "date": "2026-10-26",
+      "status": "STOPPED",
+      "limit": null
     }
   ]
 }
