@@ -1,20 +1,26 @@
 /* =============================================================
    设计语言 — 纸感 / 单一墨色 / 发丝细线（参照 cali.so）
    -------------------------------------------------------------
-   暖白纸底 + 近黑墨字；数据、编号、日期一律等宽字体；
+   近白纸底 + 近黑墨字；数据、编号、日期一律等宽字体；
    不用色块、不用阴影、不用圆角卡片，层级全靠细线与字重；
    状态色退到墨水里（墨绿 / 赭石 / 砖红），只做小方点与字色。
    ============================================================= */
 :root {
-  /* 纸与墨。整站共用一张暖米黄的纸（原本是两个板块各一套、靠纸色区分，
-     2026-10-23 起改为统一暖纸 + 一套身份色，见下面「分站身份」）。 */
-  --paper: #f9f0dd;
-  --surface: #fffbf1;
+  /* 纸与墨。整站共用一张近白纸（原本两个板块各一套、靠纸色区分，2026-10-23 改为
+     统一纸色 + 一套身份色，见下面「分站身份」）。
+     ★ 2026-10-26 去掉牛皮纸黄：纸 #f9f0dd→#fcfbf6、面 #fffbf1→#fff、
+       线 #e7ddc8→#e6e4dc / #d3c7ad→#cbc9c1。只换「纸 / 面 / 线」四项，墨色未动。
+       代价是「面 vs 纸」ΔE 从 6.2 掉到 2.9（卡片底层次变薄，靠线承担分隔）；
+       换来的全是好处：正文 16.41→17.94:1、ink-3 4.94→5.41、印色 7.56→8.27 / 5.88→6.43、
+       warn 6.17→6.75、"暂停"灰 5.05→5.52。全部只升不降。
+       纸色是全仓 15 处字面量（见 MEMORY.md §5），改一处漏一处不会报错。 */
+  --paper: #fcfbf6;
+  --surface: #ffffff;
   --ink: #14130f;
   --ink-2: #4f4d44;
   --ink-3: #6b6859;
-  --rule: #e7ddc8;
-  --rule-2: #d3c7ad;
+  --rule: #e6e4dc;
+  --rule-2: #cbc9c1;
   /* 占位符：明确弱于正文，避免被当成已填内容 */
   --ghost: #b3afa2;
   /* 日历里「买不到」的统一灰：比 ghost 深一档（3:1 上下），置灰但要能看清数字 */
@@ -165,14 +171,14 @@
 }
 
 html[data-board='ndx100'] {
-  /* 与标普同一张暖纸：换的只是印色，不是纸 */
-  --paper: #f9f0dd;
-  --surface: #fffbf1;
+  /* 与标普同一张纸：换的只是印色，不是纸 */
+  --paper: #fcfbf6;
+  --surface: #ffffff;
 }
 
 html[data-board='sp500'] {
-  --paper: #f9f0dd;
-  --surface: #fffbf1;
+  --paper: #fcfbf6;
+  --surface: #ffffff;
 }
 
 /* 顶栏顶上那道 3px 色带：整页唯一的高饱和色块，也是滚动时唯一一直在场的标识。
@@ -951,59 +957,6 @@ a { color: inherit; text-decoration: none; }
 .ct-why { color: var(--ink-2); }
 
 /* 周历提示贴边已由 .wk-d:first/last-child 处理（每周恰好七格），无需按断点重排 */
-
-/* ── 每日快照：一条账目一行，分页 ──
-   表格本体沿用 .tbl（详情页的历史表也是它），只把行距压紧。
-   ★ 日期与数目之间那一大片空地要么被串起来、要么就只是空白——所以中间插了一列
-     虚线引导（收据/账本的样子）。只有一列是 100% 宽，它吃掉全部富余空间，
-     于是三个数字列始终贴着右边缘，翻页时不会左右跳（比固定列宽更稳）。
-   ★ 窄屏上引导缩到没有（见下方 media query）：那时列距已经很近，再画线是噪声。 */
-.tbl.daytbl { margin-top: 0; table-layout: fixed; }
-.tbl.daytbl th, .tbl.daytbl td { padding: 7px 10px 7px 0; white-space: nowrap; line-height: 1.45; }
-/* 四列定宽、第五列（引导）不定宽 → 引导吃掉全部富余。定宽是为了翻页时列不左右跳：
-   自动布局按「这一页最长的那格」算列宽，第 3 页只有 6 行、金额位数又小，翻过去会横向挪。
-   ★ 引导列不能写 width:100%：自动布局下它会把文字列挤到最小内容宽，日期被压成
-     33px、一个字一行（2026-10-23 实测行高 85px）。留空即「吃掉剩下的」。 */
-.daytbl th:nth-child(1) { width: 78px; }
-.daytbl th:nth-child(2), .daytbl th:nth-child(3) { width: 46px; }
-.daytbl th:nth-child(5) { width: 96px; }
-.daytbl th.lead, .daytbl td.lead { padding-right: 12px; }
-.daytbl td.lead span { display: block; height: 0.55em; border-bottom: 1px dotted var(--rule); }
-.day-wd { font-family: var(--sans); font-size: 11px; letter-spacing: 0; color: var(--ink-3); margin-left: 6px; }
-.day-unit { font-family: var(--sans); font-size: 11.5px; font-weight: 400; color: var(--ink-3); margin-left: 4px; }
-
-/* 翻页：radio 管可见性（零 JS），<label> 当页码。
-   ★ 隐藏必须「不可见但可聚焦」——display:none 的 radio 收不到键盘焦点，
-     整套翻页就只能用鼠标点。 */
-.dp {
-  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
-  overflow: hidden; clip-path: inset(50%); border: 0;
-}
-.daytbl { display: none; }
-.dp:checked + .daytbl { display: table; }
-
-.daynav { display: flex; justify-content: flex-end; align-items: baseline; gap: 4px; padding: 10px 0 0; }
-.daynav label {
-  min-width: 24px; padding: 2px 2px 3px; text-align: center;
-  font-family: var(--mono); font-size: 12px; color: var(--ink-3);
-  border-bottom: 1.5px solid transparent;
-  cursor: pointer;
-  transition: color .12s ease, border-color .12s ease;
-}
-.daynav label:hover { color: var(--ink); }
-/* 当前页：只把下划线染成印色，不做色块（与站内其它「当前位置」同一种写法）。
-   ★ 这几条与 HistorySections.astro 的 MAX_PAGES 是一对：页数加到 4 时必须补一条，
-     否则第 4 页翻得到、但页码不高亮（check:index 会盯着这件事）。 */
-.daybook:has(#dayp-1:checked) label[for="dayp-1"],
-.daybook:has(#dayp-2:checked) label[for="dayp-2"],
-.daybook:has(#dayp-3:checked) label[for="dayp-3"] { color: var(--ink); border-bottom-color: var(--accent); }
-/* 焦点落在看不见的 radio 上，得给个可见落点：把整组页码描一圈 */
-.daybook:has(.dp:focus-visible) .daynav { outline: 1px solid var(--accent); outline-offset: 3px; }
-
-/* 窄屏：三列已经挤在一起，虚线只剩碎点——直接不画，富余空间让日期列吃掉 */
-@media (max-width: 620px) {
-  .daytbl th.lead, .daytbl td.lead { display: none; }
-}
 
 /* 锚点：#history 会被旧链接 /ndx100/daily 直接命中，而顶栏是 sticky 的。
    不给 scroll-margin 的话标题正好被顶栏盖住——跳过来只看见第一行日期，

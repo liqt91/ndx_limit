@@ -37,10 +37,11 @@ const indexSlugValue = indexKey ? indexSlug(indexKey) : null;
 
 // 手机浏览器地址栏染色。★ 这三行与 global.css 里 --paper 的三处定义是同一份事实，
 //   改了颜色必须两处同改——check:index 会逐字比对，对不上就红。
-//   2026-10-23 起两个板块共用暖纸，所以两行同值；仍按 slug 分开写，
+//   2026-10-23 起两个板块共用一张纸，所以两行同值；仍按 slug 分开写，
 //   是为了以后真要拆成两套纸时不用改结构（断言也会一起提醒）。
-const PAPER: Record<string, string> = { ndx100: '#f9f0dd', sp500: '#f9f0dd' };
-const themeColor = (indexSlugValue && PAPER[indexSlugValue]) || '#f9f0dd';
+//   2026-10-26 去掉牛皮纸黄：纸 #f9f0dd → #fcfbf6。
+const PAPER: Record<string, string> = { ndx100: '#fcfbf6', sp500: '#fcfbf6' };
+const themeColor = (indexSlugValue && PAPER[indexSlugValue]) || '#fcfbf6';
 
 const year = new Date().getFullYear();
 // 分享卡片图：绝对 URL（微信、Telegram 都按绝对地址抓 og:image）

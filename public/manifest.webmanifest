@@ -6,8 +6,8 @@
   "start_url": "/ndx100/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f9f0dd",
-  "theme_color": "#f9f0dd",
+  "background_color": "#fcfbf6",
+  "theme_color": "#fcfbf6",
   "icons": [
     {
       "src": "/favicon.svg",

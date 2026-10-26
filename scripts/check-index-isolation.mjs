@@ -15,7 +15,7 @@
 //   5. 若 dist/ 已构建：每个分站首页的家族数与「该指数 CNY + USD 家族数」逐项相等
 //   6. 若 dist/ 已构建：每个分站首页不含对方指数的家族名（渲染层不串台）
 //   7. 若 dist/ 已构建：路由结构——/ 、/daily 、两条 /xx/daily 都是跳转壳（后者跳本板
-//      #history），两个看板页底部历史段的逐日数字各自等于本指数重算值，
+//      #history），两个看板页底部周历的逐日额度各自等于本指数重算值，
 //      共用页（/my）不带两个当前页
 //
 // 用法：
@@ -195,14 +195,28 @@ if (CHECK_DIST) {
     const oldDaily = readPage(path.join('daily', 'index.html'));
     ok('/daily 兼容壳存在且跳 /ndx100/#history', !!oldDaily && oldDaily.includes('url=/ndx100/#history'));
 
-    // 7.3 两个看板页底部的历史段：行数一致、逐日数字各自等于本指数重算值。
-    // ★ 2026-10-23 之前这段读的是 xx/daily/index.html；历史页拆掉后读看板页本身。
-    // ★ 从「铺 7 天 + <details> 收 8 天」改成每页 8 天、最多 3 页的分页之后，
-    //   所有页仍然全在 HTML 里（可见性交给 CSS 的 :checked），所以行数断言照旧成立，
-    //   只是上限从 15 变成 24，并且多验一件事：每页行数不超过 PAGE。
-    const PAGE = 8;
-    const MAX_DAYS = PAGE * 3;
+    // 7.3 两个看板页底部的历史段现在是「周历」：每周一行、五个工作日格，
+    //     过去且有数据的交易日直接写当日额度，其余灰格写休市原因。
+    // ★ 2026-10-25 之前这里是「每日快照」分页账本（tr.dayrow + label[for=dayp-N]）。
+    //   那天先并入月历、当天又改成周历，分页整个消失——断言跟着重写：
+    //   不再数表格行，而是把渲染出的「日期 → 额度 / 开门数」与数据逐日对齐。
+    // ★ 额度取 cal-tip 里的精确值（¥1,084），不拿格子上那个大字：大字按量级自适应
+    //   （1,084元 / 1.2万），拿它做等值断言等于把 fmtAmt 抄一遍；大字只验单位与量级。
+    const TODAY = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Shanghai' });
+    const TODAY_DOW = new Date(`${TODAY}T00:00:00Z`).getUTCDay(); // 0 = 周日
+    const DOW_ZH = ['周一', '周二', '周三', '周四', '周五'];
+    const shift = (d, n) =>
+      new Date(Date.parse(`${d}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+    const mondayOf = (d) => shift(d, -((new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7));
+    // aria-label 里只有「9月14日」，年份靠 TODAY 推：取数窗 60 天，只有 TODAY 落在
+    // 1~2 月时才可能跨年（那时 11~12 月属于去年）。
+    const thisYear = +TODAY.slice(0, 4);
+    const thisMonth = +TODAY.slice(5, 7);
+    const toDate = (m, d) =>
+      `${thisMonth <= 2 && m >= 11 ? thisYear - 1 : thisYear}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
     const cssSrc = fs.readFileSync(path.join(ROOT, 'src', 'styles', 'global.css'), 'utf8');
+    const wk = {}; // 指数 → { cells, rows }
     for (const k of indexes) {
       const rel = path.join(k === NDX ? 'ndx100' : 'sp500', 'index.html');
       const html = readPage(rel);
@@ -213,69 +227,159 @@ if (CHECK_DIST) {
       const wantTo = k === NDX ? 'url=/ndx100/#history' : 'url=/sp500/#history';
       ok(`${k} 的旧 daily 壳跳本板锚点`, !!shell && shell.includes(wantTo), wantTo);
       ok(`${k} 看板页有 #history 锚点`, html.includes('id="history"'));
-      // 标题只写「每日快照」：这页已经是某个指数的页面，标题再带指数名是重复
+      // 标题只写「交易日历」：这页已经是某个指数的页面，标题再带指数名是重复
       ok(
-        `${k} 每日快照标题不带指数名`,
-        /<h2 class="sec-t">每日快照<\/h2>/.test(html) && !html.includes('每日快照 · '),
+        `${k} 历史段标题不带指数名`,
+        /<h2 class="sec-t">交易日历<\/h2>/.test(html) && !html.includes('交易日历 · '),
       );
 
-      const rows = [...html.matchAll(/<tr class="dayrow">([\s\S]*?)<\/tr>/g)].map((m) => clean(m[1]));
-      // 日期从 history 推：与 loader 同一份数据、同一个排序（降序取 PAGE*3 天）
-      const dates = [
+      // 逐格解析。★ 类名必须写成 `wk-d` 后跟引号或空格：只写 `wk-d[^"]*` 会把
+      //   `wk-days`、`wk-dt` 一起吞掉，格子数与行数全部虚高（这类错误会让断言「看起来过了」）。
+      const opens = [...html.matchAll(/<span class="(wk-d(?:\s[^"]*)?)"([^>]*)>/g)];
+      const cells = opens.map((m, i) => {
+        const body = html.slice(
+          m.index + m[0].length,
+          i + 1 < opens.length ? opens[i + 1].index : html.length,
+        );
+        const aria = (m[2].match(/aria-label="([^"]*)"/) || [])[1] || '';
+        const dm = aria.match(/^(\d+)月(\d+)日 (周[一二三四五六日])：/);
+        const ariaAmt = aria.match(/可投 ¥([\d,]+) · (\d+) 家开门/);
+        const amt = body.match(/<span class="wk-amt">([^<]*)<u>([^<]*)<\/u>/);
+        const tip = body.match(
+          /<i class="ct-k">额度<\/i>\s*<b class="ct-v">¥([\d,]+)<\/b>\s*<span class="ct-why">·\s*(\d+)\s*家开门/,
+        );
+        return {
+          cls: m[1],
+          date: dm ? toDate(+dm[1], +dm[2]) : '',
+          weekday: dm ? dm[3] : '',
+          day: (body.match(/<span class="wk-dt">(\d+)<\/span>/) || [])[1] || '',
+          amtN: amt ? amt[1] : null,
+          amtU: amt ? amt[2] : null,
+          reason: (body.match(/<span class="wk-reason">([^<]*)<\/span>/) || [])[1] || '',
+          total: tip ? +tip[1].replace(/,/g, '') : null,
+          opened: tip ? +tip[2] : null,
+          ariaTotal: ariaAmt ? +ariaAmt[1].replace(/,/g, '') : null,
+          ariaOpened: ariaAmt ? +ariaAmt[2] : null,
+        };
+      });
+      const rowOpens = [...html.matchAll(/<div class="wk-row([^"]*)"/g)].map((m) => m[1]);
+      wk[k] = { cells, rows: rowOpens.length };
+
+      ok(
+        `${k} 周历每一格都解析得出日期`,
+        cells.length > 0 && cells.every((c) => c.date),
+        `${cells.length} 格，${cells.filter((c) => !c.date).length} 格解析失败`,
+      );
+      eq(`${k} 周历格子数 == 行数 × 5`, cells.length, rowOpens.length * 5);
+      ok(
+        `${k} 每行按周一到周五排列`,
+        cells.every((c, i) => c.weekday === DOW_ZH[i % 5]),
+        cells.filter((c, i) => c.weekday !== DOW_ZH[i % 5]).slice(0, 3).map((c) => `${c.date} ${c.weekday}`).join(','),
+      );
+      ok(
+        `${k} 格子上的日号与 aria-label 一致`,
+        cells.every((c) => +c.day === +c.date.slice(8)),
+        cells.filter((c) => +c.day !== +c.date.slice(8)).slice(0, 3).map((c) => `${c.date} 日号${c.day}`).join(','),
+      );
+
+      // 日期序列：周内 +1 天、跨行 +3 天（周五→下周一）。列错位、漏排一周都会在这里露出来。
+      const badSeq = [];
+      for (let i = 1; i < cells.length; i++) {
+        const want = shift(cells[i - 1].date, i % 5 === 0 ? 3 : 1);
+        if (cells[i].date !== want) badSeq.push(`${cells[i - 1].date}→${cells[i].date}（应为 ${want}）`);
+      }
+      ok(`${k} 日期序列按周连续`, badSeq.length === 0, badSeq.slice(0, 2).join('; '));
+
+      // 窗口：起点＝最早有数据那周的周一；终点＝含今天的那一周 + 1（未来一周给预判）。
+      // 取数窗与 loadDailySummaries(60) 同口径：本指数代码的全部日期，降序取 60 天再升序。
+      const dates60 = [
         ...new Set(
           Object.entries(history)
             .filter(([code]) => codeSets[k].has(code))
-            .flatMap(([, arr]) => arr.map((p) => p.date))
+            .flatMap(([, arr]) => arr.map((p) => p.date)),
         ),
       ]
         .sort()
         .reverse()
-        .slice(0, MAX_DAYS);
-      eq(`${k} 看板页历史段行数`, rows.length, Math.min(MAX_DAYS, dates.length));
-      const mismatch = [];
-      dates.forEach((d, i) => {
-        const row = rows[i] || '';
-        const want = summarizeDay(funds, history, d, k);
-        // 行文本形如「10-23 五 7 17 135 元」（日期 + 星期 + 开门 + 监控 + 额度）
-        const m = row.match(/^(\d{2}-\d{2}) [日一二三四五六] (\d+) (\d+) (\d+) 元$/);
-        if (!m) {
-          mismatch.push(`${d} 行解析失败`);
-          return;
-        }
-        if (m[1] !== d.slice(5) || +m[2] !== want.opened || +m[3] !== want.families || +m[4] !== want.total) {
-          mismatch.push(`${d} 页面=${m[1]}/${m[2]}/${m[3]}/${m[4]} 重算=${d.slice(5)}/${want.opened}/${want.families}/${want.total}`);
-        }
-      });
-      ok(`${k} 看板页历史段逐日 日期/开门/监控/额度 == 重算`, mismatch.length === 0, mismatch.slice(0, 3).join('; '));
+        .slice(0, 60)
+        .sort();
+      eq(`${k} 窗口起点对齐最早数据的周一`, cells[0] && cells[0].date, mondayOf(dates60[0]));
+      // 构建日与检查日可能差一天（23:59 构建、00:01 检查），所以末行允许是本周或下周
+      ok(
+        `${k} 窗口终点是本周或下一周`,
+        [mondayOf(TODAY), shift(mondayOf(TODAY), 7)].includes(cells[cells.length - 5]?.date),
+        cells[cells.length - 5]?.date,
+      );
 
-      // 分页结构：页数 = ceil(天数/8)，页码数一致，每页不超过 8 行
-      const pageCount = Math.ceil(rows.length / PAGE);
-      const navLabels = [...html.matchAll(/<label for="dayp-(\d+)">/g)].map((m) => +m[1]);
-      eq(`${k} 每日快照页码数`, navLabels.length, pageCount > 1 ? pageCount : 0);
-      eq(`${k} 每日快照页码是 1..N`, navLabels.join(','), pageCount > 1 ? [...Array(pageCount)].map((_, i) => i + 1).join(',') : '');
-      const pageTables = [...html.matchAll(/<table class="tbl daytbl">([\s\S]*?)<\/table>/g)].map(
-        (m) => (m[1].match(/<tr class="dayrow">/g) || []).length
-      );
-      eq(`${k} 每日快照页数`, pageTables.length, Math.max(1, pageCount));
-      ok(`${k} 每页不超过 ${PAGE} 行`, pageTables.every((n) => n > 0 && n <= PAGE), pageTables.join('/'));
-      // ★ 页码当前态靠 CSS 的 :has(#dayp-N:checked)：页数涨了而规则没补，
-      //   翻页仍然可用、只是不高亮——这种「能用但不说话」的退化最难发现，所以写进断言。
-      const missing = navLabels.filter(
-        (n) => !new RegExp(`:has\\(#dayp-${n}:checked\\)\\s*label\\[for="dayp-${n}"\\]`).test(cssSrc)
-      );
-      ok(`${k} 每个页码都有当前态样式`, missing.length === 0, `缺 ${missing.join(',')}`);
+      // ★ 核心断言：渲染出的「日期 → 额度/开门数」== 数据重算，双向等值。
+      //   写成「大部分对上」等于容得下几天丢失——那正是这里最该拦的错。
+      const got = new Map(cells.filter((c) => c.total !== null).map((c) => [c.date, c]));
+      const want = new Map(dates60.map((d) => [d, summarizeDay(funds, history, d, k)]));
+      const missing = [...want.keys()].filter((d) => !got.has(d));
+      const extra = [...got.keys()].filter((d) => !want.has(d));
+      ok(`${k} 有数据的交易日一个都没漏`, missing.length === 0, missing.slice(0, 3).join(','));
+      ok(`${k} 没有数据里不存在的日子`, extra.length === 0, extra.slice(0, 3).join(','));
+      const diffAmt = [...want.entries()]
+        .filter(([d, w]) => got.has(d) && (got.get(d).total !== w.total || got.get(d).opened !== w.opened))
+        .map(([d, w]) => `${d} 页面=${got.get(d).total}/${got.get(d).opened} 重算=${w.total}/${w.opened}`);
+      ok(`${k} 逐日额度 / 开门数 == 重算`, diffAmt.length === 0, diffAmt.slice(0, 2).join('; '));
+      // 读屏念的那串与看得见的那串必须同一个数（两处各写一遍，很容易只改一处）
+      const ariaDiff = cells
+        .filter((c) => c.total !== null)
+        .filter((c) => c.ariaTotal !== c.total || c.ariaOpened !== c.opened)
+        .map((c) => `${c.date} aria=${c.ariaTotal}/${c.ariaOpened} tip=${c.total}/${c.opened}`);
+      ok(`${k} aria-label 与悬停提示同一个数`, ariaDiff.length === 0, ariaDiff.slice(0, 2).join('; '));
+
+      // 未来日期不能写额度（写了就是把「还没抓到的明天」当成已知）
+      const futureAmt = cells.filter((c) => c.date > TODAY && c.total !== null).map((c) => c.date);
+      ok(`${k} 未来格子不写额度`, futureAmt.length === 0, futureAmt.slice(0, 3).join(','));
+
+      // 灰格必须有说法：只留一个空框，读者分不清是休市还是没抓到数据
+      const muteOff = cells
+        .filter((c) => c.cls.includes('is-off') && !String(c.reason).trim())
+        .map((c) => c.date);
+      ok(`${k} 休市格都写了原因`, muteOff.length === 0, muteOff.slice(0, 3).join(','));
+
+      // 大字额度只验单位与量级（精确值上面已经对齐过）
+      const badFmt = cells
+        .filter((c) => c.total !== null)
+        .map((c) => {
+          const unit = c.total >= 10000 ? '万' : '元';
+          const scale = unit === '万' ? 10000 : 1;
+          const shown = Number.parseFloat(String(c.amtN)) * scale;
+          const okUnit = c.amtU === unit;
+          const okScale = Number.isFinite(shown) && Math.abs(shown - c.total) <= 0.5 * scale;
+          return okUnit && okScale ? null : `${c.date} ${c.amtN}${c.amtU} vs ${c.total}`;
+        })
+        .filter(Boolean);
+      ok(`${k} 格子大字额度的单位与量级对得上`, badFmt.length === 0, badFmt.slice(0, 2).join('; '));
+
+      // 本周与今天：标了还不够——CSS 里没有对应规则就等于没标（能看见格子、看不出是哪周）
+      const nowIdx = rowOpens.findIndex((c) => c.includes('is-this-week'));
+      eq(`${k} 恰好一行标为本周`, rowOpens.filter((c) => c.includes('is-this-week')).length, 1);
+      const nowWeek = nowIdx >= 0 ? cells.slice(nowIdx * 5, nowIdx * 5 + 5) : [];
+      ok(`${k} 「本周」标在含今天的那一行`, nowWeek.some((c) => c.date === TODAY), nowWeek.map((c) => c.date).join(','));
+      ok(`${k} 本周标记有对应样式`, /\.wk-row\.is-this-week/.test(cssSrc));
+      const todayCells = cells.filter((c) => c.cls.includes('is-today')).map((c) => c.date);
+      const todayShown = TODAY_DOW >= 1 && TODAY_DOW <= 5 && nowWeek.some((c) => c.date === TODAY);
+      eq(`${k} 「今天」标且只标在今天那一格`, todayCells.join(','), todayShown ? TODAY : '');
+      ok(`${k} 今天标记有对应样式`, /\.wk-d\.is-today/.test(cssSrc));
     }
 
-    // 7.4 两边首行数字必须不同：相同就说明有一边取错了指数
-    const firstNums = (h) => {
-      // 必须先取出一行再剥标签：直接对整篇 HTML 匹配，`<td>` 会把日期与星期隔开
-      const row = (h.match(/<tr class="dayrow">([\s\S]*?)<\/tr>/) || [])[1];
-      const m = row ? clean(row).match(/^(\d{2}-\d{2}) [日一二三四五六] (\d+) (\d+) (\d+) 元$/) : null;
-      return m ? `${m[2]}/${m[3]}/${m[4]}` : '';
-    };
-    const ndxFirst = firstNums(readPage(path.join('ndx100', 'index.html')) || '');
-    const spFirst = firstNums(readPage(path.join('sp500', 'index.html')) || '');
-    ok('两个看板页历史段首行数字不同', ndxFirst !== '' && ndxFirst !== spFirst, `${ndxFirst} vs ${spFirst}`);
+    // 7.4 两个看板页在同一个交易日必须给出不同额度：相同就说明有一边取错了指数
+    const ndxC = wk[NDX]?.cells ?? [];
+    const spByDate = new Map(
+      (wk[SP500]?.cells ?? []).filter((c) => c.total !== null).map((c) => [c.date, c]),
+    );
+    const sharedDays = ndxC.filter((c) => c.total !== null && spByDate.has(c.date));
+    const latestShared = sharedDays[sharedDays.length - 1];
+    ok(
+      '两个看板页同日额度不同（取最近共同交易日）',
+      !!latestShared && spByDate.get(latestShared.date).total !== latestShared.total,
+      latestShared
+        ? `${latestShared.date} 纳指 ${latestShared.total} / 标普 ${spByDate.get(latestShared.date).total}`
+        : '无共同交易日',
+    );
 
     // 7.5 共用页 /my：只能有一个当前页，且收录两边的份额
     const my = readPage(path.join('my', 'index.html'));
@@ -634,7 +738,9 @@ if (CHECK_DIST) {
       ok(`${p_(rel)} 存在`, h !== null);
       if (!h) continue;
       ok(`${p_(rel)} 不带 data-board`, !/data-board=/.test(htmlTag(h)), htmlTag(h));
-      eq(`${p_(rel)} 的 theme-color 是共用纸色`, themeOf(h), '#f9f0dd');
+      // ★ 比的是 :root 里解析出来的纸色，不是再抄一份字面量：抄一份就多一处
+      //   改纸色时会被忘掉的地方（2026-10-26 换纸色时就差点漏了这里）。
+      eq(`${p_(rel)} 的 theme-color 是共用纸色`, themeOf(h), rootVars.paper);
     }
     // /my 一页两个指数：分段靠 data-board 拿各自的印色（段标题竖条、份额悬停线）。
     // ★ 分段不要再挂 data-heat：热力条是全站量纲色，段里若各有一套「深」，

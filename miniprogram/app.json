@@ -8,16 +8,16 @@
   ],
   "window": {
     "backgroundTextStyle": "light",
-    "navigationBarBackgroundColor": "#f9f0dd",
+    "navigationBarBackgroundColor": "#fcfbf6",
     "navigationBarTitleText": "纳指开门日报",
     "navigationBarTextStyle": "black",
-    "backgroundColor": "#f9f0dd",
-    "backgroundColorTop": "#f9f0dd"
+    "backgroundColor": "#fcfbf6",
+    "backgroundColorTop": "#fcfbf6"
   },
   "tabBar": {
     "color": "#6b6859",
     "selectedColor": "#14130f",
-    "backgroundColor": "#f9f0dd",
+    "backgroundColor": "#fcfbf6",
     "borderStyle": "black",
     "list": [
       { "pagePath": "pages/index/index", "text": "额度" },
