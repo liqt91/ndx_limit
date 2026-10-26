@@ -14,6 +14,11 @@ interface Props {
   navKey?: string | null;
   /** 页面所属指数（用于分站纸色）。省略/null = 共用页，保持中性纸 */
   indexKey?: string | null;
+  /**
+   * 顶栏站名。默认跟 siteName。共用页要单独传——那里站标已经是 QDII 字标，
+   * 站名再以「QDII」开头就成了「[QDII] QDII 开门日报」，同一个词读两遍。
+   */
+  headerBrand?: string;
 }
 const {
   title,
@@ -21,6 +26,7 @@ const {
   // 写死「纳指开门日报」会让标普500 用户在自己的页面上看到别人的站名。
   description = '每天告诉你，QDII 场外申购份额今天能不能买、能买多少。',
   siteName = 'QDII 开门日报',
+  headerBrand,
   shortName = 'QDII 日报',
   navKey,
   indexKey,
@@ -84,7 +90,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
   </head>
   <body>
     <div class="frame">
-      <SiteHeader brand={siteName} navKey={navKey} />
+      <SiteHeader brand={headerBrand ?? siteName} navKey={navKey} />
       <main class="wrap">
         <slot />
       </main>

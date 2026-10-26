@@ -202,20 +202,97 @@ if (CHECK_DIST) {
     //   不再数表格行，而是把渲染出的「日期 → 额度 / 开门数」与数据逐日对齐。
     // ★ 额度取 cal-tip 里的精确值（¥1,084），不拿格子上那个大字：大字按量级自适应
     //   （1,084元 / 1.2万），拿它做等值断言等于把 fmtAmt 抄一遍；大字只验单位与量级。
+    // ★ 2026-10-26 额度换成「右对齐数字 + 柱（--h = total / 窗口内最大值）」，
+    //   带宽从「常量青条」变成比例量纲；同时未来一周不再占格子，改由表下一行
+    //   文字回答「还能买多久、下次哪天买不了」。于是新增三件事要验：
+    //     ① --h 与当日额度成固定比例（不是「同序」——同序容得下整批缩放）
+    //     ② 缺数据的交易日必须写出来（未收录/待更新），不能和「还没到」长得一样
+    //     ③ 表下那行文字的日期与天数 == 用同一份日历重算的结果
     const TODAY = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Shanghai' });
     const TODAY_DOW = new Date(`${TODAY}T00:00:00Z`).getUTCDay(); // 0 = 周日
     const DOW_ZH = ['周一', '周二', '周三', '周四', '周五'];
+    const DOW_ALL = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
     const shift = (d, n) =>
       new Date(Date.parse(`${d}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
     const mondayOf = (d) => shift(d, -((new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7));
+    const dowOf = (d) => new Date(`${d}T00:00:00Z`).getUTCDay();
     // aria-label 里只有「9月14日」，年份靠 TODAY 推：取数窗 60 天，只有 TODAY 落在
     // 1~2 月时才可能跨年（那时 11~12 月属于去年）。
     const thisYear = +TODAY.slice(0, 4);
     const thisMonth = +TODAY.slice(5, 7);
     const toDate = (m, d) =>
       `${thisMonth <= 2 && m >= 11 ? thisYear - 1 : thisYear}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const mdOf = (d) => `${Number(d.slice(5, 7))}月${Number(d.slice(8, 10))}日`;
 
-    const cssSrc = fs.readFileSync(path.join(ROOT, 'src', 'styles', 'global.css'), 'utf8');
+    // 双市场四态：与 src/data/trading-days.ts 同口径（这里只需要「能不能买」与休市说法，
+    // 不复刻 UNKNOWN：日历已覆盖到 2027，落到覆盖区外时本门禁会先报日期不对，仍会红）。
+    const CN_HOLIDAYS = new Set(readJson('market-holidays.json', []));
+    const CN_NAME = new Map();
+    for (const spans of Object.values(readJson('calendars/cn-holiday-names.json', { years: {} }).years)) {
+      for (const sp of spans) for (let d = sp.from; d <= sp.to; d = shift(d, 1)) CN_NAME.set(d, sp.name);
+    }
+    const US_CAL = readJson('calendars/us-nasdaq.json', { days: [], closed: [] });
+    const US_DAYS = new Set(US_CAL.days);
+    const US_HOL = new Map(US_CAL.closed.map((h) => [h.date, h]));
+    const stateOf = (d) => {
+      const dow = dowOf(d);
+      if (dow === 0 || dow === 6) return 'BOTH_CLOSED';
+      const cn = !CN_HOLIDAYS.has(d);
+      const us = US_DAYS.has(d);
+      if (cn && us) return 'TRADING';
+      if (cn && !us) return 'US_CLOSED';
+      if (!cn && us) return 'CN_CLOSED';
+      return 'BOTH_CLOSED';
+    };
+    // 未来展望的重算（buyOutlook 的同口径）：周末不算「买不了」，会跳过
+    const outlookWant = (() => {
+      if (stateOf(TODAY) !== 'TRADING') {
+        for (let i = 1; i <= 120; i++) {
+          const d = shift(TODAY, i);
+          if (stateOf(d) === 'TRADING') return { todayTradable: false, nextTradable: d };
+        }
+        return { todayTradable: false, nextTradable: null };
+      }
+      let tradingDays = 0;
+      let lastTradable = null;
+      for (let i = 1; i <= 120; i++) {
+        const d = shift(TODAY, i);
+        if (dowOf(d) === 0 || dowOf(d) === 6) continue;
+        const s = stateOf(d);
+        if (s === 'TRADING') {
+          tradingDays++;
+          lastTradable = d;
+          continue;
+        }
+        const hol = US_HOL.get(d);
+        return {
+          todayTradable: true,
+          tradingDays,
+          lastTradable,
+          nextOff: {
+            date: d,
+            daysAway: i,
+            reason:
+              s === 'US_CLOSED'
+                ? hol
+                  ? `美股${hol.nameZh || hol.name}`
+                  : '美股休市'
+                : CN_NAME.has(d)
+                  ? `${CN_NAME.get(d)}假期`
+                  : '法定假日',
+          },
+        };
+      }
+      return { todayTradable: true, tradingDays, lastTradable, nextOff: null };
+    })();
+
+    // ★ 必须剥掉注释再断言。2026-10-26 第四轮踩过：删掉柱以后我在注释里写了
+    //   「原先的 `.wk-bar { --wk-track: 22px }` 一并删除」，于是「样式里没有 .wk-bar」
+    //   这条判据被自己的说明文字判红。凡是用源码文本做「不许出现 X」的断言，
+    //   输入都必须是**代码**，不是带注释的文件。
+    const cssSrc = fs
+      .readFileSync(path.join(ROOT, 'src', 'styles', 'global.css'), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '');
     const wk = {}; // 指数 → { cells, rows }
     for (const k of indexes) {
       const rel = path.join(k === NDX ? 'ndx100' : 'sp500', 'index.html');
@@ -248,6 +325,10 @@ if (CHECK_DIST) {
         const tip = body.match(
           /<i class="ct-k">额度<\/i>\s*<b class="ct-v">¥([\d,]+)<\/b>\s*<span class="ct-why">·\s*(\d+)\s*家开门/,
         );
+        // 2026-10-26 第四轮起日历里没有柱（不用图形编码额度）。
+        // 取「是否出现柱」而不是「--h 是多少」——后者在无柱时全是 null，
+        // 任何「比例对不对」的断言都会变成永远为真的死断言（比报红更危险）。
+        const hasBar = /class="wk-bar/.test(body) || /style="--h:/.test(body);
         return {
           cls: m[1],
           date: dm ? toDate(+dm[1], +dm[2]) : '',
@@ -256,6 +337,8 @@ if (CHECK_DIST) {
           amtN: amt ? amt[1] : null,
           amtU: amt ? amt[2] : null,
           reason: (body.match(/<span class="wk-reason">([^<]*)<\/span>/) || [])[1] || '',
+          gap: (body.match(/<span class="wk-gap">([^<]*)<\/span>/) || [])[1] || '',
+          hasBar,
           total: tip ? +tip[1].replace(/,/g, '') : null,
           opened: tip ? +tip[2] : null,
           ariaTotal: ariaAmt ? +ariaAmt[1].replace(/,/g, '') : null,
@@ -290,7 +373,8 @@ if (CHECK_DIST) {
       }
       ok(`${k} 日期序列按周连续`, badSeq.length === 0, badSeq.slice(0, 2).join('; '));
 
-      // 窗口：起点＝最早有数据那周的周一；终点＝含今天的那一周 + 1（未来一周给预判）。
+      // 窗口：起点＝最早有数据那周的周一；终点＝含今天的那一周（★ 不再往后排一周：
+      // 未来移出网格，改由表下那行文字回答，见 buyOutlook）。
       // 取数窗与 loadDailySummaries(60) 同口径：本指数代码的全部日期，降序取 60 天再升序。
       const dates60 = [
         ...new Set(
@@ -304,11 +388,14 @@ if (CHECK_DIST) {
         .slice(0, 60)
         .sort();
       eq(`${k} 窗口起点对齐最早数据的周一`, cells[0] && cells[0].date, mondayOf(dates60[0]));
-      // 构建日与检查日可能差一天（23:59 构建、00:01 检查），所以末行允许是本周或下周
+      // 末行必须是本周。唯一的例外是「周日深夜构建、周一凌晨检查」——那种情况下
+      // 构建时属于上一周，此时 TODAY_DOW 是周一，容忍上一周。★ 不能容忍下一周：
+      // 那正是「未来一周又排回网格」这个回退的样子。
+      const lastRow = cells[cells.length - 5]?.date;
       ok(
-        `${k} 窗口终点是本周或下一周`,
-        [mondayOf(TODAY), shift(mondayOf(TODAY), 7)].includes(cells[cells.length - 5]?.date),
-        cells[cells.length - 5]?.date,
+        `${k} 窗口终点是本周（没有未来一周）`,
+        lastRow === mondayOf(TODAY) || (TODAY_DOW === 1 && lastRow === shift(mondayOf(TODAY), -7)),
+        lastRow,
       );
 
       // ★ 核心断言：渲染出的「日期 → 额度/开门数」== 数据重算，双向等值。
@@ -330,9 +417,48 @@ if (CHECK_DIST) {
         .map((c) => `${c.date} aria=${c.ariaTotal}/${c.ariaOpened} tip=${c.total}/${c.opened}`);
       ok(`${k} aria-label 与悬停提示同一个数`, ariaDiff.length === 0, ariaDiff.slice(0, 2).join('; '));
 
-      // 未来日期不能写额度（写了就是把「还没抓到的明天」当成已知）
-      const futureAmt = cells.filter((c) => c.date > TODAY && c.total !== null).map((c) => c.date);
-      ok(`${k} 未来格子不写额度`, futureAmt.length === 0, futureAmt.slice(0, 3).join(','));
+      // ── 日历不用图形编码额度（2026-10-26 第四轮）──────────────────────────
+      // 用户：「交易不用热力图的展现形式，只是区分交易日和非交易日呢？」
+      // 原先每格底部画一根柱、高度 ∝ 当日额度。撤掉的理由有两层：
+      //   ① 分辨率：格子 50–90px 宽、柱区只有 28px，纳指 9 个额度值只落成 7 档，
+      //      图形能给的信息还不如旁边的数字；
+      //   ② 语义：柱高抢走了「这天开不开门」的对比 —— 而后者才是日历该回答的问题。
+      // 所以断言从「柱高 == 额度/最大值」反转成「格子与样式里都不许再有柱」。
+      ok(
+        `${k} 格子里不画柱（日历只回答「这天开不开门」）`,
+        cells.every((c) => !c.hasBar),
+        cells.filter((c) => c.hasBar).map((c) => c.date).slice(0, 3).join(',')
+      );
+      ok(
+        `${k} 样式里没有 .wk-bar（柱不许回来）`,
+        !/\.wk-bar\b/.test(cssSrc),
+        (cssSrc.match(/\.wk-bar[^{]*\{[^}]*\}/) || [])[0]?.slice(0, 80) || ''
+      );
+
+      // ── 三种「格子里的内容」互斥：有额度 / 缺数据 / 还没到 ────────────────
+      const futureCells = cells.filter((c) => c.date > TODAY);
+      ok(
+        `${k} 未来格不写额度、不画柱`,
+        futureCells.every((c) => c.total === null && !c.hasBar && !c.amtN),
+        futureCells.filter((c) => c.total !== null || c.hasBar).map((c) => c.date).join(',')
+      );
+      ok(
+        `${k} 未来格不写休市原因（还没到，不是不能买）`,
+        futureCells.every((c) => !c.reason),
+        futureCells.filter((c) => c.reason).map((c) => `${c.date} ${c.reason}`).join(','),
+      );
+      // 缺数据：交易日、已经过去、却没有额度。★ 必须写出来——留白会被读成「休市」，
+      // 而它其实只是「那天的数字丢了」（标普 9-14、9-15 就是这样），和「还没到」逐像素同款。
+      const gapWant = cells
+        .filter((c) => c.total === null && c.date <= TODAY && stateOf(c.date) === 'TRADING')
+        .map((c) => c.date);
+      const gapGot = cells.filter((c) => c.cls.includes('is-gap')).map((c) => c.date);
+      eq(`${k} 缺数据的交易日 == 标了 is-gap 的格子`, gapGot.join(','), gapWant.join(','));
+      ok(
+        `${k} 缺数据的格子写了「未收录」/「待更新」`,
+        cells.filter((c) => c.cls.includes('is-gap')).every((c) => ['未收录', '待更新'].includes(c.gap)),
+        cells.filter((c) => c.cls.includes('is-gap') && !c.gap).map((c) => c.date).join(','),
+      );
 
       // 灰格必须有说法：只留一个空框，读者分不清是休市还是没抓到数据
       const muteOff = cells
@@ -364,6 +490,35 @@ if (CHECK_DIST) {
       const todayShown = TODAY_DOW >= 1 && TODAY_DOW <= 5 && nowWeek.some((c) => c.date === TODAY);
       eq(`${k} 「今天」标且只标在今天那一格`, todayCells.join(','), todayShown ? TODAY : '');
       ok(`${k} 今天标记有对应样式`, /\.wk-d\.is-today/.test(cssSrc));
+
+      // ── 表下那行：未来还能连着买多久、下次哪天买不了 ──────────────────────
+      // 这一行的日期与天数全部用同一份日历重算核对：写错一天，读者会白等一个交易日。
+      const outM = html.match(/<p class="wk-out">([\s\S]*?)<\/p>/);
+      ok(`${k} 表下有「未来可买」那一行`, !!outM);
+      if (outM) {
+        const text = clean(outM[1]);
+        if (!outlookWant.todayTradable) {
+          ok(
+            `${k} 今天买不了：那行给出下一个交易日`,
+            !!outlookWant.nextTradable &&
+              text.includes(`${mdOf(outlookWant.nextTradable)} ${DOW_ALL[dowOf(outlookWant.nextTradable)]}`),
+            text,
+          );
+        } else if (outlookWant.nextOff) {
+          const o = outlookWant.nextOff;
+          eq(
+            `${k} 「接下来 N 个交易日」== 重算`,
+            (text.match(/接下来 (\d+) 个交易日/) || [])[1],
+            String(outlookWant.tradingDays),
+          );
+          ok(`${k} 「到哪天为止」== 重算`, text.includes(`到 ${mdOf(outlookWant.lastTradable)}`), text);
+          ok(`${k} 「下次买不了」的日期 == 重算`, text.includes(`${mdOf(o.date)} ${DOW_ALL[dowOf(o.date)]}`), text);
+          ok(`${k} 「还有几天」== 重算`, text.includes(`${o.daysAway} 天后`), text);
+          ok(`${k} 写明了那天为什么买不了`, text.includes(o.reason), `${o.reason} / ${text}`);
+        } else {
+          ok(`${k} 展望：覆盖范围内没有休市日时说清楚`, text.includes('没有休市日'), text);
+        }
+      }
     }
 
     // 7.4 两个看板页在同一个交易日必须给出不同额度：相同就说明有一边取错了指数
@@ -411,6 +566,58 @@ if (CHECK_DIST) {
       const code = [...codeSets[k]][0];
       const html = readPage(path.join('f', code, 'index.html')) || '';
       ok(`/f/${code} 回跳指向${label}`, html.includes(`← 返回${label}`));
+    }
+
+    // 7.7 订阅页「最近日报」必须带「今日能买」清单（邮件正文最后一段的镜像）
+    // ★ 2026-10-26：邮件正文加了「代码 + 额度」，墙上没有 —— 用户一眼看出「预览和信不一样」。
+    //   订阅页存在的意义就是把「订阅后收到什么」摊开，缺这一段等于把卖点藏起来。
+    //   这里验渲染层（dist），源码层「loader 必须复用 digest.mjs 的实现」在 check:broadcast 里。
+    const sub = readPage(path.join('subscribe', 'index.html'));
+    ok('dist/subscribe/index.html 存在', sub !== null);
+    if (sub) {
+      ok('订阅页日报墙渲染了「今日能买」清单', sub.includes('dw-buy-row'));
+      // 标题与内容必须对得上：每组「今日能买（人民币份额 16 个）」下面就得真有 16 个份额。
+      // ★ 只断言「页面上出现过某句话」是假绿：47 组里改坏一组，全页搜索照样命中
+      //   （2026-10-26 负向注入实测没红）。
+      const groups = sub.split('class="dw-buy"').slice(1).map((s) => s.split('class="dw-buy"')[0]);
+      const badGroups = [];
+      for (const g of groups) {
+        const m = g.match(/class="dw-buy-h">今日能买（(?:人民币|美元)份额 (\d+) 个）/);
+        const n = (g.match(/class="dw-buy-sh"/g) || []).length;
+        if (!m) badGroups.push('缺标题');
+        else if (Number(m[1]) !== n) badGroups.push(`${m[1]}≠${n}`);
+      }
+      eq('每组「今日能买（…份额 N 个）」的 N == 实际画出的份额数', badGroups.slice(0, 3).join(','), '');
+      ok('清单组数 > 0', groups.length > 0, `${groups.length} 组`);
+      // 只数清单块里的代码（<i>A类</i><b>019736</b>），别把变化清单/详情链接里的数字算进来
+      const shown = new Set([...sub.matchAll(/class="dw-buy-sh"><i>[^<]*<\/i><b>(\d{6})<\/b>/g)].map((m) => m[1]));
+      ok('清单里的代码全部来自名录', shown.size > 0 && [...shown].every((c) => codeSets[NDX].has(c) || codeSets[SP500].has(c)), `${shown.size} 个`);
+      // 最新一天（纳指）的可买份额必须全在墙上——漏一个就是「订阅前看不到这只」
+      const ndxDates = Object.keys(history)
+        .filter((c) => codeSets[NDX].has(c))
+        .flatMap((c) => history[c].map((d) => d.date))
+        .sort();
+      const lastDate = ndxDates[ndxDates.length - 1];
+      const buyableNow = [];
+      const stoppedNow = [];
+      for (const code of codeSets[NDX]) {
+        const hit = (history[code] || []).find((d) => d.date === lastDate);
+        if (!hit) continue;
+        if (hit.status === 'OPEN' || hit.status === 'LIMITED') buyableNow.push(code);
+        else if (hit.status === 'STOPPED') stoppedNow.push(code);
+      }
+      if (buyableNow.length) {
+        // ★ 只能看**最新那一天**的卡片：墙上是 30 天归档，今天暂停的份额在十天前
+        //   多半是能买的，拿全页做「暂停不许出现」的断言必然误报（实测撞了 3 个）。
+        const firstDay = (sub.split('class="dw-day"')[1] || '').split('class="dw-day"')[0];
+        const shownFirst = new Set([...firstDay.matchAll(/class="dw-buy-sh"><i>[^<]*<\/i><b>(\d{6})<\/b>/g)].map((m) => m[1]));
+        const missing = buyableNow.filter((c) => !shownFirst.has(c));
+        ok(`${lastDate} 纳指可买的 ${buyableNow.length} 个份额都在墙上`, missing.length === 0, missing.slice(0, 5).join(','));
+        const leaked = stoppedNow.filter((c) => shownFirst.has(c));
+        ok('暂停的份额不进最新那天的清单', leaked.length === 0, leaked.slice(0, 3).join(','));
+      } else {
+        console.log(`  --  ${lastDate} 纳指没有可买份额，跳过清单等值断言`);
+      }
     }
   }
 }
@@ -596,6 +803,12 @@ for (const lv of [1, 2, 3, 4]) {
   );
 }
 
+// ★ 日历已经从「用图形量额度」退回「只区分开不开门」（2026-10-26 第四轮），
+// 原来这下面有两条断言守着柱身色（必须 var(--heat-1)、不许 color-mix）。
+// 柱整根撤掉后那两条的**对象不存在**了，留着会让 correct 的实现在「未找到规则」上红，
+// 所以整段删除——不是放宽判据，是被判的东西没了。反方向的「不许再有 .wk-bar」
+// 已经写在 7.3 那段（按渲染 + 样式源码各断言一次）。
+
 // 小程序与网页同源同色：WXSS 不认 color-mix，那四档是抄过去的固定值，
 // 而「抄」最容易在改配色时漏掉——漏了以后两端对同一只基金给两种深浅。
 const MP_CSS = path.join(ROOT, 'miniprogram', 'app.wxss');
@@ -675,8 +888,26 @@ for (const [slug, v] of Object.entries(boardVars)) {
   }
 }
 
-// 吸顶色带：唯一「滚动时一直在场」的板块标识
-ok('global.css 定义了 .site-head::before 色带', /html\[data-board\] \.site-head::before\s*\{[^}]*background:\s*var\(--accent\)/.test(css));
+// 印色落点。2026-10-26 用户要求移除顶栏那道 3px 色带，它是原来「滚动时一直在场」
+// 的板块标识。删掉之后身份色只剩这几处小面积墨迹——它们任何一处丢失，页面照样
+// 渲染、只是「我在哪个板块」这个信息静默消失，所以这里逐处按住（等值，不用 ≥）。
+ok(
+  'global.css 不再有顶栏 3px 色带（2026-10-26 已移除）',
+  !/html\[data-board\]\s*\.site-head::before/.test(css)
+);
+for (const [name, re] of [
+  // 站标是两种形态，印色落在两者各自的「方块」上：指数页是 SVG rect 的 fill，
+  // 共用页是字标的 background。两条都按住 —— 少任一条，那一种形态就会退成死色方块。
+  ['站标方块（字母形态）', /\.site-mark rect\s*\{[^}]*fill:\s*var\(--accent\)/],
+  ['站标方块（QDII 字标形态）', /\.site-mark-text\s*\{[^}]*background:\s*var\(--accent\)/],
+  [
+    '当前导航项的下划线',
+    /html\[data-board\] \.site-nav a\[aria-current="page"\]\s*\{[^}]*border-bottom-color:\s*var\(--accent\)/,
+  ],
+  ['小节编号 [01]', /html\[data-board\] \.sec-i\s*\{[^}]*color:\s*var\(--accent\)/],
+]) {
+  ok(`印色仍落在${name}`, re.test(css));
+}
 
 // 2026-10-23 追加的两处落点：选中文字、/my 分段标题的竖条。
 // 它们都很小，但「印色只出现在顶栏」会让身份感止步于首屏——而选中文字是
@@ -686,6 +917,245 @@ ok(
   '/my 分段标题前的竖条用印色',
   /\.my-sec\s*>\s*\.sec\s+\.sec-t::before\s*\{[^}]*background:\s*var\(--accent\)/.test(css)
 );
+
+// ── 语义色的收敛（2026-10-26）──────────────────────────────────────
+// 用户原话：「纳指、标普各自页面颜色太多了」。审计下来根因不是色值数量，而是
+// **同一支绿被写成了三遍**：--ok #2c6e4f 与 --accent-open #3f7d63 的 ΔE 只有 7.3
+// （色相角 159° vs 163°），--cal-trade-bg #e7f1ec 是第三遍，而且三处还散在一页的不同位置
+// ——并排看像「同一块绿没对齐」，散开看就是「好几种绿」。
+// 另外还有一支孤零零的赭黄 --accent-changed #b5732a（色相角 68°），
+// 页面里唯一的第三色相，只用来给「今日变化」的方点染色。
+// 收敛后一个色相只承担一个含义：
+//   绿   = 能买    （--ok）
+//   橄榄 = 额度    （--heat-1..4，--warn 与最深档同值，用户 2026-10-23 指定）
+//   灰   = 结构    （墨阶 / --stop / --ink-3）
+//   蓝/红 = 身份   （每页只出现一支）
+// ★ 2026-10-26 第二轮（用户：「暂停申购、交易日历的绿色不一样」）：
+//   第一轮把「同一支绿写三遍」合并成一支，但**日历整段还是 159° 松绿**，而卡片里的
+//   额度是 117° 橄榄——两个绿在一条页面上各占一片（日历那段 2.8 万像素），
+//   扫一眼就是「还没统一」。判据从「几处用同一支绿」升级成「一个色相只给一件事」：
+//     · 日历柱的高度就是额度 → 必须用额度那支橄榄（--warn），不许用 --ok；
+//     · 本周书签 / 「本周」二字 / 今天环说的是**时间**，不是状态 → 退墨阶；
+//     · 暂停的灰必须是真中性（C* ≤ 3），旧的 #6b665a C*=7.5、色相 92°，
+//       贴在橄榄格旁边读成「褪色的绿」，且与 --ink-3 的 ΔE 只有 2.0（同灰两遍）。
+// 下面四组守三件事：别长回第四支色相、别把同一支颜色写第二遍、别让颜色跟错东西。
+// ★ 全是定量判据。字面值全都合法（`#3f7d63` 与 `#2c6e4f` 都是漂亮的绿），
+//   不数色相角，这两类退化一条都拦不住，页面也照常渲染。
+
+// A. 已删的变量不许回来。每一个都只是某个已有含义的第二遍涂色。
+for (const dead of ['accent-open', 'accent-changed', 'accent-faint', 'cal-trade-bg', 'cal-amt', 'cal-off']) {
+  ok(
+    `:root 不再声明 --${dead}（2026-10-26 已并入 --ok / --warn / --ink-3）`,
+    !new RegExp(`--${dead}\\s*:`).test(css)
+  );
+}
+
+// B. 「能买」只有 --ok 一个值：说「这只 / 这天能买」的地方，颜色必须同一支。
+//    ★ 2026-10-26 第二轮把日历那四项从这份名单里移出去了——它们不是「能买」：
+//      柱子说的是额度、书签说的是哪一周、环说的是今天。名单里留的只剩
+//      「状态结论」本身（日报墙、变化行的「变好」）。
+for (const [where, sel, prop] of [
+  ['日报墙的日期圆点', '.dw-dot', 'background'],
+  ['日报墙的可投数字', '.dw-idx-sum b', 'color'],
+  ['变化行「变好」的方点', '.cl-dot-opened, .cl-dot-limit-up', 'background'],
+]) {
+  ok(
+    `${where}用 var(--ok)（「能买」全站只有一支绿）`,
+    new RegExp(`${prop}\\s*:[^;]*var\\(--ok\\)`).test(ruleBody(sel))
+  );
+}
+// B2. 日历里「时间」用墨——这一组说的是哪一周 / 哪一天，不是状态。
+// ★ 2026-10-26 第四轮：柱撤掉后，「额度」在日历里已经没有任何颜色承载
+// （数字是墨色）。原来这儿还有两条守柱身/柱顶线的断言，对象不存在了，一并删除；
+// 反方向的「日历样式里不许出现 --ok / --heat」在下面 B3，那才是防回潮的那一条。
+for (const [where, sel, prop] of [
+  ['今天那格的描边', '.wk-d.is-today', 'outline'],
+  ['本周书签', '.wk-row.is-this-week .wk-lbl', 'box-shadow'],
+  // 原来这一条是「『本周』二字用 var(--ink-2)」。那两个字已被删除（它是行高的
+  // 第三个来源，见 B4），同一句话改由**周范围的墨深**来说：本周 ink/600、其余 ink-2。
+  // 断言迁到新的落点上——判据没放宽，只是被染色的对象换了。
+  ['本周那一行的周范围', '.wk-lbl b', 'color'],
+]) {
+  ok(
+    `${where}用 var(--ink-2)（说的是时间，不是状态；灰＝结构）`,
+    new RegExp(`${prop}\\s*:[^;]*var\\(--ink-2\\)`).test(ruleBody(sel))
+  );
+}
+// B3. 反方向：日历这一整块不许再出现任何彩色状态墨或额度色。
+//    只断言「用的对不对」不够——只要有人把某一条改回 green，上面三条会红但没人知道原因；
+//    这条直接把「日历里不许有 --ok / --heat」写在门禁上。
+// ★ 2026-10-26 第四轮加了 --heat：日历已经退回「只区分开不开门」，
+//   格子里唯一该有颜色的是「未收录」的 --warn（缺数据要看得见），其余全墨色。
+{
+  const wkRules = [...css.matchAll(/\.wk[^{]*\{[^}]*\}/g)].map((m) => m[0]).join('\n');
+  ok(
+    '日历样式里不再出现 var(--ok)（避免日历变成第二片绿）',
+    !/var\(--ok\)/.test(wkRules),
+    (wkRules.match(/[^{}]*var\(--ok\)[^;]*;/g) || []).join(' ')
+  );
+  ok(
+    '日历样式里不再出现 var(--heat-*)（额度不再由颜色承载）',
+    !/var\(--heat-/.test(wkRules),
+    (wkRules.match(/[^{}]*var\(--heat-[^;]*;/g) || []).join(' ')
+  );
+}
+// B4. 周历的行高是**常量**（2026-10-26 第五轮）。
+//   第四轮撤掉柱以后，格子高度只剩内容决定，同一页里并存 38 / 46.6 / 48 / 49 / 53.1
+//   五种行高，三个来源：休市格多一行原因、左列周范围折成两行、「本周」二字占一行。
+//   用户看到的是「不能交易的日期把行撑高了」。现在行高写死在 --wk-h，下面四条
+//   守住让内容撑不高行的前提。★ 这几条都在 CSS 源码上判，不是因为它们只是文本检查，
+//   而是「等高」这件事本身没有 DOM 可量（脚本不跑浏览器）；渲染侧由 --h 那组旧断言
+//   的位置空出来以后，靠人工截图复核（2026-10-26 实测桌面 7×46、窄屏 7×42）。
+{
+  const rowBody = ruleBody('.wk-row');
+  ok(
+    '周历行高由常量 --wk-h 决定（内容撑不高行）',
+    /--wk-h\s*:\s*\d+px/.test(rowBody) && /height\s*:\s*var\(--wk-h\)/.test(rowBody),
+    rowBody.slice(0, 140)
+  );
+  const dBody = ruleBody('.wk-d');
+  ok(
+    '周历格子不再设 min-height（有它行高就又回到内容手里）',
+    !/min-height/.test(dBody),
+    dBody.slice(0, 140)
+  );
+  const reasonBody = ruleBody('.wk-reason');
+  ok(
+    '休市原因单行 + 省略号（一折行就顶高整行 10–13px）',
+    /white-space\s*:\s*nowrap/.test(reasonBody) && /text-overflow\s*:\s*ellipsis/.test(reasonBody),
+    reasonBody.slice(0, 160)
+  );
+  // 反方向：「本周」二字不许回来。它是行高第三个来源，说的是「哪一周」这件事
+  // 上面两条 CSS（书签 + 淡底）加周范围的墨深已经说完了。
+  // ★ 读模板源码而不是 dist：这两条在 --no-dist 下也要能判（refresh.yml 跑的就是它）。
+  const wkTpl = fs.readFileSync(path.join(ROOT, 'src', 'components', 'WeekCal.astro'), 'utf8');
+  ok(
+    '周历不再写「本周」二字（同一句话由书签 + 墨深承担）',
+    !/wk-now/.test(wkTpl) && !/\.wk-now/.test(css),
+    (wkTpl.match(/wk-now[^\n]*/) || [])[0] || (css.match(/\.wk-now\s*\{[^}]*\}/) || [])[0] || ''
+  );
+  // 窄屏只留周一那天：46px 放不下 8 个等宽字符，折行会断成「10.12–」/「16」。
+  ok(
+    '窄屏周标签只留周一日期（后半段 .wk-rng 隐藏）',
+    /<span class="wk-rng">/.test(wkTpl) && /\.wk-rng\s*\{\s*display:\s*none/.test(css),
+    (css.match(/\.wk-rng\s*\{[^}]*\}/g) || []).join(' ')
+  );
+}
+
+// 反方向那两支：变坏用 --warn（橄榄），不知道用 --ink-3（墨灰）。
+// 它们原来是独立的 --accent-changed（赭黄）/ --accent-faint，方点因此成了页面上
+// 唯一需要第三、第四种颜色才说得清的东西——而同一行右端已经用状态墨说过结论。
+for (const [where, sel, v] of [
+  ['变化行「变坏」的方点', '.cl-dot-stopped, .cl-dot-limit-down, .cl-dot-limit-set, .cl-dot-limit-clear', 'warn'],
+  ['变化行「不知道」的方点', '.cl-dot-unknown', 'ink-3'],
+]) {
+  ok(
+    `${where}用 var(--${v})（不另起颜色）`,
+    new RegExp(`background\\s*:[^;]*var\\(--${v}\\)`).test(ruleBody(sel))
+  );
+}
+
+// D. 限额标签＝橄榄，不是可投的松绿。
+// 一张卡里同时有「右上角状态标签」和「下方 21 格热力条」：标签若是松绿、格子是橄榄，
+// 同一个视野里就是两支绿——这是 2026-10-26「颜色太多」的另一半（前半是同一支绿写三遍）。
+// 用户 2026-10-23 原话「限额申购的绿色也换成热力条这个」，指的正是这一条。
+const famCard = fs.readFileSync(path.join(ROOT, 'src', 'components', 'FamilyCard.astro'), 'utf8');
+ok(
+  "FamilyCard 里 LIMITED 走 tag-limit（限额＝橄榄，与热力条同族）",
+  /famStatus === 'LIMITED'\s*\?\s*'tag-limit'/.test(famCard),
+  '限额标签若回退到 tag-ok，一张卡里又会出现两支绿'
+);
+ok('.tag-limit 用 var(--warn)', /\.tag-limit\s*\{[^}]*color:\s*var\(--warn\)/.test(css));
+ok(
+  '.st-limit 用 var(--warn)（详情页状态列与家族卡同口径）',
+  /\.st-limit\s*\{[^}]*color:\s*var\(--warn\)/.test(css)
+);
+// 跨端：小程序自己算 famCls，漏改就是「网页橄榄、小程序松绿」
+const mpStorePath = path.join(ROOT, 'miniprogram', 'utils', 'store.js');
+if (fs.existsSync(mpStorePath)) {
+  const mpStore = fs.readFileSync(mpStorePath, 'utf8');
+  ok(
+    "小程序 famCls 里 LIMITED 走 tag-limit",
+    /s === 'LIMITED'\)\s*return 'tag-limit'/.test(mpStore)
+  );
+}
+
+// C. 色相家族计数 + 同相窗口去重。
+const chroma = (hex) => {
+  const [, a, b] = toLab(hex);
+  return Math.hypot(a, b);
+};
+const hueDeg = (hex) => {
+  const [, a, b] = toLab(hex);
+  const d = (Math.atan2(b, a) * 180) / Math.PI;
+  return d < 0 ? d + 360 : d;
+};
+// 阈值 12 而不是 8：--ink-3 #6b6859 的 C* 是 9.0（一层很浅的暖灰），色相角 101°——
+// 定 8 会把它当成一支橄榄，家族数虚高，断言看着过其实在比错的节点。
+const CHROMATIC_MIN = 12;
+
+// C0. 暂停必须是**中性**灰。这一条是 2026-10-26 第二轮反馈的直接产物：
+// 旧的 #6b665a 看着是灰，算出来 C*=7.5、色相 92°——一支偏橄榄的暖灰。
+// 它夹在卡片的橄榄格里（117°）就读成「褪色的绿」，而它与 --ink-3 的 ΔE 只有 2.0，
+// 也就是说「暂停」和「未公布」本来是同一支灰写了两遍。两条都只有算才看得见。
+const dE = (a, b) => {
+  const A = toLab(a), B = toLab(b);
+  return Math.hypot(A[0] - B[0], A[1] - B[1], A[2] - B[2]);
+};
+ok(
+  `--stop 是中性灰（C* ≤ 3，实测 ${chroma(rootVars.stop).toFixed(1)}）`,
+  chroma(rootVars.stop) <= 3,
+  '偏暖就会在橄榄格里读成「褪色的绿」——用户 2026-10-26 的原话是「暂停申购的绿不一样」'
+);
+ok(
+  `--stop 与 --ink-3 的 ΔE ≥ 5（实测 ${dE(rootVars.stop, rootVars['ink-3']).toFixed(1)}）`,
+  dE(rootVars.stop, rootVars['ink-3']) >= 5,
+  '两支灰差不到 3 就等于一支灰写了两遍，而它们的含义完全不同（买不了 / 不知道）'
+);
+
+const palette = new Map();
+for (const [name, val] of Object.entries(rootVars)) {
+  const v = String(val).trim();
+  if (/^#[0-9a-f]{6}$/i.test(v) && chroma(v) >= CHROMATIC_MIN) palette.set(name, v);
+}
+for (const [slug, v] of Object.entries(boardVars)) {
+  if (v.accent && chroma(v.accent) >= CHROMATIC_MIN) palette.set(`${slug}.accent`, v.accent);
+}
+
+const HUE_TOL = 20;
+const sorted = [...palette]
+  .map(([name, hex]) => ({ name, hex, hue: hueDeg(hex) }))
+  .sort((a, b) => a.hue - b.hue);
+const clusters = [];
+for (const e of sorted) {
+  const last = clusters[clusters.length - 1];
+  if (last && e.hue - last[last.length - 1].hue <= HUE_TOL) last.push(e);
+  else clusters.push([e]);
+}
+// 色相是环：355° 与 5° 是同一族，首尾也要合一次
+if (clusters.length > 1) {
+  const head = clusters[0];
+  const tail = clusters[clusters.length - 1];
+  if (head[0].hue + 360 - tail[tail.length - 1].hue <= HUE_TOL) {
+    clusters[0] = [...tail, ...head];
+    clusters.pop();
+  }
+}
+const famDesc = clusters.map((c) => c.map((e) => `${e.name}@${e.hue.toFixed(0)}°`).join('+')).join(' | ');
+ok('非中性色相家族 ≤ 4（绿 / 橄榄 / 蓝 / 红）', clusters.length <= 4, famDesc);
+
+// 同一支颜色写了第二遍：同一个 20° 窗口里不许出现两个不同的语义。
+// 热力四档是**同色相的明度阶梯**（这是它的设计，不是失误），所以白名单只放它们，
+// 外加 --warn（与 heat-4 同值，用户 2026-10-23 明确要求「限额的绿换成热力条这个」）。
+const HEAT_FAMILY = new Set(['heat-1', 'heat-2', 'heat-3', 'heat-4', 'warn']);
+for (const c of clusters) {
+  const outsiders = c.filter((e) => !HEAT_FAMILY.has(e.name));
+  ok(
+    `色相 ${c[0].hue.toFixed(0)}° 家族里只有一个语义（${outsiders.map((e) => e.name).join(' / ') || '热力阶梯'}）`,
+    outsiders.length <= 1,
+    outsiders.map((e) => `${e.name}=${e.hex}`).join(' , ')
+  );
+}
 
 // 首屏背后那道装饰带（TrendBackdrop 的柱 + 折线 + 基线）也走印色。
 // ★ 与热力条的区别要按住：这道带只画形状、没有档位，读者读不到数值，所以可以跟身份走；
@@ -715,6 +1185,20 @@ if (CHECK_DIST) {
   };
   const htmlTag = (h) => (h.match(/<html[^>]*>/) || [''])[0];
   const themeOf = (h) => (h.match(/name="theme-color" content="([^"]+)"/) || [])[1];
+  // 站标是两种形态，各取各的证据：
+  //   字母形态 = 内联 SVG（取 <path> 的 d），字标形态 = QDII 文字。
+  // ★ 只断言「页面里有 site-mark」会漏掉形态互换（N 出现在 /my、QDII 出现在标普页都不报错），
+  //   所以两种形态分别取指纹、逐页等值。
+  const markPathOf = (h) => ((h || '').match(/<svg class="site-mark"[\s\S]{0,300}?<path d="([^"]*)"/) || [])[1] ?? null;
+  const markTextOf = (h) => ((h || '').match(/<span class="site-mark site-mark-text"[^>]*>([^<]*)<\/span>/) || [])[1] ?? null;
+  // 顶栏站名（.site-brand 里最后一个 span）。共用页站标已经是 QDII 字标，
+  // 站名再以 QDII 开头就成了「[QDII] QDII 开门日报」——同一个词读两遍。
+  const brandTextOf = (h) => {
+    const m = (h || '').match(/<a class="site-brand"[^>]*>([\s\S]*?)<\/a>/);
+    if (!m) return null;
+    const t = [...m[1].matchAll(/<span[^>]*>([^<]*)<\/span>/g)].map((x) => x[1].trim());
+    return t.length ? t[t.length - 1] : null;
+  };
 
   if (!pageOf(path.join('ndx100', 'index.html'))) {
     console.log('   dist/ 未构建，跳过纸色渲染层断言');
@@ -728,9 +1212,25 @@ if (CHECK_DIST) {
       if (!h) continue;
       ok(`${p_(rel)} 的 <html> 带 data-board="${b.slug}"`, htmlTag(h).includes(`data-board="${b.slug}"`), htmlTag(h));
       eq(`${p_(rel)} 的 theme-color == 本板块纸色`, themeOf(h), boardVars[b.slug].paper);
-      // 站标必须是内联 SVG：老的 /nasdaq-logo.svg 是两个板块共用的「N」方块，
-      // 顶在标普500 页面上是错的
-      ok(`${p_(rel)} 站标是内联 .site-mark`, h.includes('class="site-mark"') && !h.includes('/nasdaq-logo.svg'));
+      // 指数页保留单字母站标（用户 2026-10-26：「纳指、标普还是单字母logo」）。
+      // N 全直线、S 是曲线，用 path 的开头当指纹——两个字形互换会立刻红。
+      const wantLetter = b.slug === 'sp500' ? 'M23.5 13.5 C' : 'M10 11 ';
+      const mp = markPathOf(h);
+      ok(
+        `${p_(rel)} 站标是单字母 ${b.slug === 'sp500' ? 'S' : 'N'}`,
+        !!mp && mp.startsWith(wantLetter),
+        mp || '（没有 SVG 站标）'
+      );
+      ok(`${p_(rel)} 站标不是 QDII 字标（指数页用字母）`, markTextOf(h) === null, markTextOf(h) || '');
+      ok(`${p_(rel)} 站标不再用外部 SVG`, !h.includes('/nasdaq-logo.svg'));
+      // 站名带指数名（headerBrand 是给共用页用的，指数页别顺手也传）
+      eq(`${p_(rel)} 顶栏站名带指数名`, brandTextOf(h), b.slug === 'sp500' ? '标普500开门日报' : '纳指开门日报');
+    }
+    // 共用页：没有指数身份 → 换成 QDII 字标（用户原话「其他情况用QDII logo，包括我的基金、订阅」）。
+    for (const rel of [path.join('my', 'index.html'), path.join('subscribe', 'index.html')]) {
+      eq(`${p_(rel)} 站标字是 QDII`, markTextOf(pageOf(rel)), 'QDII');
+      ok(`${p_(rel)} 站标不用字母形态（共用页不冒充板块）`, markPathOf(pageOf(rel)) === null);
+      eq(`${p_(rel)} 顶栏站名不再重复 QDII`, brandTextOf(pageOf(rel)), '开门日报');
     }
     // 共用页没有指数身份：纸色与色带都必须回到中性，否则「我在哪个板块」会被说错
     for (const rel of [path.join('my', 'index.html'), path.join('subscribe', 'index.html')]) {
@@ -767,6 +1267,13 @@ if (CHECK_DIST) {
       const code = [...codeSets[k]][0];
       const h = pageOf(path.join('f', code, 'index.html'));
       ok(`/f/${code} 的 data-board == ${slug}`, Boolean(h) && htmlTag(h).includes(`data-board="${slug}"`), h ? htmlTag(h) : '页面缺失');
+      // 详情页有指数身份（导航里那个指数是当前项）→ 站标跟指数走，不换 QDII 字标。
+      const fp = markPathOf(h);
+      ok(
+        `/f/${code} 站标仍是单字母 ${slug === 'sp500' ? 'S' : 'N'}`,
+        !!fp && fp.startsWith(slug === 'sp500' ? 'M23.5 13.5 C' : 'M10 11 '),
+        fp || '（没有 SVG 站标）'
+      );
     }
   }
 }

@@ -1,14 +1,42 @@
 ---
-// 竖向周历：每周一行，左列标周范围（不再带「第 N 周」次级小字），右 5 格大格子（仅交易日）。
-// 过去且有数据的交易日 → 写额度，底部一道青条（= 当晚可申购）；
-// 周末 / 假期 / 未来 → 灰格留白，无额度无青条。
-// 悬停提示沿用全站 .cal-tip 皮肤（A股 / 美股 / 额度·开门数）。
-import type { WeekGrid, DayInfo } from '../data/trading-days';
-import { openWord, mondayOf } from '../data/trading-days';
+// 竖向周历：每周一行，左列标周范围，右 5 格（仅工作日）。
+//
+// ★ 2026-10-26 第五轮：行高锁定，格子只有两个槽位。
+//   第四轮撤掉柱以后，行高变成「谁字数多谁说了算」，实测同一页里桌面 38/48/49、
+//   窄屏 38/46.6/53.1 三种高度并存，三个来源：
+//     ① 休市格的「休市原因」比交易日多一行；
+//     ② 左列周范围在 46px 宽下折成两行（跨月「9.28–10.2」桌面也折）；
+//     ③ 「本周」二字写在左列，把那一行顶高 10px。
+//   现在：行高＝常量（--wk-h），格子内固定两槽 —— **上行日期、下行结论**
+//   （交易日＝额度 / 休市＝原因 / 缺数据＝未收录 / 还没到＝空）。下行一律单行
+//   + 省略号，超长（如「美国·马丁·路德·金纪念日」）交给悬停卡说完整。
+//   于是任何一格的字数都不再影响行高，也不再影响隔壁行。
+//   ★ 「本周」二字 2026-10-26 第五轮删除：它本身就是③。本周仍由三重无高度标记
+//     指认 —— 行初 2px 墨书签 + 极淡中性底 + 周范围用最深的墨/加粗（其余周 ink-2）。
+//
+// ★ 2026-10-26 第四轮：日历不再用图形编码额度。
+//   前一天还是「12px 数字 + 一根柱（高度 ∝ 当日额度）」，用户当天就提了：
+//   「交易不用热力图的展现形式，只是区分交易日和非交易日呢？」
+//   撤掉的理由：① 格子 50–90px 宽、柱区 28px，纳指 9 个额度值只落成 7 档，
+//   图形分辨率还不如紧挨着的数字；② 柱高抢走了「开不开门」的对比 ——
+//   那才是日历该回答的问题。
+//   现在每格只写两件事：**日期**（开市=深墨加粗 / 休市=浅灰）与**当日额度**（数字）
+//   或**休市原因**（文字）。额度仍是可比的（等宽数字、同一条左基线），但不画形状。
+//   试过给交易日整格填 --heat-1：一眼能扫出开不开门，但 22 格绿块成了色墙，已回退。
+//
+// 未来一周不再排进网格：那 5 格说的都是同一句「能买」，而真正想知道的
+// 「下次哪天买不了」（2026-11-26 感恩节，31 天后）落在窗口外。现在表下用一行
+// 文字回答（buyOutlook），网格只画已经发生过的日子。
+// 于是「未来」只剩本周内那几格：只有浅灰日期，与「过去但没抓到数据」
+// （写「未收录」/「待更新」）区分开。
+import type { WeekGrid } from '../data/trading-days';
+import { buyOutlook, mondayOf, offReason, openWord } from '../data/trading-days';
 
 const { weeks, today, totals } = Astro.props;
 // 含 today 的那一周（today 是周日时，这一周的周一仍落在当前周）= 本周，单独标出
 const curMonday = mondayOf(today);
+// 表下那一行：还能连着买几天、下次哪天买不了
+const outlook = buyOutlook(today);
 
 interface Props {
   weeks: WeekGrid[];
@@ -27,16 +55,6 @@ function fmtAmt(total: number): { n: string; u: string } {
   }
   return { n: `${Math.round(total)}`, u: '元' };
 }
-
-// 非交易日（灰格）里直写的休市原因：优先具体假日名，否则状态级措辞。
-// 过去的休市日与「即将到来的休市日」都写出，方便预判哪天不能买；
-// 美股假日名加「美国·」前缀，与国内「劳动节(5/1)」区分开，避免误读。
-function offReason(d: DayInfo): string {
-  if (d.state === 'US_CLOSED') return d.usHoliday ? `美国·${d.usHoliday}` : '美股休市';
-  if (d.state === 'CN_CLOSED' || d.state === 'BOTH_CLOSED') return d.cnReason;
-  if (d.state === 'UNKNOWN') return '日历未覆盖';
-  return '';
-}
 ---
 
 <div class="wk-head">
@@ -49,30 +67,38 @@ function offReason(d: DayInfo): string {
 {weeks.map((w) => (
   <div class:list={['wk-row', { 'is-this-week': w.monday === curMonday }]}>
     <div class="wk-lbl">
-      {w.monday === curMonday && <em class="wk-now">本周</em>}
-      <b>{w.label}</b>
+      <b>{w.label.split('–')[0]}<span class="wk-rng">–{w.label.split('–')[1]}</span></b>
     </div>
     <div class="wk-days">
       {w.days.filter((d) => !d.weekend).map((d) => {
         const isFuture = d.date > today;
         const isTrade = d.state === 'TRADING';
         const t = totals.get(d.date);
-        const showAmt = !!t && !isFuture;
-        const amt = showAmt ? fmtAmt(t!.total) : null;
-        // 交易日（含未来）无原因 —— 靠「青色下划线 + 墨色日期」表达「可买」；
-        // 非交易日（过去与即将到来的休市日）写出原因，方便预判哪天不能买。
-        const reason = isTrade ? null : offReason(d);
+        // 三种「格子里的内容」互斥：有额度 / 交易日但没数据 / 还没到
+        const hasAmt = isTrade && !isFuture && !!t;
+        const isGap = isTrade && !isFuture && !t;
+        const amt = hasAmt ? fmtAmt(t!.total) : null;
+        // 未来格不写原因：它还没到，不是「不能买」
+        // 格子里的原因去掉「假期」后缀：这一列一格只有 52px，窄屏 10px 字号下
+        // 「国庆节假期」50px 会溢出。名字本身已经足够（悬停卡里仍是完整说法）。
+        const reason = isTrade ? null : offReason(d).replace(/假期$/, '');
         const cls = ['wk-d'];
-        if (isTrade) cls.push('is-trade');
+        if (hasAmt) cls.push('is-trade');
+        else if (isGap) cls.push('is-gap');
+        else if (isFuture) cls.push('is-future');
         else cls.push('is-off');
         if (d.date === today) cls.push('is-today');
-        const aria = t
+        const gapWord = d.date === today ? '待更新' : '未收录';
+        const aria = hasAmt
           ? `${d.title}；可投 ¥${t.total.toLocaleString('zh-CN')} · ${t.opened} 家开门`
-          : d.title;
+          : isGap
+            ? `${d.title}；当日额度${gapWord}`
+            : d.title;
         return (
           <span class={cls.join(' ')} tabindex="0" aria-label={aria}>
             <span class="wk-dt">{d.day}</span>
-            {amt && <span class="wk-amt">{amt.n}<u>{amt.u}</u></span>}
+            {hasAmt && <span class="wk-amt">{amt!.n}<u>{amt!.u}</u></span>}
+            {isGap && <span class="wk-gap">{gapWord}</span>}
             {reason && <span class="wk-reason">{reason}</span>}
             <span class="cal-tip" aria-hidden="true">
               <b class="ct-d">{d.md} {d.weekZh}</b>
@@ -100,3 +126,27 @@ function offReason(d: DayInfo): string {
     </div>
   </div>
 ))}
+
+<p class="wk-out">
+  {!outlook.todayTradable ? (
+    <>
+      今天休市（{outlook.todayReason}），{outlook.nextTradable ? (
+        <>下一个交易日是 <b>{outlook.nextTradable.md} {outlook.nextTradable.weekZh}</b>。</>
+      ) : (
+        <>日历覆盖范围内没有可申购的交易日。</>
+      )}
+    </>
+  ) : outlook.tradingDays === 0 ? (
+    <>
+      明天起就买不了：<b>{outlook.nextOff!.md} {outlook.nextOff!.weekZh}</b>，{outlook.nextOff!.reason}。
+    </>
+  ) : (
+    <>
+      接下来 <b>{outlook.tradingDays}</b> 个交易日都能买（到 <b>{outlook.lastTradable!.md}</b>）{outlook.nextOff ? (
+        <>；最近一次买不了是 <b>{outlook.nextOff.md} {outlook.nextOff.weekZh}</b>，{outlook.nextOff.reason}，{outlook.nextOff.daysAway} 天后。</>
+      ) : (
+        <>；日历覆盖范围内没有休市日。</>
+      )}
+    </>
+  )}
+</p>

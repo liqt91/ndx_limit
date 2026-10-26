@@ -29,6 +29,10 @@ import {
   evaluateFreshness,
   loadHolidays,
   todayShanghai,
+  buyableFamilies,
+  buyableBlocks,
+  aggregateCny,
+  summarizeDay,
   DEFAULT_EDITION,
   INDEX_KEYS,
   INDEX_LABEL,
@@ -230,6 +234,157 @@ ok('都新鲜 → 两个都健康', f2.byIndex[NDX].healthy && f2.byIndex[SP500]
 
 const f3 = evaluateFreshness({ funds: realFunds, history: mkHistory(today, today), meta: {}, today, holidays });
 ok('metadata 全缺 → 覆盖率 0，判不完整', f3.byIndex[NDX].problems.includes('coverage') && f3.byIndex[SP500].problems.includes('coverage'));
+
+// ── 8. 今日能买清单（代码 + 额度）──
+// 为什么需要它：清单是「读者照着下单」的那一段，错了不会报错——他会买错代码，
+// 或者看不到自己那只。而且清单要靠「和标题合计对得上」才算同一份数据，
+// 所以这里既验结构（谁该进来、谁不该进来），也验等值（额度加总 == 标题合计）。
+console.log('\n8. 今日能买清单（代码 + 额度）');
+const D = '2026-10-26';
+const fxFunds = [
+  // 甲：三种额度写法各一个（有数字 / 不限 / 待核验）+ 暂停 + 只有昨天的数据
+  {
+    company: '甲',
+    baseName: '纳斯达克100',
+    indexKey: NDX,
+    currency: 'CNY',
+    codes: [
+      { cls: 'A', code: '900001' },
+      { cls: 'B', code: '900002' },
+      { cls: 'C', code: '900003' },
+      { cls: 'D', code: '900004' },
+      { cls: 'E', code: '900005' },
+    ],
+  },
+  // 乙：整家今天都买不到 → 连名字都不该出现
+  { company: '乙', baseName: '纳斯达克100', indexKey: NDX, currency: 'CNY', codes: [{ cls: 'A', code: '900006' }] },
+  // 丙：美元份额，必须单独一组、额度写「美元」
+  { company: '丙', baseName: '纳斯达克100', indexKey: NDX, currency: 'USD', codes: [{ cls: 'A', code: '900007' }] },
+  // 丁：另一个指数 → 纳指的清单里不许出现
+  { company: '丁', baseName: '标普500', indexKey: SP500, currency: 'CNY', codes: [{ cls: 'A', code: '900009' }] },
+];
+const fxHistory = {
+  '900001': [{ date: D, status: 'LIMITED', limit: 10 }],
+  '900002': [{ date: D, status: 'OPEN', limit: null }],
+  '900003': [{ date: D, status: 'LIMITED', limit: null }],
+  '900004': [{ date: D, status: 'STOPPED', limit: null }],
+  '900005': [{ date: '2026-10-25', status: 'LIMITED', limit: 7 }],
+  '900006': [{ date: D, status: 'STOPPED', limit: null }],
+  '900007': [{ date: D, status: 'LIMITED', limit: 5 }],
+  '900009': [{ date: D, status: 'LIMITED', limit: 99 }],
+};
+const fxFams = buyableFamilies({ funds: fxFunds, history: fxHistory, date: D, indexKey: NDX });
+// 取份额时一律走这个兜底：断言本身不许抛异常。一次 undefined 就让脚本在 section 8
+// 中途崩掉的话，后面所有断言（含跨指数泄漏）都不会执行，那才是真正的假绿灯——
+// 「红了」只是运气好，报的是堆栈而不是能修的那一条（2026-10-26 负向注入实测撞到）。
+const fxShare = (i) => fxFams[0]?.shares?.[i] ?? {};
+eq('只留「今天有点位且能买」的家族', fxFams.map((f) => f.name).join(','), '甲纳斯达克100,丙纳斯达克100美元');
+eq('甲家列出 3 个份额（暂停 / 旧数据各剔掉一个）', fxFams[0]?.shares.length, 3);
+eq('额度有数字 → 10元', fxShare(0).amount, '10元');
+eq('OPEN 无数字 → 不限（不是 0，也不是待核验）', fxShare(1).amount, '不限');
+eq('LIMITED 无数字 → 待核验（不能当 0 报）', fxShare(2).amount, '待核验');
+eq('美元份额额度带币种 → 5美元', fxFams[1]?.shares?.[0]?.amount ?? {}, '5美元');
+ok('暂停的份额不进清单', !fxFams.flatMap((f) => f.shares).some((s) => s.code === '900004'));
+ok('当天没点位的份额不进清单', !fxFams.flatMap((f) => f.shares).some((s) => s.code === '900005'));
+ok('另一个指数的份额不进本指数清单', !fxFams.flatMap((f) => f.shares).some((s) => s.code === '900009'));
+
+const fxBlocks = buyableBlocks({ funds: fxFunds, history: fxHistory, date: D, indexKey: NDX });
+const fxBlock = (i) => fxBlocks[i] || '';
+eq('两个币种 → 两组（人民币在前）', fxBlocks.length, 2);
+ok('人民币组标题报份额数', /^今日能买（人民币份额 3 个）/.test(fxBlock(0)), fxBlock(0).split('\n')[0]);
+ok('美元组标题报份额数', /^今日能买（美元份额 1 个）/.test(fxBlock(1)), fxBlock(1).split('\n')[0]);
+ok('一家一行，份额之间用「·」', fxBlock(0).includes('甲纳斯达克100：A类 900001 10元 · B类 900002 不限 · C类 900003 待核验'));
+
+// 等值：清单里能加总的额度，必须正好等于标题里的「合计 X 元可投」。
+// 这是「清单和合计是同一份数据」的唯一硬证据——分开算两遍，数字对不上就是有一遍错了。
+const fxPts = {};
+for (const code in fxHistory) {
+  const hit = fxHistory[code].find((p) => p.date === D);
+  if (hit) fxPts[code] = hit;
+}
+const fxAgg = aggregateCny(fxFunds, fxPts, NDX);
+const fxSum = fxFams
+  .filter((f) => f.currency === 'CNY')
+  .flatMap((f) => f.shares)
+  .reduce((a, s) => a + (s.limit ?? 0), 0);
+eq('清单额度加总 == 人民币合计', fxSum, fxAgg.total);
+eq('清单家族数 == 开门家数', fxFams.filter((f) => f.currency === 'CNY').length, fxAgg.opened);
+
+// 真实数据：这段刻意**不复用 buyableFamilies**（上面那节已经单独验过它的语义），
+// 改成从 funds.json + history.json 直接重算一遍「今天该出现哪些代码、每个该写多少」。
+// ★ 为什么必须重算：拿同一个函数同时生成正文和期望值，任何「少列一个份额」之类的
+//   缺陷会在两边同时发生，断言照样全绿（2026-10-26 负向注入实测确实没红过）。
+const realHistory = readJson('history.json', {});
+for (const k of INDEX_KEYS) {
+  const d = k === NDX ? closeD : buildDailyDigest({ edition: 'close', indexKey: k });
+  const label = INDEX_LABEL[k];
+  if (!d.healthy) {
+    console.log(`  --  ${label} 今天的 digest 不健康，跳过正文清单断言（数据门禁会单独报）`);
+    continue;
+  }
+  const rows = [];
+  const famsWithBuyable = [];
+  for (const f of realFunds.filter((x) => x.indexKey === k)) {
+    const unit = f.currency === 'USD' ? '美元' : '元';
+    let any = false;
+    for (const c of f.codes) {
+      const hit = (realHistory[c.code] || []).find((p) => p.date === d.date);
+      if (!hit) continue;
+      if (hit.status !== 'OPEN' && hit.status !== 'LIMITED') continue;
+      any = true;
+      rows.push({
+        code: c.code,
+        limit: hit.limit == null ? null : hit.limit,
+        text: hit.limit != null ? `${hit.limit}${unit}` : hit.status === 'OPEN' ? '不限' : '待核验',
+      });
+    }
+    if (any) famsWithBuyable.push(f);
+  }
+  if (!rows.length) {
+    ok(`${label}：今天没有可买份额 → 正文不出现「今日能买」`, !d.text.includes('今日能买'));
+    continue;
+  }
+  // 把「今日能买」那一块从正文里切出来（到下一个空行为止），只在这一块里数代码，
+  // 不然变化清单里的数字会被当成代码，断言就永远为真了。
+  const block = (d.text.match(/今日能买[\s\S]*?(?=\n\n|$)/) || [''])[0];
+  const shown = [...new Set((block.match(/\b\d{6}\b/g) || []))].sort();
+  const want = rows.map((r) => r.code).sort();
+  eq(`${label}：清单里的代码集合 == 当日可买份额`, shown.join(','), want.join(','));
+  // 逐条等值：每个代码后面紧跟它自己的额度（数字、不限、待核验三种写法都要对）
+  const wrong = rows.filter((r) => !block.includes(`${r.code} ${r.text}`));
+  ok(`${label}：每个代码后面紧跟自己的额度`, wrong.length === 0, wrong.slice(0, 3).map((r) => `${r.code} 期望「${r.text}」`).join('；'));
+  const agg = summarizeDay(realFunds, realHistory, d.date, k);
+  eq(`${label}：清单家族数 == 标题开门家数`, famsWithBuyable.length, agg.opened);
+  const listedSum = rows.reduce((a, r) => a + (r.limit ?? 0), 0);
+  if (rows.every((r) => r.limit != null)) eq(`${label}：清单额度加总 == 标题里的合计`, listedSum, agg.total);
+  else console.log(`  --  ${label} 有「不限/待核验」的份额，跳过加总断言（合计本身不含它们）`);
+  // 暂停的份额不许混进来（拿今天确实暂停的一个代码做反向样本）
+  const stoppedCode = Object.keys(realHistory).find((code) => {
+    const hit = realHistory[code].find((p) => p.date === d.date);
+    return hit && hit.status === 'STOPPED' && !want.includes(code);
+  });
+  ok(`${label}：暂停的份额不进清单`, !stoppedCode || !block.includes(stoppedCode), stoppedCode || '（今天没有暂停样本）');
+  ok(`${label}：清单位于变化清单之后、页脚之前`, d.text.indexOf('今日能买') > d.text.indexOf('较 ') && d.text.indexOf('今日能买') < d.text.indexOf(d.parts.footer));
+}
+// 分指数裁剪对清单同样生效：只订纳指的人不该在信里看到标普的任何代码
+const realDigests = { [NDX]: closeD, [SP500]: buildDailyDigest({ edition: 'close', indexKey: SP500 }) };
+const allSpCodes = realFunds.filter((f) => f.indexKey === SP500).flatMap((f) => f.codes.map((c) => c.code));
+const ndxMail = composeEmail({ digests: realDigests, indices: [NDX] });
+ok('只订纳指：信里没有标普的任何代码', !allSpCodes.some((c) => ndxMail.text.includes(c)));
+
+// ── 9. 订阅页的日报墙与信同源 ──
+// 墙上每一张卡片都是邮件的镜像。2026-10-26 邮件加了「代码 + 额度」，墙却没跟上——
+// 用户打开订阅页看「最近日报」，发现能买的基金一个都没有。根因是墙上那套拼装是
+// 另一份实现。这里钉死「只许有一份」：清单函数由 loader 从 digest.mjs 引过去。
+console.log('\n9. 订阅页日报墙与信同源（清单只许有一份实现）');
+const loaderSrc = read('src/data/loader.ts');
+const wallSrc = read('src/components/DigestWall.astro');
+const subPageSrc = read('src/pages/subscribe.astro');
+ok('loader 从 digest.mjs 引入 buyableFamilies（不另写一份）', /import\s*\{[^}]*buyableFamilies[^}]*\}\s*from\s*'\.\.\/\.\.\/scripts\/digest\.mjs'/.test(loaderSrc));
+ok('loader 不再自己拼额度文案', !/amount:\s*p\.limit/.test(loaderSrc));
+ok('订阅页把 buyable 传给日报墙（两个指数各一处）', (subPageSrc.match(/buyable:\s*(ndx|sp)Buy\.get/g) || []).length === 2);
+ok('日报墙渲染清单', wallSrc.includes('dw-buy-row') && wallSrc.includes('seg.buyable'));
+ok('日报墙的清单按币种分组（人民币在前）', /\[\s*\{\s*key:\s*'CNY'[\s\S]{0,120}key:\s*'USD'/.test(wallSrc));
 
 console.log('');
 if (fails.length) {

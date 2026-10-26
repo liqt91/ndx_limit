@@ -17,13 +17,14 @@ page {
   --rule: #e6e4dc;
   --rule-2: #cbc9c1;
   --ghost: #b3afa2;
-  --cal-off: #928e80;
 
   --ok: #2c6e4f;
   --warn: #505f24;
-  /* 暂停＝灰（与网页版同口径）。红在网页上已经让给标普500 当身份色，
-     这里跟着退灰，两端对同一只基金才不会一个红一个灰。 */
-  --stop: #6b665a;
+  /* 暂停＝中性灰（与网页版逐字同值）。红在网页上已经让给标普500 当身份色，
+     这里跟着退灰，两端对同一只基金才不会一个红一个灰。
+     ★ 必须是中性（C* ≤ 3）：旧的 #6b665a 彩度 7.5、色相 92°，是一支偏橄榄的暖灰，
+       贴在热力的橄榄格旁边会读成「褪色的绿」。门禁逐字比对网页 :root 的 --stop。 */
+  --stop: #6a6a68;
   /* 错误提示单独留一个红：它是「你刚做的事失败了」，要跳出来，
      不能跟着暂停一起退灰。 */
   --err: #a33a2f;
@@ -36,14 +37,16 @@ page {
        距离 ΔE 37。中间试过纯中性灰，观感偏素，且深档必然贴着暂停灰（L* 43.3）。
      ★ WXSS 不认 color-mix，这里是写死的值；改网页那四行就要同步这四行，
        check:index 会逐字比对两端。 */
-  --heat-1: #dae1bb;
-  --heat-2: #c1cd8c;
-  --heat-3: #94a455;
+  --heat-1: #c7d19c;
+  --heat-2: #aab772;
+  --heat-3: #879848;
   --heat-4: #505f24;
 
-  --accent-open: #3f7d63;
-  --accent-changed: #b5732a;
-  --accent-faint: #c6c1b1;
+  /* ★ 2026-10-26 与网页同步收敛：原来这里还有 --accent-open #3f7d63 /
+     --accent-changed #b5732a / --accent-faint #c6c1b1 三支。前一支与 --ok 的 ΔE
+     只有 7.3（同一支绿的第二副本），赭黄那一支是页面里唯一的第三色相。
+     现在「能买」只有 --ok，「变坏」用 --warn，「不知道」用 --ink-3。
+     详见 src/styles/global.css :root 的状态色段（那边写了完整的取舍理由）。 */
 
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
     "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", sans-serif;
@@ -171,13 +174,19 @@ view, text, scroll-view, button, input { box-sizing: border-box; }
 }
 .tag-ok { color: var(--ok); }
 .tag-stop { color: var(--stop); }
-.tag-closed { color: var(--warn); }
+/* 封闭期就是「这段时间买不了」，和暂停是同一件事的两种成因 → 同灰。
+   ★ 2026-10-26 修：这里原本写的是 --warn（橄榄），而网页版是 --stop（灰）。
+     同一个小程序页面里「暂停」是灰、「封闭」是橄榄，等于同一类结论两种颜色。 */
+.tag-closed { color: var(--stop); }
 .tag-unknown { color: var(--ink-3); }
 .tag-partial { color: var(--warn); }
+/* 限额申购＝橄榄（与网页 .tag-limit 同口径、与热力条同族）。详见 global.css 那条注释。 */
+.tag-limit { color: var(--warn); }
 
 .st-ok { color: var(--ok); }
+.st-limit { color: var(--warn); }
 .st-stop { color: var(--stop); }
-.st-closed { color: var(--warn); }
+.st-closed { color: var(--stop); }
 .st-unknown { color: var(--ink-3); }
 
 /* 份额流水行：类别 → 额度，一段一段 */

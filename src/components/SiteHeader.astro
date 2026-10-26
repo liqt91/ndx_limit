@@ -36,15 +36,20 @@ const indexNav = INDEXES.map((i) => ({
   key: i.key,
 }));
 
-// 站标：两个板块各一个字母，跟着板块切换。
-//   N = 纳指；S = 标普。共用页（/my、/subscribe）没有指数身份，用 N（品牌主站在纳指）。
-// 两块底色都取 --accent（纳指赭 / 标普红 / 共用页墨色），字形用纸色挖空，
+// 站标：两种形态，靠「这一页有没有指数身份」分开。
+//   有指数身份（/ndx100、/sp500、/f/<code>）→ 方块 + 挖空单字母 N / S；
+//   没有指数身份（/my、/subscribe）→ 方块 + 字标 QDII。
+// 2026-10-26 用户原话：「纳指、标普还是单字母logo，其他情况用QDII logo，包括我的基金、订阅」。
+// ★ 共用页原来是借 N —— 那会说错话：/my 不是纳指页，顶着 N 等于把读者按进了纳指板块。
+//   QDII 是站点本身的缩写，两页都成立。
+// 两个形态的底色都取 --accent（纳指蓝 / 标普红 / 共用页墨色），字/字形用纸色，
 // 所以它读起来是「同一本书的第几卷」，不是两个产品。
 // ★ S 用曲线而不是七段式折线：N 本来就全是直线，字母自身该直该曲，不该为了「风格统一」
 //   把 S 掰成阶梯（那在 18px 下会读成「5」）。
 // ★ S 的笔画比 N 粗 0.3：同样的 stroke-width 下，曲线的墨量看起来比直线少一截，
 //   两者并排 N 明显更重。字面高度也压到与 N 齐平（N 是 y 11→24），
 //   不然 S 的 overshoot 会让它比邻居高出一头。
+const isBoard = activeKey === NDX || activeKey === SP500;
 const isSp = activeKey === SP500;
 const markPath = isSp
   ? 'M23.5 13.5 C23.5 11.5 21 10.6 17.75 10.6 C14.5 10.6 12 11.6 12 13.8 C12 16 14.2 16.6 17.75 17.2 C21.3 17.8 23.5 18.4 23.5 20.6 C23.5 22.8 21 23.8 17.75 23.8 C14.5 23.8 12 23 12 21'
@@ -55,10 +60,14 @@ const markStroke = isSp ? 2.9 : 2.6;
 <header class="site-head">
   <div class="site-head-inner">
     <a class="site-brand" href={brandHref}>
-      <svg class="site-mark" viewBox="0 0 35 35" width="18" height="18" aria-hidden="true" focusable="false">
-        <rect x="1" y="1" width="33" height="33" rx="3" />
-        <path d={markPath} stroke-width={markStroke} stroke-linecap="square" stroke-linejoin="round" fill="none" />
-      </svg>
+      {isBoard ? (
+        <svg class="site-mark" viewBox="0 0 35 35" width="18" height="18" aria-hidden="true" focusable="false">
+          <rect x="1" y="1" width="33" height="33" rx="3" />
+          <path d={markPath} stroke-width={markStroke} stroke-linecap="square" stroke-linejoin="round" fill="none" />
+        </svg>
+      ) : (
+        <span class="site-mark site-mark-text" aria-hidden="true">QDII</span>
+      )}
       <span>{brand}</span>
     </a>
     <nav class="site-nav">

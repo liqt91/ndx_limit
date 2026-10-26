@@ -1,7 +1,7 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import DigestWall from '../components/DigestWall.astro';
-import { loadDailySummaries, loadDailyChangeHistory, loadDailyIntraday, loadDataTimeNote, NDX, SP500 } from '../data/loader';
+import { loadDailySummaries, loadDailyChangeHistory, loadDailyIntraday, loadDataTimeNote, loadDailyBuyable, NDX, SP500 } from '../data/loader';
 
 // 订阅页日报墙：最近 30 个交易日的日报归档，每天一条 = 一封邮件的样子
 // （纳指段 + 标普段同屏，与真实群发邮件同源）。让访客订阅前先预览「会收到什么」。
@@ -20,6 +20,12 @@ const ndxIntra = loadDailyIntraday(NDX);
 const spIntra = loadDailyIntraday(SP500);
 const latestDate = timeNote.date; // 与 intraday 同源（都来自 fetch-meta 当天）
 
+// 「今日能买」清单：与邮件正文同一个实现（loader → digest.mjs 的 buyableFamilies），
+// 每天一份、按家族分组。缺这一块的话，墙上就只剩「几家开门」，订阅前看不到
+// 「信里会给代码和额度」这件事。
+const ndxBuy = loadDailyBuyable(N_DAYS, NDX);
+const spBuy = loadDailyBuyable(N_DAYS, SP500);
+
 const days = ndxSum.map((s) => ({
   date: s.date,
   label: s.label,
@@ -30,6 +36,7 @@ const days = ndxSum.map((s) => ({
       changes: ndxChg.find((c) => c.date === s.date) ?? null,
       dataNote: s.date === latestDate ? timeNote.note : '',
       intraday: s.date === latestDate ? ndxIntra : null,
+      buyable: ndxBuy.get(s.date) ?? [],
     },
     {
       label: '标普500',
@@ -37,6 +44,7 @@ const days = ndxSum.map((s) => ({
       changes: spChgMap.get(s.date) ?? null,
       dataNote: s.date === latestDate ? timeNote.note : '',
       intraday: s.date === latestDate ? spIntra : null,
+      buyable: spBuy.get(s.date) ?? [],
     },
   ],
 }));
@@ -51,7 +59,7 @@ const days = ndxSum.map((s) => ({
 // 已确认的邮箱再提交一次只会合并范围（不重发确认信），这是「加订一个指数」的唯一入口。
 ---
 
-<BaseLayout title="订阅日报 - QDII 开门日报" siteName="QDII 开门日报" shortName="QDII 日报" navKey={null}>
+<BaseLayout title="订阅日报 - QDII 开门日报" siteName="QDII 开门日报" headerBrand="开门日报" shortName="QDII 日报" navKey={null}>
   <h1 class="section-title">订阅日报</h1>
   <p class="my-hint">
     每天收盘前（场外申购 15:00 截止前），把当天 QDII 基金的开门与限购变化发到你的邮箱。

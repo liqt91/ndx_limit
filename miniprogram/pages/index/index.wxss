@@ -11,9 +11,9 @@
 }
 .cl-name { display: flex; align-items: baseline; gap: 8px; min-width: 0; flex: 1 1 auto; }
 .cl-dot { flex: none; width: 5px; height: 5px; background: var(--ink-3); transform: translateY(-2px); }
-.cl-dot-opened, .cl-dot-limit-up { background: var(--accent-open); }
-.cl-dot-stopped, .cl-dot-limit-down, .cl-dot-limit-set, .cl-dot-limit-clear { background: var(--accent-changed); }
-.cl-dot-unknown { background: var(--accent-faint); }
+.cl-dot-opened, .cl-dot-limit-up { background: var(--ok); }
+.cl-dot-stopped, .cl-dot-limit-down, .cl-dot-limit-set, .cl-dot-limit-clear { background: var(--warn); }
+.cl-dot-unknown { background: var(--ink-3); }
 .cl-title { font-size: 14px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cl-ann {
   flex: none;

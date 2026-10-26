@@ -3,6 +3,11 @@ import path from 'node:path';
 import type { DailySnapshot, FundShare, DayPoint } from './types';
 import { buildSnapshot } from './mock'; // 兜底：无真实数据时
 import { todayCST, lastNDates, prettyDateCST, isTradingDay, prevTradingDay, shiftDate } from './dates';
+// 「今日能买清单」的唯一实现放在 scripts/digest.mjs（邮件也用它）。
+// ★ 订阅页的「最近日报」是邮件正文的镜像，但它曾经是独立拼的一套逻辑：邮件加了
+//   「代码 + 额度」清单之后墙上没有，用户一眼就看出「预览和信长得不一样」。
+//   所以这里直接复用，不再靠「两边记得一起改」；金额写法（10元 / 不限 / 待核验）也只有一份。
+import { buyableFamilies } from '../../scripts/digest.mjs';
 
 // ──────────────────────────────────────────────────────────────
 // 数据获取层
@@ -344,6 +349,44 @@ export function loadDailySummaries(n: number, indexKey: string = NDX): DailySumm
     );
     return { date, label: prettyDateCST(date), opened, total, count: cny.length };
   });
+}
+
+// ──────────────────────────────────────────────────────────────
+// 今日能买清单（按天，代码 + 额度）
+//
+// 与 scripts/digest.mjs 的 buyableFamilies 同一个实现：邮件正文那一段
+// 「今日能买（人民币份额 16 个）/ 宝盈纳斯达克100：A类 019736 10元 …」就是它产出的。
+// 订阅页要让人看见「订阅后收到什么」，所以这份清单必须在墙上也在。
+//
+// 日期轴直接取 loadDailySummaries 的那一串（同一份 history、同一套交易日过滤），
+// 否则墙上「7 家开门」与下面清单会不是同一天的口径。
+// ──────────────────────────────────────────────────────────────
+export interface BuyableShare {
+  cls: string;
+  code: string;
+  status: string;
+  limit: number | null;
+  /** 已排好版的说法：10元 / 5美元 / 不限 / 待核验 */
+  amount: string;
+}
+
+export interface BuyableFamily {
+  name: string;
+  currency: string;
+  shares: BuyableShare[];
+}
+
+export function loadDailyBuyable(n: number, indexKey: string = NDX): Map<string, BuyableFamily[]> {
+  const out = new Map<string, BuyableFamily[]>();
+  const dates = loadDailySummaries(n, indexKey).map((s) => s.date);
+  if (!dates.length) return out;
+  const funds = allFundEntries();
+  const history = readHistory();
+  for (const date of dates) {
+    const fams = buyableFamilies({ funds, history, date, indexKey }) as BuyableFamily[];
+    if (fams.length) out.set(date, fams);
+  }
+  return out;
 }
 
 // ──────────────────────────────────────────────────────────────

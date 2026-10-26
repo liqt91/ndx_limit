@@ -18,7 +18,10 @@ export const STATUS_SHORT: Record<PurchaseStatus, string> = {
   UNKNOWN: '未公布',
 };
 
-/** 状态文字配色类（低饱和，仅作辅助，文字本身已说明含义） */
+/** 状态文字配色类（低饱和，仅作辅助，文字本身已说明含义）。
+ *  ★ 2026-10-26：LIMITED（限额）不再跟 OPEN 共用 --ok 松绿，改用橄榄（--warn）——
+ *    与家族卡上的「限额申购」标签同口径，也与额度热力条同一支颜色。
+ *    同一页里「能买」原本有两支绿（松绿的字 / 橄榄的格子），读起来像没调准。 */
 export function statusClass(s: PurchaseStatus): string {
   return s === 'STOPPED'
     ? 'st-stop'
@@ -26,7 +29,9 @@ export function statusClass(s: PurchaseStatus): string {
       ? 'st-closed'
       : s === 'UNKNOWN'
         ? 'st-unknown'
-        : 'st-ok';
+        : s === 'LIMITED'
+          ? 'st-limit'
+          : 'st-ok';
 }
 
 /**

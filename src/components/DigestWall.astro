@@ -1,5 +1,5 @@
 ---
-import type { DailySummary, DailyChanges, IntradayBlock } from '../data/loader';
+import type { DailySummary, DailyChanges, IntradayBlock, BuyableFamily } from '../data/loader';
 import type { PurchaseStatus } from '../data/types';
 import { STATUS_SHORT } from '../lib/status';
 import ChangeList from './ChangeList.astro';
@@ -12,6 +12,8 @@ interface Seg {
   dataNote?: string;
   /** 邮件第 3 段：较盘前/日内的盘中变化（最新一天才有） */
   intraday?: IntradayBlock | null;
+  /** 邮件最后一段：今日能买的份额清单（代码 + 额度），与正文同一个实现 */
+  buyable?: BuyableFamily[];
 }
 interface DigestDay {
   date: string;
@@ -30,6 +32,18 @@ const isLimitKind = (k: string) => k.startsWith('limit');
 const fmtSide = (s: PurchaseStatus, limit: number | null) =>
   s === 'LIMITED' && limit != null ? `限 ${limit} 元` : STATUS_SHORT[s];
 const fmtTotal = (v: number) => v.toLocaleString('en-US');
+
+// 清单按币种分组（人民币在前），与邮件正文的顺序一致；美元份额不并进人民币那一组。
+const buyGroups = (fams: BuyableFamily[] | undefined) =>
+  [
+    { key: 'CNY', label: '人民币' },
+    { key: 'USD', label: '美元' },
+  ]
+    .map((g) => {
+      const list = (fams ?? []).filter((f) => f.currency === g.key);
+      return { ...g, list, n: list.reduce((a, f) => a + f.shares.length, 0) };
+    })
+    .filter((g) => g.list.length > 0);
 ---
 
 {
@@ -77,6 +91,29 @@ const fmtTotal = (v: number) => v.toLocaleString('en-US');
                   {seg.intraday.changes.length > 0 && <ChangeList items={seg.intraday.changes} />}
                 </div>
               )}
+              {/* 清单是邮件正文最后一段：一家一行，代码 + 额度。读者真正下单要的就是这三个字。
+                  ★ 不再另写一套额度文案：amount 由 loader（= digest.mjs）给好，
+                    免得「10元 / 10 元 / 限额10元」在页面与信里各说一遍。 */}
+              {buyGroups(seg.buyable).map((g) => (
+                <div class="dw-buy">
+                  <div class="dw-buy-h">今日能买（{g.label}份额 {g.n} 个）</div>
+                  {g.list.map((f) => (
+                    <div class="dw-buy-row">
+                      <span class="dw-buy-name">{f.name}</span>
+                      {f.shares.map((s, idx) => (
+                        <span class="dw-buy-sh">
+                          <i>{s.cls}类</i>
+                          <b>{s.code}</b>
+                          <em>{s.amount}</em>
+                          {/* 分隔点挂在上一份额的尾部：挂在下一份额的开头时，
+                              窄屏折行会让新行以「· C类」起头，看着像漏了一截。 */}
+                          {idx < f.shares.length - 1 && <span class="dw-buy-sep">·</span>}
+                        </span>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              ))}
             </div>
           ))}
         </div>

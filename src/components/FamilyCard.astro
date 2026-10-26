@@ -47,6 +47,11 @@ const famCls =
   famStatus === 'STOPPED' ? 'tag-stop'
   : famStatus === 'CLOSED' ? 'tag-closed'
   : famStatus === 'UNKNOWN' ? 'tag-unknown'
+  // 「限额」与「部分可投」同一个颜色：两者都只是「能买，但不是全放开」，
+  // 区别靠标签文字。★ 2026-10-26 之前 LIMITED 挂在 tag-ok（松绿）上，
+  // 于是同一张卡里同时出现两种绿：右上角松绿的「限额申购」+ 下方橄榄的四档热力。
+  // 用户 2026-10-23 就说过「限额申购的绿色也换成热力条这个」，这里落到位。
+  : famStatus === 'LIMITED' ? 'tag-limit'
   : famStatus === 'PARTIAL' ? 'tag-partial'
   : 'tag-ok';
 

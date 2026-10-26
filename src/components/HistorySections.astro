@@ -31,8 +31,10 @@ for (const s of loadDailySummaries(60, indexKey)) {
 const dates = [...totals.keys()].sort();
 const earliest = dates[0] ?? today;
 const weeksBack = Math.max(0, Math.ceil((Date.parse(today) - Date.parse(mondayOf(earliest))) / 604800000));
-// 最新周置底：远周在上、近周在下、未来一周在最底，按时间正向铺开（旧→新→未来）
-const weeks = weeksAround(today, weeksBack, 1);
+// 最新周置底：远周在上、近周在下，按时间正向铺开（旧 → 新）。
+// 不再往后排一周：未来的可买情况由 WeekCal 表下那行文字回答（11-26 感恩节这类
+// 答案本来就在一周之外，排格子看不见）。
+const weeks = weeksAround(today, weeksBack);
 ---
 
 <div id="history">

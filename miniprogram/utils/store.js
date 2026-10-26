@@ -161,6 +161,9 @@ function famCls(s) {
   if (s === 'STOPPED') return 'tag-stop';
   if (s === 'CLOSED') return 'tag-closed';
   if (s === 'UNKNOWN') return 'tag-unknown';
+  // 限额与部分可投同色（橄榄＝热力条那一支），与网页 FamilyCard 同口径。
+  // 2026-10-26 之前 LIMITED 走 tag-ok（松绿），一张卡里会出现松绿标签 + 橄榄热力两支行。
+  if (s === 'LIMITED') return 'tag-limit';
   if (s === 'PARTIAL') return 'tag-partial';
   return 'tag-ok';
 }

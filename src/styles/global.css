@@ -23,8 +23,6 @@
   --rule-2: #cbc9c1;
   /* 占位符：明确弱于正文，避免被当成已填内容 */
   --ghost: #b3afa2;
-  /* 日历里「买不到」的统一灰：比 ghost 深一档（3:1 上下），置灰但要能看清数字 */
-  --cal-off: #928e80;
 
   /* 状态墨色：可投 / 限购 / 暂停。
      ★ 暂停是**灰**，不是红：红已经让给标普500 当身份色了。这两件事必须互斥——
@@ -34,10 +32,14 @@
        「限额申购的绿色也换成热力条这个」。它和 --ok 的可投绿是两支，不是同一支：
        可投偏松绿（Lab 色相 150°），限额偏黄橄榄（117°），两者 ΔE 24.3，
        方点加文字仍分得出。★ 别把两者调到一个色相上——那会让「限额」读成「可投」。
-     三者对暖纸的对比度：可投 5.37:1、限额 6.17:1、暂停 5.05:1，小号标签字都够 AA。 */
+     三者对纸的对比度：可投 5.30:1、限额 6.75:1、暂停 5.23:1，小号标签字都够 AA。
+     ★ 暂停必须是**中性灰**（彩度 C* ≤ 3），不能是暖灰：2026-10-26 的第二轮反馈
+       「暂停申购『发绿』」。旧值 #6b665a 的 C* 是 7.5、色相 92°——一支偏橄榄的
+       暖灰，夹在卡片的橄榄格旁边就读成「褪色的橄榄绿」，而它和 --ink-3 的 ΔE
+       只有 2.0（同一支灰写两遍）。现值 C*=1.2，对纸 5.23:1 仍过 AA。 */
   --ok: #2c6e4f;
   --warn: #505f24;
-  --stop: #6b665a;
+  --stop: #6a6a68;
 
   /* ── 额度热力条：全站唯一一套，**不随板块变** ─────────────────────────
      四档明度阶梯，深＝额度大，浅＝额度小；没有数字的日子不用颜色，交给纹理
@@ -61,29 +63,50 @@
        历史：松绿（ΔE 7 撞 --ok）→ 钢蓝（纳指换蓝后不能再占）→ 中性灰
        （观感偏素 + 上面那个硬伤）→ 灰紫（排除法挑出来的，观感也不行）→
        橄榄绿（让开色相之后才成立）。
-     ★ 明度 L* = 88.1 / 80.1 / 64.6 / 37.9，深档仍在最初的松绿阶梯（39）上——
-       「越深＝额度越大」的读数习惯从第一天到现在没变过。相邻 ΔE 16 / 18 / 28。
-       与 --ok / --warn / --stop 的最近距离分别是 ΔE 24.3 / 28.1 / 28.8。
-       浅档与纸色 ΔE 13.4——第一档必须一眼看出是绿（灰紫那版只有 9，整行几乎没颜色）。
-     ★ 彩度随明度递增：浅档每张卡都有一行、出现频率最高，得压住否则整页发绿；
+     ★ 明度 L* = 81.9 / 72.0 / 60.0 / 37.9，深档仍在最初的松绿阶梯（39）上——
+       「越深＝额度越大」的读数习惯从第一天到现在没变过。相邻 ΔE 13.4 / 13.8 / 23.8。
+       与 --ok / --warn / --stop 的最近距离分别是 ΔE 24.4 / 23.8 / 34.4。
+     ★ 彩度 C* = 28.0 / 37.1 / 43.8 / 34.9，随明度递增但**有下限**：
+       2026-10-26 第三轮反馈「热力图的浅色和交易日历中的浅色感觉不是一个颜色」。
+       根因两层：
+       ① 当时最浅档是 #dae1bb（C*=19.9、L*=88.1、对纸 ΔE 20.3），铺在近白的纸上
+          **读不出色相**——一条热力条里左边几格是橄榄、右边十几格是米色，像两种颜色。
+       ② 更硬的一层：日历柱身写的是 `color-mix(--warn 20%, transparent)`，叠纸后
+          实测 #d9dbcc、C* 只有 ~10（几乎灰绿），而热力条 l1 是 C*=28。
+          色相只差 1°、彩度差近三倍 → 并排就是「两支绿」。
+          ★ 2026-10-26 第四轮起柱整根撤掉（日历不用图形编码额度），这一层不复存在；
+            但「浅档彩度必须有下限」仍然成立——热力条本身就占整页 173 格。
+       实测：C* 低于 ~24 时，L* 85 以上就只剩「米白偏绿」。现值 C*=28.0、
+       对纸 ΔE 30.5，第一档明确是淡橄榄。
+       ★ 但别再往上推：浅档每张卡都有一行、出现频率最高（今天 173 格 / 198 格），
+         C* 32 以上整页就成色块了。
        深档只有 >600 元那一档，才敢给足颜色。
      ★ 改这四行必须同步改 miniprogram/app.wxss（WXSS 不认 color-mix，只能抄）；
        check:index 会逐字比对两端，并重算明度阶梯与色差。 */
-  --heat-1: #dae1bb;
-  --heat-2: #c1cd8c;
-  --heat-3: #94a455;
+  --heat-1: #c7d19c;
+  --heat-2: #aab772;
+  --heat-3: #879848;
   --heat-4: #505f24;
 
-  /* 状态小方点：可投 / 当日变动 / 未知。与热力条是两套语言——
-     热力条说「多少钱」，方点说「什么状态」，别混用同一个绿。 */
-  --accent-open: #3f7d63;
-  --accent-changed: #b5732a;
-  --accent-faint: #c6c1b1;
-
-  /* 日历「可申购日」格：淡绿底 + 可投绿字，与状态点 --accent-open 同源。
-     只给底色，不给字号——额度数字大小由 .d-amt 控制，避免和 --heat 量级色混淆。 */
-  --cal-trade-bg: #e7f1ec;
-  --cal-amt: var(--accent-open);
+  /* ★ 2026-10-26 收敛掉三支色（外加两个从未被引用的死变量 --cal-off / --cal-amt）。
+     它们原本不是三支颜色，是**同一支绿落了三遍**：
+       --ok #2c6e4f（标签/状态字） · --accent-open #3f7d63（周历柱·今日环·日报墙）
+       · --cal-trade-bg #e7f1ec（日历底，实际已无引用）。
+     前两支的 ΔE 只有 **7.3**，色相角 159° / 163°——并排时读起来不是「两种含义」，
+     而是「同一块绿没对齐」，可它在页面上出现的位置又散得开，于是观感是「好几种绿」。
+     用户 2026-10-26 的原话是「各自页面颜色太多了」，根因就在这里。
+     ★ 另一支被删的是 --accent-changed #b5732a（色相角 68°，页面里唯一的赭黄）。
+     它标的是「今日变化」行首的方点。可同一行右端 .cl-to 已经用 --ok / --warn / --stop
+     说了一遍结论，方点再上一遍颜色是同一句话说两遍——代价是整整多出一个色相家族。
+     现在方点沿用那三档（见下面 .cl-dot-* 的注释）。
+     ★ 收敛后的分工，**一个色相只承担一个含义**：
+       绿   = 能买        （只有 --ok 一支；周历柱、今日环、本周书签、日报墙数字全用它）
+       橄榄 = 额度        （--heat-1..4 四档明度；--warn 与最深档同值，用户 2026-10-23 指定）
+       灰   = 结构        （墨阶 · --stop · --ink-3）
+       蓝/红 = 身份       （每页只出现一支，见下面「分站身份」）
+     一页上的色相家族因此从 4 个（蓝·绿·橄榄·赭黄）降到 3 个，非中性色值从 7 个降到 5 个。
+     ★ 别再为了「某个地方顺眼一点」加回第四支色相：加之前先问它属于上面四类里的哪一类，
+       答不上来就说明它只是把已有的含义又涂了一遍。 */
 
   /* 兼容旧变量名（页面既有 class 引用） */
   --bg: var(--paper);
@@ -134,10 +157,11 @@
 /* ── 分站身份：同一张纸，各一个身份色 ────────────────────────────────
    两个看板版式、字号、行距、纸色完全相同，只有 --accent 不同。
    印色落点（全部是细线或小面积实体，纸感风格里不铺色块）：
-     顶栏那道 3px 色带 · 当前导航项的下划线 · 小节编号 [01] · 站标方块
+     当前导航项的下划线 · 小节编号 [01] · 站标方块
      · 历史页切换器的当前项 · 选中的文字 · 份额链接的悬停下划线
      · /my 分段的标题竖条（那页一屏里有两个指数，靠它分）
      · 表格行悬停的淡底（6% 印色混纸面，只在指到那一行时出现）。
+   ★ 顶栏那道 3px 色带 2026-10-26 已移除，见下面那条注释。
    ★ 热力条不在这个清单里——它是量纲色，全站固定（见 :root 的 --heat-*）。
    读者从标普跳到纳指，第一眼该是「书脊上的印色换了」，而不是「换了本书」。
 
@@ -181,19 +205,12 @@ html[data-board='sp500'] {
   --surface: #ffffff;
 }
 
-/* 顶栏顶上那道 3px 色带：整页唯一的高饱和色块，也是滚动时唯一一直在场的标识。
-   它像书脊上的印色——薄、齐平、不占内容。宽度跟着 .site-head（内容栏）走，
-   不是通栏：通栏会和两侧虚线竖栏打架，那两条线才是本设计的签名。 */
-html[data-board] .site-head::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: var(--accent);
-  pointer-events: none;
-}
+/* ★ 顶栏顶上那道 3px 色带已于 2026-10-26 移除（用户要求）。
+   它原来是「整页唯一的高饱和色块」，也是滚动时唯一一直在场的标识；删掉之后
+   身份色只靠剩下的四处：站标方块、当前导航项下划线、小节编号 [01]、
+   首屏装饰带（几何编码，不承载量纲）。
+   ★ 别再顺手加回来：`.site-head` 是 sticky + 88% 纸色 + blur，页面顶端原本
+   由这条色带收口；换回通栏色块会跟两侧虚线竖栏打架（那两条才是本设计的签名）。 */
 /* 当前板块的导航项：下划线用指数色（字仍保持墨色，彩色小字在米黄纸上会发灰） */
 html[data-board] .site-nav a[aria-current="page"] {
   border-bottom-color: var(--accent);
@@ -287,9 +304,10 @@ a { color: inherit; text-decoration: none; }
   letter-spacing: -0.01em;
   color: var(--ink);
 }
-.site-brand img { display: block; width: 18px; height: 18px; }
-/* 内联站标：方块＝身份色，字形＝纸色（挖空效果）。
-   共用页 --accent 就是墨色，因此 /my、/subscribe 与改造前完全一致。 */
+/* 站标：方块＝身份色，字＝纸色（挖空效果）。两种形态，共用同一个类名：
+   ① 指数页（/ndx100、/sp500、/f/<code>）：18px 方块 + 挖空单字母 N / S（内联 SVG）；
+   ② 共用页（/my、/subscribe）：同尺寸方块 + 字标 QDII（HTML 文字）。
+   共用页 --accent 就是墨色，所以那两个方块是中性色，不冒充任何一个板块。 */
 .site-mark { display: block; width: 18px; height: 18px; flex: none; }
 .site-mark rect { fill: var(--accent); }
 /* 笔画颜色取纸色（在身份色方块里"挖"出字母）。
@@ -297,6 +315,16 @@ a { color: inherit; text-decoration: none; }
    由 SiteHeader 给每个字形各自带上 stroke-width。写成 CSS 会把它统一压掉——
    CSS 规则优先级高于 SVG 的 presentation attribute，两处都写就是 CSS 赢。 */
 .site-mark path { stroke: var(--paper); }
+/* 字标形态：QDII 四个字母，宽度跟着字数走。
+   ★ 不要把它压回 18px 正方形：四字母挤进去会糊成一团（实测 32.6px 宽才立得住）。 */
+.site-mark-text {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: auto; min-width: 18px; padding: 0 4px;
+  background: var(--accent); color: var(--paper);
+  border-radius: 3px;
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  letter-spacing: 0.01em; line-height: 1; white-space: nowrap;
+}
 .site-brand:hover { opacity: 0.65; }
 
 .site-nav { display: flex; align-items: center; gap: 20px; }
@@ -695,9 +723,18 @@ a { color: inherit; text-decoration: none; }
 .tag-unknown { color: var(--ink-3); }
 .tag-unknown::before { background: transparent; outline: 1px solid currentColor; outline-offset: -0.5px; }
 .tag-partial { color: var(--warn); }
+/* 限额申购：**橄榄**，不是可投的松绿。理由有两层——
+   ① 用户 2026-10-23 的原话是「限额申购的绿色也换成热力条这个」，橄榄就是热力条那一支；
+   ② 一张卡里同时有「状态标签」和「21 格热力条」，如果标签是松绿、格子是橄榄，
+      读者会在同一个视野里看到两支绿，这正是 2026-10-26「颜色太多」的一半来源。
+   现在限额卡的右上角与下方格子是同一个色相，只有明度差；松绿只剩「开放申购」用——
+   那是真的稀有事件（今天纳指 7 家开门，0 家全放开），出现时才有意义。 */
+.tag-limit { color: var(--warn); }
 
 /* 表格/文本里的状态色 */
 .st-ok { color: var(--ok); }
+/* 限额：橄榄，与 .tag-limit 同口径（详情页的状态列与家族卡必须一致） */
+.st-limit { color: var(--warn); }
 .st-stop { color: var(--stop); }
 .st-closed { color: var(--stop); }
 .st-unknown { color: var(--ink-3); }
@@ -738,17 +775,6 @@ a { color: inherit; text-decoration: none; }
 /* 单列可视宽只剩 ~295px，12px 的三份额会挤出去：缩一档字号再收段距 */
 @media (max-width: 680px) {
   .fam-shares { font-size: 11px; column-gap: 12px; }
-}
-
-/* 窄屏：左列收窄、格子略缩，五列仍并排（每格约 40px，额度数字保留） */
-@media (max-width: 600px) {
-  .wk-head-spacer { flex-basis: 46px; width: 46px; }
-  .wk-head-days span { font-size: 10px; }
-  .wk-lbl { flex-basis: 46px; width: 46px; }
-  .wk-lbl b { font-size: 11.5px; }
-  .wk-d { min-height: 52px; padding: 5px 5px 8px; }
-  .wk-dt { font-size: 11px; }
-  .wk-amt { font-size: 13px; }
 }
 
 /* ── 21 天额度热力方块：只有颜色深浅 ───────────────────────────────────
@@ -815,10 +841,15 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* ── 交易日历（竖向周行）────────────────────────────────────────────
-   每周一行，左列标周范围+周次，右 7 格大格子。
-   过去且有数据的交易日 → 写额度，底部一道青条（= 当晚可申购）；
-   周末 / 假期 / 未来 → 灰格留白，无额度无青条。
-   原因不写进格子，交给悬停提示的三行字（见下方「悬停提示」段）。 */
+   每周一行，左列标周范围，右 5 格（周一到周五，周末从不入格）。
+   ★ 2026-10-26 第五轮起，每格固定两个槽位：**上行日期、下行结论**。
+   已发生且有数据 → 日期（深墨加粗）+ 额度（12px 等宽数字，精确值在悬停卡）
+   已发生但没数据 → 日期 + 「未收录」/「待更新」（--warn），这是数字丢了，不是休市
+   休市 → 浅灰日期 + 休市原因（单行，超长省略号）
+   还没到 → 只有浅灰日期，下行空着（不是「不能买」，只是还没到）
+   行高是常量（--wk-h），任何一格的字数都不许改变它 —— 见 .wk-row 的注释。
+   ★ 未来一周不排进网格：那 5 格说的是同一句「能买」，而「下次哪天买不了」
+     通常落在窗口之外，改由表下一行文字回答（.wk-out）。 */
 
 .wk { margin-top: 4px; }
 /* 周几表头：结构轴（一二三四五），下方一道发丝线，像账册栏首 —— 不用卡片、不用框 */
@@ -829,52 +860,128 @@ a { color: inherit; text-decoration: none; }
   text-align: center; font-family: var(--mono); font-size: 11px;
   color: var(--ink-3); letter-spacing: 0.08em;
 }
-/* 每周一行，行间用发丝线分隔（卷轴纸上没有格子的卡片框，只有横 ruling） */
-.wk-row { display: flex; align-items: stretch; gap: 12px; }
-.wk-row + .wk-row { border-top: 1px solid var(--rule); }
-/* 本周：极淡中性底 + 左侧一道青线书签，纯视觉、不靠文字也能定位 */
+/* 每周一行，行间用发丝线分隔（卷轴纸上没有格子的卡片框，只有横 ruling）。
+   ★ 2026-10-26 第五轮：行高改成常量 --wk-h，不再由内容决定。
+     改之前同一页里并存 38 / 46.6 / 48 / 49 / 53.1 五种行高，来源有三个：
+     休市格多一行原因、左列周范围折成两行、「本周」二字占一行。
+     门禁盯着这条（「行高由常量决定」），因为内容一旦能撑高行，
+     等高就只是当前数据碰巧的样子——换一个月、换个指数就散架。 */
+.wk-row { --wk-h: 46px; display: flex; align-items: stretch; gap: 12px; height: var(--wk-h); }
+/* 行间发丝线用 inset 阴影而不是 border-top：border 会挤进 height（border-box），
+   于是行有 1px 的 46、其余 45，格子不再真正等高。阴影不占布局，七行都是 46。 */
+.wk-row + .wk-row { box-shadow: inset 0 1px 0 var(--rule); }
+/* 本周：极淡中性底 + 左侧一道墨书签，纯视觉、不靠文字也能定位。
+   ★ 这道书签与下面的「今天环」都说的是**时间**（哪一周 / 哪一天），不是状态，
+     所以给墨阶而不是彩色：灰＝结构。原来它是绿的——先是 --accent-open（159°），
+     后来并到 --ok（还是 159°）——日历因此成为页面上第二片绿，与热力的 117° 橄榄
+     在同一个视野里对峙。2026-10-26 收回墨阶。 */
 .wk-row.is-this-week { background: rgba(0, 0, 0, 0.022); }
-.wk-row.is-this-week .wk-lbl { box-shadow: inset 2px 0 0 var(--accent-open); }
+.wk-row.is-this-week .wk-lbl { box-shadow: inset 2px 0 0 var(--ink-2); }
+/* 左列：只有周范围一行（最多折两行，跨月时）。★ 2026-10-26 第五轮把「本周」二字
+   从这里删掉 —— 它是行高的第三个来源（10.5px 一行 = 10px 高），而它说的是
+   「哪一周」，同一件事上面那两行 CSS（书签 + 淡底）已经说了。现在这一列用
+   **墨的深浅**再说一遍：本周 ink/600，其余 ink-2；一句话都不多占一行。
+   padding 收到 4px：两行 12.5px 正文 + 8px 只有 38px，仍在 --wk-h 46 之内，
+   折行也顶不破（真顶破还有 overflow: hidden 兜底——宁可切一个字的边缘，
+   也不要让一行的字数去改整张表的高度）。 */
 .wk-lbl {
   flex: 0 0 58px; width: 58px;
-  display: flex; flex-direction: column; justify-content: center; gap: 2px; line-height: 1.2;
-  padding: 9px 0;
+  display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; line-height: 1.15;
+  padding: 7px 0 0; overflow: hidden;
 }
-.wk-lbl b { font-family: var(--mono); font-size: 12.5px; font-weight: 500; color: var(--ink); letter-spacing: -0.01em; }
-.wk-lbl .wk-now { font-style: normal; font-family: var(--sans); font-size: 10.5px; font-weight: 600; color: var(--accent-open); letter-spacing: 0.04em; }
+.wk-lbl b { font-family: var(--mono); font-size: 12.5px; font-weight: 500; color: var(--ink-2); letter-spacing: -0.01em; }
+.wk-row.is-this-week .wk-lbl b { color: var(--ink); font-weight: 600; }
+/* 周范围的后半段（「–16」「–10.2」）。窄屏 46px 放不下 8 个等宽字符，
+   折行会断在连字符后变成「10.12–」/「16」——两行看着像页码。窄屏干脆只留
+   周一那天（10.12）：这一行右边就是 12 13 14 15 16，终点本来就写在格子里；
+   左列只需要把「哪个月、从哪天起」钉住。 */
+.wk-rng { display: inline; }
 .wk-days { flex: 1; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+/* 格子：高度交给行（align-items: stretch），自己不再设定 min-height。
+   ★ 固定两个槽位 —— **上行日期、下行结论**。下行是互斥的四选一：
+     额度（is-trade）/ 休市原因（is-off）/ 未收录·待更新（is-gap）/ 空（is-future）。
+     因为每个格子都留着同一个槽，五格的日期因此落在同一条基线上，
+     而「这天能不能买」也落在同一条基线上——这是日历唯一要回答的问题。 */
 .wk-d {
   position: relative;
-  display: flex; flex-direction: column; justify-content: space-between;
-  min-height: 54px; padding: 9px 2px 11px;
+  display: flex; flex-direction: column; align-items: flex-start;
+  padding: 7px 2px;
   background: transparent;
 }
-/* 可申购日：最深的墨 + 加粗日期，与休市日的浅灰拉开强对比；
-   底部一道加粗青线 = 当晚可申购（账册里给可买日加的标注线，非卡片色块）。
-   未来的可申购日同理只标线、无额度，预告「那天能买」。 */
+/* 可申购且已发生：最深的墨 + 加粗日期，与休市日的浅灰拉开强对比。
+   ★ 2026-10-26 第四轮试过给交易日整格填 --heat-1：一眼能扫出开不开门，
+     但 22 格 × 87×44 的绿块把日历变成一面色墙，与上方热力条抢视觉，
+     已回退。现在只用墨色深浅（--ink vs --ink-3）+ 有数字/没数字来区分。 */
 .wk-d.is-trade .wk-dt { color: var(--ink); font-weight: 600; }
-.wk-d.is-trade::after {
-  content: ''; position: absolute; left: 8px; right: 8px; bottom: 6px;
-  height: 3px; background: var(--accent-open); border-radius: 2px;
-}
-/* 买不到 / 未来休市：浅灰日期 + 浅灰原因，整格退后，靠墨色淡出来和「可买」分层 */
-.wk-d.is-off { justify-content: center; }
+/* 下行第一槽：额度。
+   ★ 2026-10-26 第五轮：日期与额度从「同一行、flex-wrap 自然折行」改成**永远两行**。
+     一行的版本在 130px 宽时确实放得下，可它和休市格（日期 + 原因必然两行）
+     在同一个行里比高度，于是交易日所在的整行被休市格顶高 10px——用户看到的就是
+     「不能交易的日期把行撑高了」。现在两槽对齐，谁都没有第二行可以多占。 */
+.wk-amt { margin-top: 2px; font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--ink-2); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; line-height: 1.15; white-space: nowrap; }
+.wk-amt u { font-style: normal; font-size: 10px; font-weight: 400; color: var(--ink-3); text-decoration: none; margin-left: 1px; }
+/* 柱：2026-10-26 第四轮已移除 ——
+   用户：「交易不用热力图的展现形式，只是区分交易日和非交易日呢？」
+   原先这根柱的高度 ∝ 当日额度（--h = total / 窗口内最大值），是「用图形量额度」；
+   但格子只有 50px 宽、柱区只有 28px，纳指 9 个额度值实测只落成 7 档，
+   图形能给的分辨率还不如旁边的数字，却让日历整块读起来像热力图。
+   现在日历只回答一件事：**这天开不开门**。额度仍写在格子里（右对齐等宽数字，
+   精确值在悬停卡里），图形编码撤掉。
+   ★ 别再把它加回来：一旦有柱，「交易/非交易」的对比就会被「额度多少」的对比压住，
+     而额度多少已经由数字说了。 */
+/* 交易日但没抓到数据：必须写出来。空着的话读者分不清「还没到」和「数字丢了」——
+   标普 9-14、9-15（数据从 9-16 开始）和当天还没抓的日子就长这样。 */
+.wk-gap { margin-top: 2px; font-size: 10px; line-height: 1.25; color: var(--warn); letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+/* 还没到的交易日：只有浅灰日期，不写原因（它不是「不能买」，只是还没到） */
+.wk-d.is-future .wk-dt { color: var(--ink-3); font-weight: 400; }
+/* 买不到：浅灰日期 + 浅灰原因，整格退后，靠墨色淡出来和「可买」分层。
+   ★ 2026-10-26 第四轮：原来这里 `justify-content: center`，休市日的内容整块垂直居中，
+     于是同一行里交易日日期贴顶、休市日日期落在半格处，五列的日期不在一条水平线上。
+     现在一律从顶部排 —— 日期是日历的锚点，每个格子都得在同一条线上。 */
 .wk-d.is-off .wk-dt { color: var(--ink-3); font-weight: 400; }
-/* 今天：细青环，不改底色（今天是周末也不变色，只描一圈） */
-.wk-d.is-today { outline: 1.5px solid var(--accent-open); outline-offset: -2px; border-radius: 3px; }
+/* 今天：细墨环，不改底色（今天是周末也不变色，只描一圈）。
+   ★ 用墨阶而不是绿：这一圈说的是「就是今天」，属于时间轴上的定位，
+     不是「这天能买」——能买由加粗日期 + 柱子说。绿色在日历里已经全部退给额度。 */
+.wk-d.is-today { outline: 1.5px solid var(--ink-2); outline-offset: -2px; border-radius: 3px; }
 /* 日期数字：安静的锚点，置顶 */
 .wk-dt { font-family: var(--mono); font-size: 13px; color: var(--ink-2); line-height: 1.1; }
-/* 额度数字是格子里的主角 */
-.wk-amt { font-family: var(--mono); font-size: 16px; font-weight: 500; color: var(--ink); letter-spacing: -0.01em; line-height: 1; margin-bottom: 6px; }
-.wk-amt u { font-style: normal; font-size: 11px; font-weight: 400; color: var(--ink-2); text-decoration: none; margin-left: 1px; }
-/* 休市原因：安静的灰字，居中，纯纸上墨迹（无边框无底色） */
-.wk-reason { font-size: 11px; line-height: 1.25; color: var(--ink-3); text-align: center; padding: 0 2px; word-break: keep-all; }
-/* 窄屏一格只剩约 50px，放不下 5 个字的休市原因：「中秋节假期」11px 实测 55px，keep-all
-   又不许断行 → 溢出 9px 压到隔壁格（390 宽实测 6 格）。放开断字并缩一档，宁可折两行。
-   ★ 这条必须写在上面 .wk-reason 之后：媒体查询写在它前面会被它覆盖，同权重下后写的赢
-     ——2026-10-26 第一版就写在窄屏段里（更靠前），改完页面一点变化都没有。 */
+/* 休市原因：安静的灰字，跟着日期同一条左基准线，不居中 —— 居中会与上方左对齐的
+   日期形成第二个对齐轴。
+   ★ 2026-10-26 第五轮：**必须单行**。它原来会自然折行（桌面「美国·马丁·路德·金
+     纪念日」两行、窄屏「国庆节假期」两行），而它所在的那一行是唯一会和别的行比
+     高度的地方 —— 一折行就把整行顶高 10–13px。现在超长一律省略号收尾，
+     完整原因在悬停卡（ct-why）里，读屏从 aria-label 拿到的是同一句。
+     窄屏原先靠 word-break: break-all 硬断（「中秋节假期」11px 实测 55px 溢出到
+     隔壁格），省略号顺带把那个问题也解决了：溢出变成「…」，不再压邻居。 */
+.wk-reason {
+  margin-top: 2px;
+  max-width: 100%;
+  font-size: 11px; line-height: 1.25; color: var(--ink-3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* 表下那一行：还能连着买几天、下次哪天买不了。网格只画已发生的事，未来在这里。 */
+.wk-out { margin: 0; padding-top: 9px; border-top: 1px solid var(--rule); font-size: 12.5px; line-height: 1.55; color: var(--ink-2); }
+.wk-out b { font-weight: 600; color: var(--ink); font-family: var(--mono); font-size: 0.94em; font-variant-numeric: tabular-nums; }
+/* 窄屏：左列收窄、格子缩一号，五列仍并排（每格约 50px）。
+   ★ 整段必须写在这组基础规则之后：同权重下后写的赢，写在前面等于没写
+     ——2026-10-26 发现旧版这一整段（当时在 740 行附近）从来没生效过。 */
 @media (max-width: 600px) {
-  .wk-reason { font-size: 10px; word-break: break-all; }
+  .wk-head-spacer { flex-basis: 46px; width: 46px; }
+  .wk-head-days span { font-size: 10px; }
+  /* 行高比桌面矮 4px：窄屏的字号小一档，两槽（12.1 + 12.5）＋ 12px padding = 38.6 ≤ 42 */
+  .wk-row { --wk-h: 42px; }
+  .wk-lbl { flex-basis: 46px; width: 46px; padding-top: 6px; }
+  .wk-lbl b { font-size: 11.5px; white-space: nowrap; }
+  .wk-rng { display: none; }
+  .wk-d { padding: 6px 5px; }
+  .wk-dt { font-size: 11px; }
+  .wk-amt { font-size: 10px; }
+  .wk-amt u { font-size: 9px; }
+  /* 2026-10-26 第四轮：柱撤掉后，这里原本那条窄屏柱高覆盖（--wk-track: 22px）一并删除。 */
+  /* 2026-10-26 第五轮：休市原因不再分两行，也不再靠 break-all 硬断 —— 单行 + 省略号
+     由基础规则统一负责，这里只缩一档字号（一格 52px，10px 下「国庆节假期」仍会被
+     省略成「国庆节…」，完整原因在悬停卡里）。 */
+  .wk-reason { font-size: 10px; }
 }
 
 /* 悬停/聚焦提示沿用 .cal-tip 皮肤（见下方「悬停提示」段），这里只接触发与贴边对齐 */
@@ -1248,27 +1355,46 @@ a { color: inherit; text-decoration: none; }
   font-family: var(--mono); font-size: 13.5px; font-weight: 500; color: var(--ink);
   margin-bottom: 10px;
 }
-.dw-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-open); flex: none; }
+.dw-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex: none; }
 .dw-idx { padding: 8px 0 4px; }
 .dw-idx + .dw-idx { border-top: 1px solid color-mix(in srgb, var(--rule) 55%, transparent); margin-top: 4px; }
-.dw-idx-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
-.dw-idx-name { font-size: 13px; font-weight: 500; color: var(--ink-2); }
+.dw-idx-h { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 12px; margin-bottom: 4px; }
+/* 指数名不许被右侧那串「7 家开门 · 合计 135 元可投（09:40 抓取…）」挤成两行：
+   390 宽实测「纳指100」断成「纳指」/「100」，读起来像两个词。放不下时让右侧整体折行。 */
+.dw-idx-name { font-size: 13px; font-weight: 500; color: var(--ink-2); white-space: nowrap; flex: none; }
 .dw-idx-sum { font-size: 13px; color: var(--ink); }
-.dw-idx-sum b { font-weight: 500; color: var(--accent-open); font-family: var(--mono); }
+.dw-idx-sum b { font-weight: 500; color: var(--ok); font-family: var(--mono); }
 .dw-delta { font-size: 13px; color: var(--ink-3); line-height: 1.5; margin-bottom: 2px; }
 .dw-no-data { font-size: 12.5px; color: var(--ink-3); font-style: italic; margin: 2px 0 0; }
 
-/* 第 1 段末尾的抓取时刻说明：弱于正文，点明数据时点 */
-.dw-note { font-size: 11.5px; color: var(--ink-3); margin-left: 4px; font-family: var(--mono); }
+/* 第 1 段末尾的抓取时刻说明：弱于正文，点明数据时点。
+   整段不可拆：390 宽下「（09:40 抓取，收盘前那次没跑成）」会被切成两行、
+   单独掉一个「成）」到下一行（实测）。放不下就整段换行。 */
+.dw-note { font-size: 11.5px; color: var(--ink-3); margin-left: 4px; font-family: var(--mono); white-space: nowrap; }
 
 /* 第 3 段「盘中」：与第 2 段「较上一交易日」用发丝线 + 缩进区分，仍是同一张纸的语言 */
 .dw-intraday { margin: 6px 0 2px; padding: 6px 0 2px 10px; border-left: 2px solid color-mix(in srgb, var(--rule-2) 60%, transparent); }
 .dw-delta-intra { display: flex; align-items: center; gap: 6px; }
 .dw-intra-tag {
   font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em;
-  color: var(--accent-open); border: 1px solid color-mix(in srgb, var(--accent-open) 45%, transparent);
+  color: var(--ok); border: 1px solid color-mix(in srgb, var(--ok) 45%, transparent);
   border-radius: 3px; padding: 0 4px; line-height: 16px;
 }
+
+/* 第 4 段「今日能买」：邮件正文最后一段原样搬上来——一家一行，代码 + 额度。
+   它回答的是「照着这行去下单」，所以不新造颜色：代码最深（要能抄）、额度次之、
+   类别最浅，全走墨阶。额度也不借橄榄（那是热力条/限额标签的编码位），
+   一段参考数据不需要颜色。 */
+.dw-buy { margin: 8px 0 2px; }
+.dw-buy + .dw-buy { margin-top: 6px; }
+.dw-buy-h { font-size: 11.5px; line-height: 1.6; color: var(--ink-3); letter-spacing: 0.02em; }
+.dw-buy-row { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 9px; line-height: 1.75; }
+.dw-buy-name { font-size: 12.5px; color: var(--ink-2); }
+.dw-buy-sh { display: inline-flex; align-items: baseline; gap: 4px; white-space: nowrap; font-family: var(--mono); font-size: 12px; }
+.dw-buy-sh i { font-style: normal; font-family: var(--sans); font-size: 11.5px; color: var(--ink-3); }
+.dw-buy-sh b { font-weight: 500; color: var(--ink); letter-spacing: -0.01em; }
+.dw-buy-sh em { font-style: normal; font-weight: 500; color: var(--ink-2); }
+.dw-buy-sep { color: var(--rule-2); }
 
 /* 日报墙里的变化清单：比首页更紧凑，仍复用 .changelog-list 圆点语言 */
 .dw .changelog-list { margin-top: 4px; }
@@ -1280,6 +1406,11 @@ a { color: inherit; text-decoration: none; }
 @media (max-width: 600px) {
   .dw .changelog-list .cl-row { flex-wrap: wrap; row-gap: 4px; }
   .dw .changelog-list .cl-transition { margin-left: auto; }
+  /* 窄屏一格放不下三个份额，折行时那个「·」会吊在上一行末尾（390 宽实测
+     「… C类 012752 10元 ·」/「D类 023422 10元」），像「后面还有」。间距已经够分开，
+     窄屏直接不要它。 */
+  .dw-buy-sep { display: none; }
+  .dw-buy-row { column-gap: 12px; }
 }
 
 /* ── 页脚：底栏左版权、右备案号位 ── */
@@ -1377,10 +1508,14 @@ a { color: inherit; text-decoration: none; }
   border-bottom: 1px solid color-mix(in srgb, var(--rule) 70%, transparent);
 }
 .cl-name { font-size: 14.5px; color: var(--ink); min-width: 0; display: flex; align-items: baseline; gap: 8px; }
+/* 变化行的方点：只分「往好的方向 / 往坏的方向 / 不知道」三种，沿用状态墨，
+   不另起颜色。★ 2026-10-26 之前这里是一支独立的赭黄 #b5732a——页面里唯一的第三色相，
+   而它说的这件事实（这次变好了还是变坏了）同一行右端的 .cl-to 字色已经说过。
+   方点现在只剩形状与位置的作用（一个 5px 的墨色方块），颜色交给右侧结论。 */
 .cl-dot { flex: none; width: 5px; height: 5px; background: var(--ink-3); transform: translateY(-2px); }
-.cl-dot-opened, .cl-dot-limit-up { background: var(--accent-open); }
-.cl-dot-stopped, .cl-dot-limit-down, .cl-dot-limit-set, .cl-dot-limit-clear { background: var(--accent-changed); }
-.cl-dot-unknown { background: var(--accent-faint); }
+.cl-dot-opened, .cl-dot-limit-up { background: var(--ok); }
+.cl-dot-stopped, .cl-dot-limit-down, .cl-dot-limit-set, .cl-dot-limit-clear { background: var(--warn); }
+.cl-dot-unknown { background: var(--ink-3); }
 /* 公告链接是这一行里最小的一级信息：想深究的人才点，不该抢走「额度变了几块」的位置。
    用发丝下划线而不是换色，跟全站「细线 + 墨色」的语言一致。 */
 .cl-title { min-width: 0; }

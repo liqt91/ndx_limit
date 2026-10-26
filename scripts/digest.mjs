@@ -189,6 +189,69 @@ export function summarizeDay(funds, history, date, indexKey = NDX) {
   return aggregateCny(funds, pts, indexKey);
 }
 
+// ── 今日能买的份额清单（代码 + 额度）──
+// 一句话结论（「7 家开门 · 合计 135 元可投」）只回答了「能不能买」；读者真要下单时
+// 还得知道「买哪只、代码是多少、能买多少」。所以正文里必须给出「代码 + 额度」，
+// 否则他还要去站点上再找一遍——而这封信的全部意义就是省掉那一步。
+//
+// 只收当日点位里 status 为 OPEN/LIMITED 的份额：暂停的、封闭的、没数据的都不进来
+// （「今日能买」是这一节唯一的含义，混进买不到的就变成「全部份额表」）。
+// ★ 取点日期必须与 summarizeDay 同一个 date，否则清单里的额度加不出标题里的合计。
+//
+// 额度三种写法，都不许退化成 0：
+//   有数字 → 「10元」（美元份额「10美元」）
+//   OPEN 且没数字 → 「不限」
+//   LIMITED 但没数字 → 「待核验」（抓到了限额却读不出数目，不能当 0 报）
+export function buyableFamilies({ funds, history, date, indexKey }) {
+  const out = [];
+  for (const f of fundsOfIndex(funds, indexKey)) {
+    const shares = [];
+    for (const c of f.codes) {
+      const arr = history[c.code];
+      if (!Array.isArray(arr)) continue;
+      const p = arr.find((d) => d.date === date);
+      if (!p) continue;
+      if (p.status !== 'OPEN' && p.status !== 'LIMITED') continue;
+      const unit = f.currency === 'USD' ? '美元' : '元';
+      shares.push({
+        cls: c.cls,
+        code: c.code,
+        status: p.status,
+        limit: p.limit == null ? null : p.limit,
+        amount: p.limit != null ? `${p.limit}${unit}` : p.status === 'OPEN' ? '不限' : '待核验',
+      });
+    }
+    if (!shares.length) continue;
+    out.push({
+      company: f.company,
+      baseName: f.baseName,
+      currency: f.currency,
+      // 与家族卡同名（美元份额带「美元」后缀），邮件与页面说的是同一种东西
+      name: `${f.company}${f.baseName}${f.currency === 'USD' ? '美元' : ''}`,
+      shares,
+    });
+  }
+  return out;
+}
+
+/** 清单排版：一个币种一组（人民币在前），一家一行，份额之间用「·」隔开。 */
+export function buyableBlocks({ funds, history, date, indexKey }) {
+  const fams = buyableFamilies({ funds, history, date, indexKey });
+  if (!fams.length) return [];
+  const blocks = [];
+  for (const [cur, curLabel] of [
+    ['CNY', '人民币'],
+    ['USD', '美元'],
+  ]) {
+    const group = fams.filter((f) => f.currency === cur);
+    if (!group.length) continue;
+    const n = group.reduce((a, f) => a + f.shares.length, 0);
+    const lines = group.map((f) => `${f.name}：${f.shares.map((s) => `${s.cls}类 ${s.code} ${s.amount}`).join(' · ')}`);
+    blocks.push(`今日能买（${curLabel}份额 ${n} 个）\n${lines.join('\n')}`);
+  }
+  return blocks;
+}
+
 // 一条变化 → 一行文案。页面、日报、盘前报共用一套说法，避免「限大额 10 元」与
 // 「限 10 元」两种写法在不同地方各说一遍。
 export function formatChangeLine(c) {
@@ -371,6 +434,11 @@ export function buildDailyDigest({ edition = DEFAULT_EDITION, indexKey = NDX } =
       }
     }
   }
+
+  // 清单放在最后一块：前面三块是「今天怎么样」（结论 + 变化），这一块是「现在怎么下单」。
+  // 放到结论后面会把变化埋掉——而「较盘前多了 3 处」正是读者最该先看到的那一条。
+  const buyable = buyableBlocks({ funds, history, date, indexKey });
+  blocks.push(...buyable);
 
   const head = `【${label} 开门日报 · ${date} ${edLabel}】`;
   const footer = isClose

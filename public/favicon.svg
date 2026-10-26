@@ -1,4 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
   <rect width="32" height="32" rx="4" fill="#14130f"/>
-  <path d="M9 9 L9 23 M9 9 L23 23 M23 9 L23 23" stroke="#fcfbf6" stroke-width="3" stroke-linecap="square" fill="none"/>
+  <!-- 2026-10-26：顶栏站标从「N」换成 QDII 字标，这里跟着写 QDII。
+       不画「圆环 + 右下斜线」那种 Q：那个形状在 16px 下就是一枚放大镜（试过 5 个变体都一样）。
+       字用无衬线粗体，字号 12：四个字母刚好塞进 32 格（32px 显示时清晰，16px 时是可辨的
+       一小行字，再大就顶到圆角）。 -->
+  <text x="16" y="21" text-anchor="middle" font-family="Helvetica,Arial,'PingFang SC',sans-serif"
+        font-size="12" font-weight="700" letter-spacing="-0.3" fill="#fcfbf6">QDII</text>
 </svg>

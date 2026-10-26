@@ -289,31 +289,98 @@ export function weeksAround(today: string, weeksBack: number, weeksFwd = 0): Wee
   return out;
 }
 
-// ── 未来「美股休市」明细（页面上要单独列出来的那几天）───────────────────────
+// ── 「买不了」的说法（格子与表下那行文字共用同一套措辞）────────────────────
 
-export interface UpcomingClosure {
-  date: string;
-  md: string; // 11月26日
-  week: string; // 周四
-  nameZh: string;
-  daysAway: number; // 距今天数
+/** 这一天为什么买不了。可申购日返回空串。 */
+export function offReason(d: DayInfo): string {
+  // 美股假日名加「美国·」前缀，与国内「国庆节假期」区分开，避免误读成 A 股休市
+  if (d.state === 'US_CLOSED') return d.usHoliday ? `美国·${d.usHoliday}` : '美股休市';
+  if (d.state === 'CN_CLOSED' || d.state === 'BOTH_CLOSED') return d.cnReason;
+  if (d.state === 'UNKNOWN') return '日历未覆盖';
+  return '';
 }
 
-/** 从 from 起（不含当天之前的）往后 n 个月，列出「美股休市而 A 股开市」的日子。 */
-export function upcomingUsClosures(fromDate: string, months: number): UpcomingClosure[] {
-  const out: UpcomingClosure[] = [];
-  const end = shiftDate(fromDate, months * 31);
+// ── 未来：还能连着买几天、下次哪天买不了 ────────────────────────────────────
+//
+// 2026-10-26：原先页面上排了「未来一周」5 个格子，而它们绝大多数时候说的是
+// 同一句话「能买」；真正想知道的「下次哪天买不了」通常落在窗口之外
+// （感恩节 11-26 距 10-26 有 31 天）。所以未来不再占格子，改成表下一行文字。
+// 这一行同时回答「还能连着买多久」与「哪天断」，信息量高于它替换掉的格子。
+
+interface DayBrief {
+  date: string;
+  md: string; // 11月26日
+  weekZh: string; // 周四
+}
+
+export interface BuyOutlook {
+  /** 今天能不能申购 */
+  todayTradable: boolean;
+  /** 今天买不了的原因（「国庆节假期」）；今天能买 → null */
+  todayReason: string | null;
+  /** 今天买不了时，往后第一个可申购日 */
+  nextTradable: DayBrief | null;
+  /** 明天起连续可申购的交易日数（不含今天；今天能买才统计） */
+  tradingDays: number;
+  /** 这串可买日的最后一天 */
+  lastTradable: DayBrief | null;
+  /** 紧接着这串可买日、第一个买不了的工作日 */
+  nextOff: (DayBrief & { reason: string; daysAway: number }) | null;
+}
+
+/**
+ * 以 fromDate 为「今天」，往前看 horizonDays 天。
+ * 周末不算「买不了」的答案（每周都休，写出来是噪音），所以会跳过，可买区间可跨周。
+ */
+export function buyOutlook(fromDate: string, horizonDays = 120): BuyOutlook {
   const t0 = Date.parse(`${fromDate}T00:00:00Z`);
-  for (let d = fromDate; d <= end; d = shiftDate(d, 1)) {
+  const brief = (d: string): DayBrief => ({
+    date: d,
+    md: `${Number(d.slice(5, 7))}月${Number(d.slice(8, 10))}日`,
+    weekZh: WEEK_ZH[dowOf(d)],
+  });
+  const todayInfo = dayInfo(fromDate);
+  const out: BuyOutlook = {
+    todayTradable: todayInfo.state === 'TRADING',
+    todayReason: todayInfo.state === 'TRADING' ? null : offReason(todayInfo),
+    nextTradable: null,
+    tradingDays: 0,
+    lastTradable: null,
+    nextOff: null,
+  };
+
+  // 今天买不了：网格画到今天就断了，这一行只需要给出「下一个能买的日子」
+  if (!out.todayTradable) {
+    for (let i = 1; i <= horizonDays; i++) {
+      const d = shiftDate(fromDate, i);
+      if (dayInfo(d).state === 'TRADING') {
+        out.nextTradable = brief(d);
+        break;
+      }
+    }
+    return out;
+  }
+
+  for (let i = 1; i <= horizonDays; i++) {
+    const d = shiftDate(fromDate, i);
     const info = dayInfo(d);
-    if (info.state !== 'US_CLOSED' || !info.usHoliday) continue;
-    out.push({
-      date: d,
-      md: `${Number(d.slice(5, 7))}月${Number(d.slice(8, 10))}日`,
-      week: WEEK_ZH[info.dow],
-      nameZh: info.usHoliday,
+    if (info.weekend) continue;
+    if (info.state === 'TRADING') {
+      out.tradingDays++;
+      out.lastTradable = brief(d);
+      continue;
+    }
+    out.nextOff = {
+      ...brief(d),
+      reason:
+        info.state === 'US_CLOSED'
+          ? info.usHoliday
+            ? `美股${info.usHoliday}`
+            : '美股休市'
+          : info.cnReason,
       daysAway: Math.round((Date.parse(`${d}T00:00:00Z`) - t0) / 86400000),
-    });
+    };
+    break;
   }
   return out;
 }

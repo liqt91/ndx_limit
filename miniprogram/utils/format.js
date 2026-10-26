@@ -57,6 +57,8 @@ function statusClass(s) {
   if (s === 'STOPPED') return 'tag-stop';
   if (s === 'CLOSED') return 'tag-closed';
   if (s === 'UNKNOWN') return 'tag-unknown';
+  // 限额＝橄榄（与热力条同族），与网页 statusClass / FamilyCard 同口径
+  if (s === 'LIMITED') return 'tag-limit';
   return 'tag-ok';
 }
 
