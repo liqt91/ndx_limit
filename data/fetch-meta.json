@@ -1,12 +1,12 @@
 {
-  "date": "2026-10-23",
-  "fetchedAt": "2026-10-23T10:16:45+08:00",
+  "date": "2026-10-26",
+  "fetchedAt": "2026-10-26T09:40:10+08:00",
   "slot": "morning",
   "runs": [
     {
       "slot": "morning",
-      "at": "2026-10-23T10:16:45+08:00",
-      "time": "10:16",
+      "at": "2026-10-26T09:40:10+08:00",
+      "time": "09:40",
       "opened": 7,
       "total": 135,
       "families": 17,
@@ -52,8 +52,8 @@
   },
   "ms": {
     "available": true,
-    "checked": 83,
-    "agree": 72,
+    "checked": 58,
+    "agree": 52,
     "mismatch": [
       {
         "code": "021000",
