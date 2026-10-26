@@ -869,6 +869,13 @@ a { color: inherit; text-decoration: none; }
 .wk-amt u { font-style: normal; font-size: 11px; font-weight: 400; color: var(--ink-2); text-decoration: none; margin-left: 1px; }
 /* 休市原因：安静的灰字，居中，纯纸上墨迹（无边框无底色） */
 .wk-reason { font-size: 11px; line-height: 1.25; color: var(--ink-3); text-align: center; padding: 0 2px; word-break: keep-all; }
+/* 窄屏一格只剩约 50px，放不下 5 个字的休市原因：「中秋节假期」11px 实测 55px，keep-all
+   又不许断行 → 溢出 9px 压到隔壁格（390 宽实测 6 格）。放开断字并缩一档，宁可折两行。
+   ★ 这条必须写在上面 .wk-reason 之后：媒体查询写在它前面会被它覆盖，同权重下后写的赢
+     ——2026-10-26 第一版就写在窄屏段里（更靠前），改完页面一点变化都没有。 */
+@media (max-width: 600px) {
+  .wk-reason { font-size: 10px; word-break: break-all; }
+}
 
 /* 悬停/聚焦提示沿用 .cal-tip 皮肤（见下方「悬停提示」段），这里只接触发与贴边对齐 */
 .wk-d:hover .cal-tip,
