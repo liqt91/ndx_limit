@@ -142,11 +142,15 @@ if (CHECK_DIST) {
   } else {
     console.log('\n6. 渲染层（dist）');
     const clean = (s) => s.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-    const famNames = (html) =>
-      [...html.matchAll(/<div class="fam-name">([\s\S]*?)<\/div>/g)].map((m) => clean(m[1]));
+    // ★ 家族名从 `data-fam` 属性取，不再从 `div.fam-name` 的文字取。
+    //   2026-10-27 看板从卡片改成表格时，列宽只够放公司名（「宝盈」而不是
+    //   「宝盈纳斯达克100」——整页就是一个指数，再印 41 遍指数名是纯重复）。
+    //   若继续读可见文字，这条断言就会因为「排版变窄」而误红，或者反过来逼着
+    //   把 41 行重复的指数名写回去。属性值与排版解耦，判据仍然等值。
+    const famNames = (html) => [...html.matchAll(/data-fam="([^"]*)"/g)].map((m) => m[1]);
 
     const pages = [
-      { file: path.join('ndx100', 'index.html'), key: NDX, brand: '纳指开门日报', other: '标普500' },
+      { file: path.join('ndx100', 'index.html'), key: NDX, brand: '纳指100开门日报', other: '标普500' },
       { file: path.join('sp500', 'index.html'), key: SP500, brand: '标普500开门日报', other: '纳斯达克100' },
     ];
     for (const p of pages) {
@@ -172,6 +176,96 @@ if (CHECK_DIST) {
         p.key === NDX ? n.includes('标普500') : n.includes('纳斯达克')
       );
       eq(`${p.file} 未串入对方指数的家族`, leaked.length, 0);
+
+      // ── 列表结构（2026-10-27：双列卡片 → 一份额一行的表格）──
+      // 表格的形状由组件模板 + colgroup 共同决定，改版时最容易发生的三件退化
+      // 都不报错：漏渲染某个份额（行数变少）、把家族级指标复制到每一行（噪音）、
+      // 热力条没画满 21 格（新份额只剩几格，读起来像缺数据）。
+      const trs = [...html.matchAll(/<tr class="fr[^"]*"[\s\S]*?<\/tr>/g)].map((m) => m[0]);
+      const expectShares = funds
+        .filter((f) => f.indexKey === p.key)
+        .flatMap((f) => f.codes.map((c) => c.code));
+      eq(`${p.file} 份额行数 == ${p.key} 份额数`, trs.length, expectShares.length);
+
+      // 每行的单元格数：序号 / 基金 / 份额 / 额度 / 年费 / 跟踪误差 / 热力 = 7 格。
+      // ★ 2026-10-27 二轮：跟踪误差改成 rowspan 跨满整个家族 → 续行 6 格。
+      // ★ 2026-10-27 三轮：序号与基金名也跟着跨行 → 续行只剩 4 格（份额/额度/年费/热力）。
+      //   「4 或 7」单独一条太松——真正要抓的退化是**列错位**，而错位会让某行变成
+      //   3 格或 8 格。所以三条一起：只允许 4/7、7 格数 == 家族数、4 格数 == 续行数。
+      const cellCounts = trs.map((t) => (t.match(/<td[ >]/g) || []).length);
+      eq(`${p.file} 每行 4/7 个单元格（无列错位）`, cellCounts.filter((n) => n !== 4 && n !== 7).length, 0);
+      eq(`${p.file} 家族首行 7 格 == 家族数`, cellCounts.filter((n) => n === 7).length, expectFams.size);
+      eq(
+        `${p.file} 续行 4 格 == 份额数 − 家族数`,
+        cellCounts.filter((n) => n === 4).length,
+        expectShares.length - expectFams.size
+      );
+      // 表头列数必须与数据列数相等，否则列宽会整体错位一格
+      const tables = (html.match(/<table class="ftbl">/g) || []).length;
+      eq(`${p.file} 表头列数 == 每行单元格数`, (html.match(/<th[ >]/g) || []).length, tables * 7);
+
+      // 热力格：每行都要画满 21 格。新发份额只有几个历史点，不足的要补成
+      // 「不可投」的空心格——留白会被读成缺数据，而事实是那天它还没成立。
+      eq(`${p.file} 热力格总数 == 行数 × 21`, (html.match(/<i class="hc /g) || []).length, trs.length * 21);
+
+      // 跟踪误差是家族级指标，只该在家族首行出现一次。
+      // 全页出现次数 == 家族数（不是份额数）——多了就是把同一个数字复制了 N 遍。
+      // 只数「有值的」：没有跟踪误差的家族渲染成「—」，它也是值（照样占一个首行位置）；
+      // 续行根本不再渲染这个格子（rowspan 已经占了那一列），不是空单元格。
+      // ★ 正则必须吃 `rowspan` 属性（`<td class="c-te" rowspan="3">`）：写死
+      //   `<td class="c-te">` 会在改版当天静默变成「计数 2 / 期望 27」这种假红/假绿。
+      const teShown = (html.match(/<td class="c-te"[^>]*>[^<]+<\/td>/g) || []).length;
+      eq(`${p.file} 跟踪误差只在家族首行出现`, teShown, expectFams.size);
+
+      // rowspan 必须**跨满整个家族**：值等于该家族的份额数。
+      // 少跨一行，下一组的第一行会被它吃掉；多跨一行，会串到隔壁家。
+      // ★ 2026-10-27 三轮：序号 / 基金名 / 跟踪误差三格都跨行，所以三类各查一遍。
+      //   少查一类，就等于允许「名字还挤在首行」这种半改状态混过去。
+      // ★ 名录要按**页面用的分组键**聚合再比（company|baseName|currency，与 IndexBoard 一致）。
+      //   名录里允许同一家被写成两条（分两条抓取），页面会把它们并成一组；
+      //   直接拿 `f.codes.length` 比，纳指就会差一个「2」对不上，白白误报。
+      const famSizes = new Map();
+      for (const f of funds.filter((f) => f.indexKey === p.key)) {
+        const k = `${f.company}|${f.baseName}|${f.currency}`;
+        famSizes.set(k, (famSizes.get(k) || 0) + f.codes.length);
+      }
+      const multiFams = [...famSizes.values()].filter((n) => n > 1);
+      const asc = (a, b) => a - b;
+      const spansOf = (cls) =>
+        [...html.matchAll(new RegExp(`<td class="${cls}"[^>]*rowspan="(\\d+)"`, 'g'))].map((m) => Number(m[1]));
+      const spanSets = { 'c-no': spansOf('c-no'), 'c-fund': spansOf('c-fund'), 'c-te': spansOf('c-te') };
+      for (const [cls, arr] of Object.entries(spanSets)) {
+        eq(`${p.file} ${cls} rowspan 格数 == 多份额家族数`, arr.length, multiFams.length);
+        ok(
+          `${p.file} ${cls} 每个 rowspan 都等于该家族的份额数`,
+          JSON.stringify([...arr].sort(asc)) === JSON.stringify([...multiFams].sort(asc)),
+          `渲染 ${JSON.stringify(arr)} / 名录 ${JSON.stringify(multiFams)}`
+        );
+      }
+      // 三格的 span 序列必须逐组相同：不同 → 三行对齐的「组」被拆成了两块，
+      // 而且会有一格串到隔壁组，屏幕上表现为名字掉到别家头上。
+      ok(
+        `${p.file} 序号/基金名/跟踪误差的 rowspan 逐组一致`,
+        JSON.stringify(spanSets['c-no']) === JSON.stringify(spanSets['c-fund']) &&
+          JSON.stringify(spanSets['c-fund']) === JSON.stringify(spanSets['c-te']),
+        `no ${JSON.stringify(spanSets['c-no'])} / fund ${JSON.stringify(spanSets['c-fund'])} / te ${JSON.stringify(
+          spanSets['c-te']
+        )}`
+      );
+
+      // 额度：每行 data-limit 必须等于该份额最新一次抓取的额度（不可买时为空）
+      const attrOf = (t, k) => (t.match(new RegExp(k + '="([^"]*)"')) || [])[1];
+      const badLimit = trs.filter((t) => {
+        const code = attrOf(t, 'data-code');
+        const arr = history[code] || [];
+        const last = arr[arr.length - 1];
+        const want = last && last.limit != null ? String(last.limit) : '';
+        // ★ Astro 把空字符串属性渲染成**无值属性**（`data-limit` 而不是 `data-limit=""`），
+        //   读到 undefined 是「没有额度」的正常形态，必须归一成 '' 再比。
+        const got = attrOf(t, 'data-limit') ?? '';
+        return got !== want;
+      });
+      eq(`${p.file} 每行额度 == 该份额最新抓取值`, badLimit.length, 0);
     }
 
     // ── 7. 路由结构（2026-10-23 换域 + 路径重构后新增）──
@@ -560,7 +654,7 @@ if (CHECK_DIST) {
 
     // 7.6 详情页回跳：纳指的份额回纳指，标普的回标普
     for (const [k, label] of [
-      [NDX, '纳指'],
+      [NDX, '纳指100'],
       [SP500, '标普500'],
     ]) {
       const code = [...codeSets[k]][0];
@@ -964,21 +1058,138 @@ for (const [where, sel, prop] of [
     new RegExp(`${prop}\\s*:[^;]*var\\(--ok\\)`).test(ruleBody(sel))
   );
 }
+// B1c. 基金名只出现一次，而且**跟着组走**（2026-10-27 三轮 / 六轮改判据）。
+//   二轮：名字落在家族首行、续行靠 `.fam-cont` 复读（桌面 display:none、窄屏 block）。
+//   三轮：序号 / 基金名 / 跟踪误差三格一起 rowspan 跨满整组，续行连那个格子都没有了，
+//         `.fam-cont` 从模板和样式里一起删掉；窄屏续块改用 `tr[data-name]::before` 复读名字。
+//   六轮：用户「把 C/D 上面显示的家族名称移除了，这样 C/D 是下层的信息更明显一点」——
+//         窄屏那个备胎也删了。续块直接从 `[C] 008971` 开始，比组首块矮一行，
+//         再靠「组内 5px < 组间 16px」的间距差交代归属。
+//   ★ 断言三条：
+//     ① 样式里不许再有 `.fam-cont`（防回潮：它一旦回来，名字就又是一个独立的 DOM 复读）
+//     ② 窄屏不许再用 `attr(data-name)` 补名字（六轮的反方向断言）
+//     ③ 组内间距必须**小于**组间间距——名字删掉之后，这是「谁属于谁」唯一的排版线索
+//   桌面「一行一个名字」由 dist 侧的 `.fam-name` 计数守（见下），这里不重复。
+{
+  ok(
+    '桌面基金名靠跨行格，不再有 .fam-cont 复读',
+    !/\.fam-cont/.test(css),
+    (css.match(/[^\n]*\.fam-cont[^\n]*/) || ['（已删除）'])[0].slice(0, 80)
+  );
+  ok(
+    '窄屏续块不复读家族名（C/D 是下层信息）',
+    !/content:\s*attr\(data-name\)/.test(css),
+    '（还有 tr[data-name]::before 在补名字）'
+  );
+  // ★ 不能用 ruleBody()：它只转义 `.[]\`，`:not(...)` 里的括号会被当成正则分组，
+  //   匹配的是字面量 `.ftbl tbody tr:not.fr-head`，永远抓不到。直接锚原串。
+  const contPad = Number((css.match(/\.ftbl tbody tr:not\(\.fr-head\)\s*\{[^}]*?padding-top:\s*(\d+)px/) || [])[1]);
+  const headPad = Number(
+    (css.match(/\.ftbl tbody tr\.fr-head:not\(:first-child\)\s*\{[^}]*?padding-top:\s*(\d+)px/) || [])[1]
+  );
+  ok(
+    '窄屏组内间距 < 组间间距（删掉名字后靠间距读归属）',
+    contPad > 0 && headPad > contPad,
+    `续块 padding-top ${contPad || '?'}px / 组头 ${headPad || '?'}px`
+  );
+}
+
+// B1c2. 窄屏里「跟踪误差」跟**组标签**同一行，不跟「年费」挤一行（2026-10-27 五轮）。
+//   原来是 `"no fee  te"`：这个组级指标挂在 A 那一块的最后一个数据位上
+//   （000834 / 10 元 / 年费 1.00% / 1.03%），读起来像 A 类自己的值，C/D 块又压根没有它。
+//   现在 te 与 fund（序号 + 基金名）同一行、右对齐：它是这一家的注脚。
+//   ★ 判据不写死整串 areas（改个名字就误报），只解析出每一行，问三件事：
+//     ① te 必须和 fund 同行；② te 不许和 fee 同行；③ fee 要独占一行。
+{
+  // 取「含 no fund 的那一段 grid-template-areas」：样式里可能还有别的网格（别处另有 areas）
+  const blocks = [...css.matchAll(/grid-template-areas:\s*((?:"[^"]*"\s*)+)/g)].map((m) => m[1]);
+  const areaText = blocks.find((b) => b.includes('no fund') && b.includes('te')) || '';
+  const rows = [...areaText.matchAll(/"([^"]*)"/g)].map((m) => m[1].trim().split(/\s+/));
+  ok('窄屏 grid 里有 fund 行（找得到布局表）', rows.length > 0, areaText.slice(0, 80) || '（没找到 no fund 的 areas）');
+  ok('窄屏跟踪误差与组标签（序号 + 基金名）同一行', rows.some((r) => r.includes('fund') && r.includes('te')));
+  ok('窄屏跟踪误差不再与年费同一行', !rows.some((r) => r.includes('fee') && r.includes('te')));
+  ok('窄屏年费独占一行（每块同构）', rows.some((r) => r.filter((c) => c === 'fee').length === 2));
+}
+
+// B1d. 跨行格的垂直位置靠「所有行等高」这一条撑着，不许在跨行格里补 padding。
+//   2026-10-27 我一度给它补到 28（误以为「8 + 组头留白」），结果两份额组的名字
+//   整体偏下 4px —— 用户看着截图说「06 万家、07 华安 有点偏下」。
+//   四轮起组头那条 20px 留白也删了（它让每个家族的 A 份额行比别的行高 20px，
+//   用户：「除第一个基金家族外，其他家族 A 份额的行要高一点」），所以现在
+//   跨行格 padding 8 时内容中心就是组高的一半，天然居中，不需要任何补偿。
+//   判据：凡是带 [rowspan] 的 td 规则里都不许出现 padding-top。
+//   ★ 正则必须只锚 `[rowspan]`，不能写 `td\[rowspan\]`：真实写法是
+//     `.ftbl td.c-te[rowspan]`（td 与 [rowspan] 之间夹着类名），写死 `td[rowspan]`
+//     只能抓住 `.ftbl td[rowspan]` 这一种写法——负向验证第二例就是这么漏过去的。
+{
+  const bad = css.match(/[^{}]*\[rowspan\][^{]*\{[^}]*padding-top[^}]*\}/g) || [];
+  eq('跨行格不额外设 padding-top（居中靠行等高）', bad.length, 0);
+}
+
+// B1e. 行必须等高，组界必须真的画出来（2026-10-27 四轮）。
+//   两件事都在同一次改动里踩到，而且互为因果：
+//   ① 组头那条 `padding-top: 20px` 把每个家族的 A 份额行撑到 61px、其余 41px。
+//      表格行高一不等，视线扫列时每隔几行要重新对基线——用户一句「其他家族 A 份额的行
+//      要高一点」点破。判据：`fr-head` 的规则里不许出现非零 padding-top。
+//   ② 组界那条「--rule-2 深一档」整整两轮没上屏：`border-collapse: collapse` 下，
+//      上一行的 `border-bottom: 1px solid var(--rule)` 与组头行的
+//      `border-top: 1px solid var(--rule-2)` 争同一条边，同宽同样式时裁决落在
+//      同级优先级 + 先后顺序上，前一行先到、颜色归它。行边框并非「不绘制」
+//      （把这条临时改成 3px 红，屏幕上立刻出现 15960 个红像素）。
+//      修法是把边框落到 `> td`（cell 优先级高于 row），判据因此锚 `> td` 且必须 --rule-2；
+//      只锚「有 border-top」不够——降回 --rule 仍然画得出来，但组界又消失了。
+//   ③ 窄屏 tr 是 display:grid，边框照画，所以窄屏那条 tr 边框要留；
+//      但桌面这条 `tr.fr-head > td` 是 0,2,3，会压过窄屏的 `.ftbl tbody td { border: none }`
+//      （0,1,2），不显式归零窄屏每组首块就多一条横线。判据守这个归零。
+{
+  // ★ 只锚 `fr-head` 里的 **td**：桌面那条加高规则写成 `… tr.fr-head:not(:first-child) td { padding-top: 20px }`；
+  //   窄屏的分组间距是 `tr.fr-head { padding-top: 16px }`（窄屏 tr 是 display:grid，合法）。
+  //   写 `tr\.fr-head[^{]*\{[^}]*padding-top` 会把窄屏那条一起判红 —— 假阳性。
+  const headPad = /[^{}]*tr\.fr-head[^{]*\btd\b[^{]*\{[^}]*padding-top:\s*[1-9]/.test(css);
+  ok('组头行不加高（fr-head 的 td 不许 padding-top，行必须等高 41px）', !headPad);
+  ok(
+    '组界线画在单元格上且是 --rule-2（行级会被上一行的 --rule 抢走颜色）',
+    /\.ftbl tbody tr\.fr-head\s*>\s*td\s*\{[^}]*border-top:\s*1px solid var\(--rule-2\)/.test(css),
+    '（没找到 `.ftbl tbody tr.fr-head > td { border-top: 1px solid var(--rule-2) }`）'
+  );
+  ok(
+    '窄屏把桌面的单元格组界归零（否则每组首块多一条线）',
+    /\.ftbl tbody tr\.fr-head\s*>\s*td\s*\{[^}]*border-top:\s*0/.test(css)
+  );
+}
+
 // B2. 日历里「时间」用墨——这一组说的是哪一周 / 哪一天，不是状态。
 // ★ 2026-10-26 第四轮：柱撤掉后，「额度」在日历里已经没有任何颜色承载
 // （数字是墨色）。原来这儿还有两条守柱身/柱顶线的断言，对象不存在了，一并删除；
 // 反方向的「日历样式里不许出现 --ok / --heat」在下面 B3，那才是防回潮的那一条。
-for (const [where, sel, prop] of [
-  ['今天那格的描边', '.wk-d.is-today', 'outline'],
-  ['本周书签', '.wk-row.is-this-week .wk-lbl', 'box-shadow'],
+// ★ 2026-10-27：本周书签从 --ink-2 提到 --ink、2px 加到 3px，同时删掉整行的
+//   2.2% 灰底。理由是「本周」与「休市」原来都用「铺一层中性底」这一个手法，
+//   读者分不清哪层说时间、哪层说状态。现在底色独属「不开放」，本周只用线。
+//   书签既然是本周唯一的标识，就得站到墨阶最深那档——所以这一条不再和别的
+//   断言共用 --ink-2，改成逐条给期望令牌。
+for (const [where, sel, prop, token] of [
+  ['今天那格的描边', '.wk-d.is-today', 'outline', '--ink-2'],
+  ['本周书签', '.wk-row.is-this-week .wk-lbl', 'box-shadow', '--ink'],
   // 原来这一条是「『本周』二字用 var(--ink-2)」。那两个字已被删除（它是行高的
-  // 第三个来源，见 B4），同一句话改由**周范围的墨深**来说：本周 ink/600、其余 ink-2。
+  // 第三个来源，见 B4），同一句话改由**周范围的墨深**来说：本周 ink/700、其余 ink-2。
   // 断言迁到新的落点上——判据没放宽，只是被染色的对象换了。
-  ['本周那一行的周范围', '.wk-lbl b', 'color'],
+  ['本周那一行的周范围', '.wk-lbl b', 'color', '--ink-2'],
 ]) {
   ok(
-    `${where}用 var(--ink-2)（说的是时间，不是状态；灰＝结构）`,
-    new RegExp(`${prop}\\s*:[^;]*var\\(--ink-2\\)`).test(ruleBody(sel))
+    `${where}用 var(${token})（说的是时间，不是状态；灰＝结构）`,
+    new RegExp(`${prop}\\s*:[^;]*var\\(${token}\\)`).test(ruleBody(sel))
+  );
+}
+// B2b. 反方向：本周行**不许再铺底色**。
+//   底色在日历里只表示一件事——这天不开放（.wk-d.is-off）。2026-10-27 之前
+//   本周行也有 2.2% 的底，两个灰叠在一起时用户直接问「本周和休市是不是同一个颜色」。
+//   这条断言盯着它别再回来：本周的时间定位只能用线（书签）和墨阶，不能用面。
+{
+  const body = ruleBody('.wk-row.is-this-week');
+  ok(
+    '本周行不铺底色（底色只归「不开放」，时间用线不用面）',
+    !/background(-color)?\s*:/.test(body),
+    body.slice(0, 100) || '（.wk-row.is-this-week 没有任何规则）'
   );
 }
 // B3. 反方向：日历这一整块不许再出现任何彩色状态墨或额度色。
@@ -1040,6 +1251,21 @@ for (const [where, sel, prop] of [
     /<span class="wk-rng">/.test(wkTpl) && /\.wk-rng\s*\{\s*display:\s*none/.test(css),
     (css.match(/\.wk-rng\s*\{[^}]*\}/g) || []).join(' ')
   );
+}
+
+// B5. 休市格的底色必须是**中性**的（2026-10-27）。
+//   用户：「看下交易日历，感觉区分度不够」。根因是四种状态全落在同一个白底上，
+//   只能靠「日期浓淡 + 10px 小字」区分——额度是数字、原因是文字，100% 缩放下一个样。
+//   现在给休市格压一层极淡底，让图底关系成立：可买＝白纸（默认，不画），
+//   买不到＝压暗（异常，画出来）。这两条守的是它**是什么颜色**：
+//   只许 R=G=B（纸上一块压暗的灰），不许变成任何一支状态墨的浅色版 ——
+//   绿/橄榄/红在站内各有主人，日历再借一个色相就成了第四套语义。
+{
+  const offBody = ruleBody('.wk-d.is-off');
+  const bg = (offBody.match(/background(?:-color)?\s*:\s*([^;]+);/) || [])[1] || '';
+  const rgb = bg.match(/rgba?\(\s*(\d+)\s*[,\s]\s*(\d+)\s*[,\s]\s*(\d+)/);
+  ok('休市格有一层底色（区分度靠图底关系，不靠 10px 小字）', !!rgb, offBody.slice(0, 120) || '（.wk-d.is-off 没有底色）');
+  ok('休市格的底色是中性的（R=G=B，不是色块）', !!rgb && rgb[1] === rgb[2] && rgb[2] === rgb[3], bg);
 }
 
 // 反方向那两支：变坏用 --warn（橄榄），不知道用 --ink-3（墨灰）。
@@ -1224,7 +1450,7 @@ if (CHECK_DIST) {
       ok(`${p_(rel)} 站标不是 QDII 字标（指数页用字母）`, markTextOf(h) === null, markTextOf(h) || '');
       ok(`${p_(rel)} 站标不再用外部 SVG`, !h.includes('/nasdaq-logo.svg'));
       // 站名带指数名（headerBrand 是给共用页用的，指数页别顺手也传）
-      eq(`${p_(rel)} 顶栏站名带指数名`, brandTextOf(h), b.slug === 'sp500' ? '标普500开门日报' : '纳指开门日报');
+      eq(`${p_(rel)} 顶栏站名带指数名`, brandTextOf(h), b.slug === 'sp500' ? '标普500开门日报' : '纳指100开门日报');
     }
     // 共用页：没有指数身份 → 换成 QDII 字标（用户原话「其他情况用QDII logo，包括我的基金、订阅」）。
     for (const rel of [path.join('my', 'index.html'), path.join('subscribe', 'index.html')]) {

@@ -13,6 +13,9 @@ dist/
 *.log
 npm-debug.log*
 
+# 改版时用 CDP 截的对照图（只用于当次比对，不是产物）
+.tmp-shots/
+
 # 订阅者名单（含个人邮箱，绝不入库；通过国内表单/私有地址提供）
 data/subscribers*.json
 data/subscribers*.csv
