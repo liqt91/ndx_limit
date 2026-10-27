@@ -1,0 +1,774 @@
+{
+  "updatedAt": "2026-10-27",
+  "asOf": "2026-10-23",
+  "asOfSet": [
+    "2026-10-23"
+  ],
+  "codes": {
+    "160213": {
+      "code": "160213",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.1,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "161125": {
+      "code": "161125",
+      "index": "标准普尔500指数",
+      "trackingError": 1.18,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "161130": {
+      "code": "161130",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.45,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "270042": {
+      "code": "270042",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.01,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "539001": {
+      "code": "539001",
+      "index": "纳斯达克100指数",
+      "trackingError": 2.26,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "019736": {
+      "code": "019736",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.69,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "019737": {
+      "code": "019737",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.7,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "000834": {
+      "code": "000834",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.03,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "008971": {
+      "code": "008971",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.03,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "012752": {
+      "code": "012752",
+      "index": "纳斯达克100指数",
+      "trackingError": 2.26,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "023422": {
+      "code": "023422",
+      "index": "纳斯达克100指数",
+      "trackingError": 2.26,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "019172": {
+      "code": "019172",
+      "index": "纳斯达克100指数",
+      "trackingError": 2.31,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "019173": {
+      "code": "019173",
+      "index": "纳斯达克100指数",
+      "trackingError": 2.31,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "016452": {
+      "code": "016452",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.42,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "016453": {
+      "code": "016453",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.42,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "021000": {
+      "code": "021000",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.43,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "019441": {
+      "code": "019441",
+      "index": "纳斯达克100指数",
+      "trackingError": 2.18,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "019442": {
+      "code": "019442",
+      "index": "纳斯达克100指数",
+      "trackingError": 2.17,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "040046": {
+      "code": "040046",
+      "index": "纳斯达克100指数",
+      "trackingError": 0.99,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "014978": {
+      "code": "014978",
+      "index": "纳斯达克100指数",
+      "trackingError": 0.98,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "019524": {
+      "code": "019524",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.57,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "019525": {
+      "code": "019525",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.56,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "022664": {
+      "code": "022664",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.56,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "022525": {
+      "code": "022525",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.48,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "016055": {
+      "code": "016055",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.47,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "016057": {
+      "code": "016057",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.47,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "024237": {
+      "code": "024237",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.47,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "006479": {
+      "code": "006479",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.01,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "021778": {
+      "code": "021778",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.01,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "015299": {
+      "code": "015299",
+      "index": "纳斯达克100指数",
+      "trackingError": 2.42,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "015300": {
+      "code": "015300",
+      "index": "纳斯达克100指数",
+      "trackingError": 2.42,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "018966": {
+      "code": "018966",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.77,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "018967": {
+      "code": "018967",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.77,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "021773": {
+      "code": "021773",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.77,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "016532": {
+      "code": "016532",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.51,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "016533": {
+      "code": "016533",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.5,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "021838": {
+      "code": "021838",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.5,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "018043": {
+      "code": "018043",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.48,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "018044": {
+      "code": "018044",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.49,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "012870": {
+      "code": "012870",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.45,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "019547": {
+      "code": "019547",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.76,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "019548": {
+      "code": "019548",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.76,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "012751": {
+      "code": "012751",
+      "index": "纳斯达克100指数",
+      "trackingError": 2.02,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "012753": {
+      "code": "012753",
+      "index": "纳斯达克100指数",
+      "trackingError": 2.01,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "019174": {
+      "code": "019174",
+      "index": "纳斯达克100指数",
+      "trackingError": 2.08,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "019175": {
+      "code": "019175",
+      "index": "纳斯达克100指数",
+      "trackingError": 2.08,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "019738": {
+      "code": "019738",
+      "index": "纳斯达克100指数",
+      "trackingError": null,
+      "peerError": 2.27,
+      "asOf": null,
+      "isIndexFund": true,
+      "ok": true
+    },
+    "019739": {
+      "code": "019739",
+      "index": "纳斯达克100指数",
+      "trackingError": null,
+      "peerError": 2.27,
+      "asOf": null,
+      "isIndexFund": true,
+      "ok": true
+    },
+    "016056": {
+      "code": "016056",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.08,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "016058": {
+      "code": "016058",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.11,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "000055": {
+      "code": "000055",
+      "index": "纳斯达克100指数",
+      "trackingError": 0.31,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "006480": {
+      "code": "006480",
+      "index": "纳斯达克100指数",
+      "trackingError": 0.31,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "040047": {
+      "code": "040047",
+      "index": "纳斯达克100指数",
+      "trackingError": 0.3,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "040048": {
+      "code": "040048",
+      "index": "纳斯达克100指数",
+      "trackingError": 0.3,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "015518": {
+      "code": "015518",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.08,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "018968": {
+      "code": "018968",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.44,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "018969": {
+      "code": "018969",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.53,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "016534": {
+      "code": "016534",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.15,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "016535": {
+      "code": "016535",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.19,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "003722": {
+      "code": "003722",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.09,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "012871": {
+      "code": "012871",
+      "index": "纳斯达克100指数",
+      "trackingError": 1.09,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "012860": {
+      "code": "012860",
+      "index": "标准普尔500指数",
+      "trackingError": 1.19,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "050025": {
+      "code": "050025",
+      "index": "标准普尔500指数",
+      "trackingError": 1.23,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "006075": {
+      "code": "006075",
+      "index": "标准普尔500指数",
+      "trackingError": 1.23,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "018738": {
+      "code": "018738",
+      "index": "标准普尔500指数",
+      "trackingError": 1.23,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "007721": {
+      "code": "007721",
+      "index": null,
+      "trackingError": null,
+      "peerError": null,
+      "asOf": null,
+      "isIndexFund": false,
+      "ok": true
+    },
+    "007722": {
+      "code": "007722",
+      "index": null,
+      "trackingError": null,
+      "peerError": null,
+      "asOf": null,
+      "isIndexFund": false,
+      "ok": true
+    },
+    "022523": {
+      "code": "022523",
+      "index": null,
+      "trackingError": null,
+      "peerError": null,
+      "asOf": null,
+      "isIndexFund": false,
+      "ok": true
+    },
+    "096001": {
+      "code": "096001",
+      "index": "S&P 500 EQUAL WEIGHTED TOTAL RETURN",
+      "trackingError": 1.42,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "008401": {
+      "code": "008401",
+      "index": "S&P 500 EQUAL WEIGHTED TOTAL RETURN",
+      "trackingError": 1.42,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "017028": {
+      "code": "017028",
+      "index": "标准普尔500指数",
+      "trackingError": 1.19,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "017030": {
+      "code": "017030",
+      "index": "标准普尔500指数",
+      "trackingError": 1.19,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "017641": {
+      "code": "017641",
+      "index": "标准普尔500指数",
+      "trackingError": 1.58,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "019305": {
+      "code": "019305",
+      "index": "标准普尔500指数",
+      "trackingError": 1.59,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "018064": {
+      "code": "018064",
+      "index": "标准普尔500指数",
+      "trackingError": 2.16,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "018065": {
+      "code": "018065",
+      "index": "标准普尔500指数",
+      "trackingError": 2.17,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "003718": {
+      "code": "003718",
+      "index": "标准普尔500指数",
+      "trackingError": 0.75,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "012861": {
+      "code": "012861",
+      "index": "标准普尔500指数",
+      "trackingError": 0.75,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "013425": {
+      "code": "013425",
+      "index": "标准普尔500指数",
+      "trackingError": 0.63,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "013499": {
+      "code": "013499",
+      "index": "标准普尔500指数",
+      "trackingError": 0.64,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "013404": {
+      "code": "013404",
+      "index": "S&P 500 EQUAL WEIGHTED TOTAL RETURN",
+      "trackingError": 1.06,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "015545": {
+      "code": "015545",
+      "index": "S&P 500 EQUAL WEIGHTED TOTAL RETURN",
+      "trackingError": 1.06,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "017642": {
+      "code": "017642",
+      "index": "标准普尔500指数",
+      "trackingError": 1.21,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "017643": {
+      "code": "017643",
+      "index": "标准普尔500指数",
+      "trackingError": 1.21,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    },
+    "018066": {
+      "code": "018066",
+      "index": "标准普尔500指数",
+      "trackingError": 0.65,
+      "peerError": 2.27,
+      "asOf": "2026-10-23",
+      "isIndexFund": true,
+      "ok": true
+    }
+  }
+}

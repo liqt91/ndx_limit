@@ -55,6 +55,22 @@ jobs:
       - name: Scrape today's data
         run: node scripts/scrape.mjs
 
+      # 附加信息：年费（管理+托管+销售服务）与年化跟踪误差，来源天天基金 F10 公开页。
+      #
+      # ★ 与额度抓取分开、且失败不阻断：这两列只是买之前的参考，抓不到时页面渲染
+      #   「—」，不能让一次费率页改版把当天已经抓到的额度数据也卡在 CI 里不回写。
+      #   用 `|| echo ::warning::` 而不是 continue-on-error —— 后者会让步骤在 UI 上
+      #   变绿，静默漏抓；这样至少有一条黄色警告留在 run 里。
+      # ★ 跟踪误差是**滞后指标**（每周更新一次，页面上标「截止至」），每天抓只是
+      #   为了让那个截止日跟上，不是因为它每天会变。
+      - name: Fetch fees (non-blocking)
+        run: |
+          node scripts/fetch-fees.mjs || echo "::warning::费率抓取失败，页面年费列将显示「—」（额度数据不受影响）"
+
+      - name: Fetch tracking error (non-blocking)
+        run: |
+          node scripts/fetch-tracking.mjs || echo "::warning::跟踪误差抓取失败，页面误差列将显示「—」（额度数据不受影响）"
+
       # 口径隔离门禁：两个指数的份额共用一份 history.json，任何一处聚合漏了 indexKey
       # 都会让首屏把两边的额度加在一起（页面照样渲染，数字照样像真的）。
       # 只验数据层（--no-dist）：这一步不构建站点，渲染层在部署前由 EdgeOne 构建，
@@ -74,7 +90,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/history.json data/fund-meta.json data/fetch-meta.json data/announcements.json
+          git add data/history.json data/fund-meta.json data/fetch-meta.json data/announcements.json data/fund-fees.json data/fund-tracking.json
           if git diff --cached --quiet; then
             echo "no data changes, skip commit"
           else

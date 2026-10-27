@@ -5,7 +5,7 @@
 // ★ 为什么抽成组件而不是复制两份 index.astro：301 行里 290 行与指数无关，
 //   复制一份后改首屏要在两处同步改，漏一处就是静默漂移（页面一版一版地分叉）。
 import BaseLayout from '../layouts/BaseLayout.astro';
-import FamilyCard from '../components/FamilyCard.astro';
+import FundTable from '../components/FundTable.astro';
 import SectionHead from '../components/SectionHead.astro';
 import HistorySections from '../components/HistorySections.astro';
 import TrendBackdrop from '../components/TrendBackdrop.astro';
@@ -257,9 +257,9 @@ const ogDescription = noData
         它同时管下面两个组（人民币 / 美元），所以留在节标题上，不下放到组里。
         家数从节标题挪到各组标题右侧：两个币种各算各的，数字放在谁的头上谁才算得清
         （放在节标题上会被读成「合计」，而这正是不能相加的东西）。 */}
-    <span slot="aside" class="grid-legend">
+    <span slot="aside" class="grid-legend is-bars">
       <span class="ramp-legend">
-        <i class="lg l1"></i><i class="lg l2"></i><i class="lg l3"></i><i class="lg l4"></i>
+        <em class="lg-cap">少</em><i class="ramp-bars"><i></i><i></i><i></i><i></i></i><em class="lg-cap">多</em>
       </span>
       <span><i class="lg off"></i>暂停</span>
     </span>
@@ -275,27 +275,40 @@ const ogDescription = noData
           <span class="sub-line"></span>
           <span class="sub-a">{openedCny} 家可买</span>
         </div>
-        <ul class="grid">
-          {cny.map((g) => <FamilyCard shares={g.shares} />)}
-        </ul>
+        <FundTable groups={cny} />
       </>
     )
   }
 
   {
     usdGroups.length > 0 && (
-      <>
-        <div class="subhead">
+      /* 美元组默认折起来（<details>）：它和人民币组是两块独立的榜（额度不能相加），
+         而绝大多数人只看人民币那一段——默认展开等于每天多滚十几行的距离。
+         summary 里保留「N 家可买」：不展开也知道美元这边今天有没有货，
+         折叠只是收起明细，不是把结论也藏起来。
+         ★ 用原生 details/summary 而不是 JS 折叠：键盘（Enter/空格）、读屏
+           （expanded 状态）、无 JS 环境全部白拿，也不需要额外的 aria。 */
+      <details class="usd-fold">
+        <summary class="subhead">
           <span class="sub-t">美元</span>
           <span class="sub-line"></span>
           <span class="sub-a">{openedUsd} 家可买</span>
-        </div>
-        <ul class="grid">
-          {usdGroups.map((g) => <FamilyCard shares={g.shares} />)}
-        </ul>
-      </>
+          <span class="sub-fold" aria-hidden="true"></span>
+        </summary>
+        <FundTable groups={usdGroups} />
+      </details>
     )
   }
+
+  {/* 一条脚注交代全表的口径，不写成长文：
+      年费是产品属性（换渠道不变）、跟踪误差是滞后的实测值（必须带截止日）、
+      「—」是今日不可买而不是缺数据。三段话，多一句都没必要——详细口径在详情页。 */}
+  {!noData && (
+    <p class="tbl-note">
+      <span class="tn-item"><b>年费</b>＝管理费 + 托管费 + 销售服务费，每年从基金资产计提，各渠道相同。</span>
+      <span class="tn-item"><b>跟踪误差</b>＝年化跟踪误差，越小跟得越准；同一基金的各类份额共用一个值。</span>
+    </p>
+  )}
 
   {/* 交易日历（内嵌每日额度）：2026-10-25 与「每日快照」合并，旧路由留跳转壳 */}
   <HistorySections indexKey={indexKey} index={idxCal} />

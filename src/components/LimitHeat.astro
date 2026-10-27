@@ -5,28 +5,66 @@ import { prettyDateCST } from '../data/dates';
 
 interface Props {
   history: DayPoint[];
+  /**
+   * 是否显示首尾日期轴。默认显示（卡片里一条热力条独占一块，需要交代时间范围）；
+   * 列表里一屏几十行、行行都印日期就成了噪音——那种场景由表格自己的表头
+   * 或页面说明交代「最近 21 天」，这里关掉。
+   */
+  axis?: boolean;
+  /**
+   * 历史不足 21 天时，是否把左侧补满「不可投」的空心格。
+   * 默认不补（卡片里少几天就少几格，靠 max-width 挡住不被拉伸）。
+   * ★ 列表里必须补：新发份额（I/F/E 类）只有 4 个历史点，不补就剩左边一片空白，
+   *   读起来是「这里缺数据」，而事实是**那天这个份额还没成立、买不到**。
+   *   留白和「不可投」是两件事，只有后者是实话。
+   */
+  pad?: boolean;
+  /**
+   * 画法：`cells`（默认，方块色阶）或 `bars`（柱高编码 + 印色）。
+   *
+   * ★ bars 是为「中立页面」准备的：色阶必须是一把全站通用的尺，可它一旦跟着板块走，
+   *   /my 上两段就会各有一套深浅；不跟板块走，又得凭空多占一个色相（而蓝/红/绿/灰
+   *   已经各有主人）。柱子把「量」交给高度、颜色只表示身份，这两个矛盾一起消失——
+   *   trend 装饰带早就是这么做的（几何编码可跟身份，颜色编码不行）。
+   */
+  variant?: 'cells' | 'bars';
 }
-const { history } = Astro.props;
+const { history, axis = true, pad = false, variant = 'cells' } = Astro.props;
 
 /**
- * 21 天额度热力方块：只有颜色深浅，没有高度。
+ * 21 天额度热力条。两种画法（见 variant）：
+ *   cells（默认）— 色阶方块，深＝额度大
+ *   bars         — 柱高编码 + 印色，见下方 variant 的说明
  *
  * ★ 固定画最近 21 天，不是「有多少天画多少天」：history.json 每只份额保留 60 个点，
  *   逐日累积后不截断的话格子会一直变窄（24 天 11px、40 天 6px、60 天 2.7px，
  *   global.css 里 .hc 的 max-width 是按 21 格算的，只为防「一两天数据被拉成大块」，
  *   挡不住反向缩水）。截断放在这里而不是调用方，任何一个渲染热力条的地方都不会漏。
  *
- * 颜色只表示「那天单日能买多少」，其余状态交给纹理：
+ * cells 的语义：颜色只表示「那天单日能买多少」，其余状态交给纹理：
  *   暂停 / 封闭 → 空心细框
  *   能买、但额度没公布 → 斜纹
  *   状态未公布 → 虚线框
+ *
+ * bars 的语义：高度表示额度，其余状态交给形状：
+ *   暂停 / 封闭 → 与最低档同高的空心槽（占着位置，里面没有量）
+ *   能买、但额度未公布 → 半高斜纹柱
+ *   状态未公布 → 半高虚线柱
+ *   该份额尚未成立 → 不画（那天连「关了」都谈不上）
  * 悬停只交代「哪天、多少钱」——「当日变动」不再单独标注，额度一变颜色就变，
  * 同一个颜色突然换深换浅本身就是那天的标记。
  */
 const HEAT_DAYS = 21;
 const days = history.slice(-HEAT_DAYS);
+// 补在前面的空格：这些日期这个份额还不存在，买不到 —— 用「暂停」那套空心框表达，
+// 不再引入第五种纹理（多一种纹理就得多一条图例，没人看）。
+// ★ 柱状变体里两者要分开（na / off）：暂停那天「有记录、是关的」，尚未成立那天
+//   「连记录都不该有」。混成一个符号，新份额左边那排符号就成了编出来的历史。
+const padCount = pad ? Math.max(0, HEAT_DAYS - days.length) : 0;
 
-const cells = days.map((d) => {
+const cells = [
+  ...Array.from({ length: padCount }, () => ({ kind: 'na', tip: '该份额尚未成立，不可投' })),
+  ...days.map((d) => {
   const open = d.status === 'OPEN' || d.status === 'LIMITED';
 
   const level = heatLevel(d.limit);
@@ -49,18 +87,24 @@ const cells = days.map((d) => {
         : '暂停申购';
 
   return { kind, tip: `${prettyDateCST(d.date)} ${state}` };
-});
+  }),
+];
 
 const firstDate = days[0]?.date;
 const lastDate = days[days.length - 1]?.date;
 const openedDays = days.filter((d) => d.status === 'OPEN' || d.status === 'LIMITED').length;
 const deepest = days.reduce((max, d) => Math.max(max, heatLevel(d.limit) ?? 0), 0);
-const aria = `最近 ${days.length} 天额度热力方块：${openedDays} 天可申购、${
-  days.length - openedDays
-} 天暂停${deepest ? `，最深一档为第 ${deepest} 档` : ''}`;
+// 补格时总格数仍是 21 天，否则读屏念出来的天数与屏幕上画的格子对不上
+const totalDays = days.length + padCount;
+// ★ 三段分开数：补的格子既不是「可申购」也不是「暂停」——那天这只基金还不存在。
+//   以前把它们并进「暂停」，读屏会念出「21 天里 21 天暂停」，而事实是「才成立了 4 天」。
+const suspended = totalDays - openedDays - padCount;
+const aria = `最近 ${totalDays} 天额度热力：${openedDays} 天可申购、${suspended} 天暂停${
+  padCount ? `、${padCount} 天该份额尚未成立` : ''
+}${deepest ? `，最深一档为第 ${deepest} 档` : ''}`;
 ---
 
-<div class="heat" role="img" aria-label={aria}>
+<div class={`heat${variant === 'bars' ? ' bars' : ''}`} role="img" aria-label={aria}>
   {
     cells.map((c) => (
       // 提示用自绘的 .tip（与交易日历同一套纸片皮肤），不用原生 title：
@@ -74,7 +118,11 @@ const aria = `最近 ${days.length} 天额度热力方块：${openedDays} 天可
   }
 </div>
 {/* 只有一天数据时（新收录的指数）首尾是同一个日期，重复显示两遍像渲染错误 */}
-<div class="heat-axis">
-  <span>{firstDate}</span>
-  {days.length > 1 && <span>{lastDate}</span>}
-</div>
+{
+  axis && (
+    <div class="heat-axis">
+      <span>{firstDate}</span>
+      {days.length > 1 && <span>{lastDate}</span>}
+    </div>
+  )
+}

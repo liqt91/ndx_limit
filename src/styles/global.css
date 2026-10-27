@@ -604,6 +604,26 @@ a { color: inherit; text-decoration: none; }
 .sub-t { font-size: 13px; font-weight: 700; color: var(--ink-2); white-space: nowrap; }
 .sub-line { flex: 1; height: 1px; background: var(--rule); min-width: 12px; }
 .sub-a { font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.02em; color: var(--ink-3); white-space: nowrap; }
+/* 美元组折叠（2026-10-27）：summary 就是那条分组小标题，展开后下面接表。
+   ★ 收起形态必须留着「N 家可买」——折叠只该收起明细，不该把结论也藏掉，
+     否则读者点开之前不知道值不值得点。
+   ★ 用原生 details：键盘、读屏、无 JS 全都不用再补。默认的三角标记要显式去掉，
+     否则它跟左侧「美元」二字抢位置，还会被读成两个层级。 */
+.usd-fold > summary { cursor: pointer; list-style: none; }
+.usd-fold > summary::-webkit-details-marker { display: none; }
+.usd-fold > summary:focus-visible { outline: 1px solid var(--rule-2); outline-offset: 3px; }
+/* 「展开 / 收起」用伪元素写：同一份 DOM 由 [open] 决定文案，不用 JS 也不改 HTML */
+.sub-fold {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em;
+  color: var(--ink-3); white-space: nowrap;
+  border-bottom: 1px solid var(--rule-2);
+}
+.sub-fold::after { content: '展开'; }
+.usd-fold[open] .sub-fold::after { content: '收起'; }
+/* 收起时表不见了，小标题的 12px 下边距就成了悬空的空隙；
+   但完全归零又会让下面那条口径脚注贴上来，读成「这句是美元组的说明」。
+   留 6px：比一行小标题到正文的距离小，又还在脚注的上边距之外。 */
+.usd-fold:not([open]) > summary { margin-bottom: 6px; }
 /* 兼容旧的 grid-head / grid-title 结构 */
 .grid-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 44px 0 14px; }
 .grid-title { font-size: 15.5px; font-weight: 700; letter-spacing: 0.01em; margin: 0; }
@@ -798,6 +818,10 @@ a { color: inherit; text-decoration: none; }
 .hc.l3 { background: var(--heat-3, var(--rule)); }
 .hc.l4 { background: var(--heat-4, var(--rule)); }
 .hc.off { background: transparent; outline: 1px solid var(--rule-2); outline-offset: -1px; }
+/* na = 那天份额还没成立。色块版里它和「暂停」同形（空心框，靠悬停文字区分），
+   柱状版里两者必须分开：暂停是「有记录、关着」，尚未成立是「连记录都不该有」。
+   ★ 少了这条兜底，na 会落回 .hc 的默认底色，新份额左边凭空多出一排实心方块。 */
+.hc.na { background: transparent; outline: 1px solid var(--rule-2); outline-offset: -1px; }
 .hc.unk { background: transparent; outline: 1px dashed var(--rule-2); outline-offset: -1px; }
 .hc.miss {
   background: transparent;
@@ -808,6 +832,336 @@ a { color: inherit; text-decoration: none; }
   display: flex; justify-content: space-between;
   margin-top: 9px;
   font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.02em; color: var(--ink-3);
+}
+
+/* ── 柱状变体（.heat.bars）：量交给高度，颜色交还给身份 ─────────────────
+   为什么要有它：色阶要么是一把全站通用的尺（那就得凭空多占一个色相，而蓝/红/绿/灰
+   已经各有主人），要么跟着板块走（那 /my 上两段就各有一套深浅，「深」不再是同一个意思）。
+   柱子绕开了这个二选一——高度是量，颜色只是「这是哪一页」，两者不再抢同一个通道。
+   ★ 颜色取 --accent：分站页是印色（纳指蓝/标普红），共用页没有 --accent 时退墨色，
+     跟着页面走本来就是身份色的职责。
+   ★ 四档仍是 lib/amount-scale.ts 那四个固定边界，只是编码从「色深」换成「柱高」：
+     45 / 65 / 85 / 100%。靠一条共同的基线（底对齐）比较，而不是绝对像素——
+     整数像素随字体缩放会取整出错，百分比只是把「差一档」换成「差 20% 高度」。 */
+.heat.bars {
+  /* ★ 21 列等宽 grid，不用 flex + space-between：每一列就是一天，柱宽由列宽定死。
+     flex 下柱宽（flex-basis）与间隙（剩余空间）是两个来源，柱子会随列宽浮动；
+     grid 里列宽先定好，柱宽给一个固定值就能在桌面/窄屏各自对齐（下面 7px / 12px）。 */
+  display: grid;
+  grid-template-columns: repeat(21, minmax(0, 1fr));
+  /* gap 必须显式归零：.heat 上写着 2px 的 gap，grid 里同样生效，
+     每列被扣掉 2px 后柱子会被挤瘦（21 列累计吃掉 42px 可用宽度）。 */
+  gap: 0;
+  align-items: end;
+  /* 20px：柱宽从 4 加到 7 之后，18px 的容器会让最低档（45%≈8px）变成一块比高还宽的砖，
+     「柱子」就退化成「色块」。抬 2px 让最低档仍是竖着的。 */
+  height: 20px; margin-top: 0;
+  /* 基线必须有——柱状图的零点不画出来，「9px 和 19px」只是两块高低不同的色。 */
+  border-bottom: 1px solid var(--rule-2);
+}
+.heat.bars .hc {
+  aspect-ratio: auto;
+  justify-self: center; align-self: end;
+  /* 7px：列宽实测 11.3px（桌面 238px / 21），4px 的柱只剩 1/3 列宽，空隙 7px 比柱还宽，
+     21 根读成一排孤立的点。7px 时柱:空 ≈ 7:4，才是「柱状图」。 */
+  width: 7px; max-width: 7px; height: 100%;
+  background: var(--accent, var(--ink));
+}
+/* 档位 45/65/85/100：实际数据里九成的日子都是第一档（10 元），
+   低档必须留够高度，否则第一档读不成「矮柱」。容器 20px 时实测 8.6 / 12.4 / 16.2 / 19px，
+   相邻差 3.8 / 3.8 / 2.9px——最高两档最紧，所以柱子不能再窄或再矮，否则那 2.9px 就没了。
+   ★ 试过再叠一层透明度（.4/.6/.8/1）当第二个说法，撤了：浅档柱变淡蓝之后与
+     「没有这批数据」的空白难分，整片读成淡虚线，反而更糊。高度是唯一通道。 */
+.heat.bars .hc.l1 { height: 45%; }
+.heat.bars .hc.l2 { height: 65%; }
+.heat.bars .hc.l3 { height: 85%; }
+.heat.bars .hc.l4 { height: 100%; }
+/* 暂停 = 基线上方 3px 的一条横线，占满当天那一列。
+   ★ 第一版是「柱高归零，只剩基线」——用户看完说「不能申购的那天有点单调」。
+     确实：一整列空白既没交代「这天关了」，也没交代「这天到底有没有记录」，
+     标普页 21 天全暂停时那一列会空得像数据缺失。
+   ★ 第二版试过空心小方块，一个一个小方排开还是像省略号，只是不再空白。
+     改成横线是取它的另一个性质：grid 里每列的标记等宽且紧邻，**连续暂停会自动
+     接成一条长线**——21 天全关就是一道贯穿的封条，中间哪天开了就断开一个缺口。
+     「关了多久」这件事第一次能一眼看出来，而单个暂停日只是一小段短横。
+   ★ 横线而不是矮柱：柱子靠高度编码量，给暂停也画一根矮柱，它就会跟第一档（45%）
+     排进同一个比较里，读成「额度很小」。横线在形状上与柱子正交，主动退出这个比较。
+   ★ 也不能借用斜纹或虚线：那两样已经分别是「额度未公布」「状态未公布」的专用纹理。
+   ★ 高度 1px 是刻意的：与基线同粗细，读成同一套「结构线」，不会变成第三条数据。 */
+.heat.bars .hc.off {
+  /* 与柱同宽、但明显更矮（25% ≈ 4.8px）：这一天有个「槽位」，里面没东西。
+     ★ 高度不再取 45%（= 第一档）：柱宽加到 7px 后，45% 的空框是一个 7×7.6 的方框，
+       21 个排开像一溜方格纸。压到 25% 它才回到「一道短槽」的读法，且与实心柱
+       在形状上彻底分开——「矮 + 空心」两个说法同时指向「没有量」。
+     ★ 再往下（20% ≈ 3.8px）会掉进「贴着基线的虚线」那一档：空心看不见了，
+       整排只剩一串短横，又回到 10-27 试过的横线版观感。25% 是下界。
+     ★ 别用横线（试过，1px 灰线在 100% 缩放下几乎看不见，两条平行线还像表格装饰），
+       也别用灰色实心矮柱——那和第一档只剩颜色之差，「高度=量」这条就破了。 */
+  width: 7px; max-width: 7px;
+  height: 25%;
+  background: transparent;
+  outline: 1px solid var(--ink-3); outline-offset: -1px;
+}
+/* 份额还没成立的那些天（pad 补的格子）：什么都不画。
+   它们连「关了」都不是——那天这只基金还不存在，画符号就是编记录。
+   注意别让它继承上面那条横线：width 归零，连「一小段」都不出现。 */
+.heat.bars .hc.na { width: 0; max-width: 0; height: 0; margin: 0; background: transparent; outline: none; }
+/* 额度没公布 = 半高的斜纹柱：有量、量未知，不能让它的高度冒充某个具体档位 */
+.heat.bars .hc.miss {
+  height: 50%;
+  background: transparent;
+  outline: 1px solid var(--rule-2); outline-offset: -1px;
+  background-image: repeating-linear-gradient(45deg, var(--ink-3) 0 1.5px, transparent 1.5px 3px);
+}
+.heat.bars .hc.unk {
+  height: 50%;
+  background: transparent;
+  outline: 1px dashed var(--ink-3); outline-offset: -1px;
+}
+
+/* ── 基金额度列表（一份额一行） ──────────────────────────────
+   2026-10-27 取代原来的双列卡片网格。取舍见 FundTable.astro 头注释。
+   ★ 表格只负责「排布」，不引入任何新颜色：额度走墨色、暂停走 --stop、
+     待核验走 --warn、热力四档仍是 --heat-1..4。一个色相一个含义这条没破。 */
+.ftblwrap { margin: 0 0 10px; }
+.ftbl {
+  width: 100%; border-collapse: collapse; table-layout: fixed;
+  font-family: var(--mono);
+}
+/* 列宽定死：auto 布局会把余量全塞给某一列，序号与基金名之间会撑出几百像素的空洞。
+   热力列不写宽度，吃掉剩下的全部余量——越宽，21 天的形状越好认。
+   ★ 这几个宽度是跟着字号走的（2026-10-27 字号 13→14 后同步放宽）：
+     基金列要容得下「华泰柏瑞美元」五个字（15px × 5 + 内边距 ≈ 91），84px 会折成两行。 */
+.c-no-w { width: 36px; }
+.c-fund-w { width: 96px; }
+.c-code-w { width: 118px; }
+.c-amt-w { width: 100px; }
+.c-fee-w { width: 80px; }
+.c-te-w { width: 84px; }
+
+.ftbl thead th {
+  font-family: var(--mono);
+  /* 12.5px / 0.06em。10px 那版读起来是「一排骨签」：中文四字挤在 84px 里，
+     偏小的字再配上 0.12em 字距（那是给拉丁字母留的呼吸位）更显碎。
+     ★ 2026-10-27 两轮放大 10 → 11.5 → 12.5：这行是整张表的地图，
+       读者靠它决定往哪看，不该比正文小一档。再大就要折行了（「跟踪误差」四字 50px）。 */
+  font-size: 12.5px; font-weight: 600; letter-spacing: 0.06em;
+  color: var(--ink-3); text-align: left;
+  padding: 0 8px 10px;
+  border-bottom: 1px solid var(--rule-2);
+  white-space: nowrap;
+}
+.ftbl thead th.num { text-align: right; }
+.ftbl thead th .u { font-size: 11px; font-weight: 400; letter-spacing: 0; margin-left: 3px; }
+.ftbl thead th.th-heat { padding-left: 12px; }
+
+.ftbl tbody tr { border-bottom: 1px solid var(--rule); }
+/* 分组：新家族上面用深一档发丝线、家族内部用浅线。靠线的深浅读「这几行是一家的」，
+   不插空行——空行会把表切碎，一屏就扫不完了。
+   ★ 2026-10-27 四轮：组头行**曾经**带 20px 上留白（为了在名字只出现一次之后还能认出组）。
+     那 20px 是加在 `.fr-head` 的 td 上的，等于把每个家族的 A 份额那一行撑到 61px，
+     别的行 41px —— 用户：「除第一个基金家族外，其他家族 A 份额的行要高一点」。
+     表格的行高一旦不等，读起来就不再是一张表：视线扫列时每隔几行要重新对一次基线。
+   ★ 现在**所有行等高 41px**，分组交给两样东西：
+     ① 序号 / 基金名 / 跟踪误差三格 rowspan 跨满整组、垂直居中（这是最强的信号，
+        名字块本身就是一组的标签，比一行留白清楚得多）；
+     ② 组界那条 --rule-2 比组内的 --rule 深一档。
+     顺带解决一个几何巧合：等高之后，两份额组的名字中心正好落在两行之间的那条线上
+     （横跨两行 82px 的中点是 41px），三份额组落在中间那行 —— 名字天然读作
+     「这两份/三份共用的标签」。上一轮的 20px 留白反而让这个对齐要靠 padding 去补。
+   ★★ 2026-10-27 四轮踩到的真坑（**不是**「行边框不画」，别按那个记）：
+     这条组界线原来写成 `.ftbl tbody tr.fr-head { border-top: 1px solid var(--rule-2) }`，
+     pixel 采样发现组界与组内**都是 #e6e4dc**——「组界深一档」整整两轮只是源码里的一句话。
+     原因在折叠模型的冲突裁决：`border-collapse: collapse` 下，上一行的
+     `border-bottom: 1px solid var(--rule)` 与组头行的 `border-top: 1px solid var(--rule-2)`
+     争同一条边，宽 1px、样式同为 solid → 裁决落到优先级**同级的先后顺序**上，
+     前一行那条先到，颜色就归它。行边框其实画得出来：把这条临时改成 3px 红，
+     屏幕上立刻出现一条贯穿的红线（15960 个像素）——所以问题从来不是「不绘制」。
+     ★ 改法是**把边框落到 `> td` 上**：折叠时 cell 的优先级高于 row，同宽同样式下
+       单元格那条赢，--rule-2 才真的上屏（实测组界 203,201,193、组内 230,228,220）。
+       跨行格（序号/名字/跟踪误差）也在这个选择器里，线从表左拉到表右、不被标签块切断。 */
+.ftbl tbody tr.fr-head > td { border-top: 1px solid var(--rule-2); }
+/* 悬停只染「份额级」的格子。
+   ★ 2026-10-27 三轮：序号 / 基金名 / 跟踪误差三格都 rowspan 跨满整组之后，
+     `tr:hover { background }` 会把跨行格也一并染上——于是悬停续行时左侧三格不亮、
+     悬停首行时左侧一整块（竖跨三行）全亮，同一个 hover 在同一组里给出两种画面。
+     改成按格染色：跨行格属于**组**、不属于任何一行，永远保持纸色；
+     亮起来的只有份额/额度/年费/热力这四列，正好是「这一份」的全部内容。
+   ★ 原来给 `.ftbl td.c-te[rowspan]` 单独设的 `background: var(--paper)` 是同一个
+     目的（盖住半截灰），现在由这条统一承担，那行已经删掉。 */
+.ftbl tbody tr:hover td:not([rowspan]) { background: rgba(20, 19, 15, 0.045); }
+
+.ftbl tbody td { padding: 8px; vertical-align: middle; font-size: 14px; color: var(--ink); }
+/* ★ 单元格自己的字号/颜色都得带 `.ftbl td`（0,2,1）才压得过上面那条 0,1,2。
+   裸 `.c-no` / `.c-fee` / `.c-te` 是 0,1,0——**写多少都不生效**（2026-10-27 查）。
+   后果不只是字号：年费、跟踪误差本该是 --ink-2 的注脚色，实际被 td 的 --ink
+   染成了和额度一样的满黑，于是整行的数字看起来一样重，额度自然不显眼。 */
+.ftbl td.c-no { color: var(--ink-3); font-size: 12px; }
+/* 全局 .fam-name 是给卡片用的（flex 子项、15px）。在表格里要重设字号——
+   它现在是 td 里的一个块，与右边三列排在一行，「标题 · 明细 · 数字」的层次才立得住。 */
+.ftbl .fam-name { font-family: var(--sans); font-size: 15px; font-weight: 700; line-height: 1.35; letter-spacing: 0; }
+/* ★ `.fam-cont`（续行复读家族名）已于 2026-10-27 三轮**连模板一起删掉**：
+   名字所在的整个 `.c-fund` 格现在 rowspan 跨满整组，续行不再有这个单元格。
+   六轮又把窄屏那个备胎（`tr[data-name]::before`）也删了——续块不再复读名字，
+   见下面窄屏媒体查询里的说明。同一个事实现在只有一种实现：**名字只属于组头**。 */
+
+.c-code { white-space: nowrap; }
+.shc { color: var(--ink-2); text-decoration: none; }
+.shc:hover { color: var(--ink); text-decoration: underline; }
+.shc:focus-visible { outline: 1px solid var(--ink-2); outline-offset: 2px; }
+.shc .cls {
+  display: inline-block; min-width: 15px; margin-right: 5px;
+  font-size: 11.5px; font-weight: 600; line-height: 15px; text-align: center;
+  color: var(--ink-3); border: 1px solid var(--rule-2);
+}
+
+.c-amt, .c-fee, .c-te { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* 额度是这张表的主角（七列都为回答「今天能买多少」），给它一档自己的字号：
+   比 14px 正文高 6px 才读得出「这个数是结论，其余是注脚」。
+   ★ 选择器必须带 `.ftbl td`：`.ftbl tbody td { font-size: 14px }` 是 0,1,2，
+     裸 `.c-amt` 只有 0,1,0——**怎么改都不生效**。2026-10-27 之前写的 17px
+     其实一直被盖着，屏幕上额度与正文同号，用户问「能不能再显眼些」时它其实
+     一次都没拥有过自己的字号。现在用 0,2,1 压过它。
+   ★ 2026-10-27 二轮：17 → 20 / 600 → 700。17px 在 41px 的行里被基金名
+     （15px 粗体）和热力条夹住，读起来仍像一列普通数字。
+     实测最大额度 200（三字符）：20px 等宽数字 ≈ 7.2px/字符，100px 列宽绰绰有余
+     ——这个列宽留给将来出现「10,000」这种六位数额度（≈43px）也够。
+   letter-spacing 收 0.02em：大盘数字稍紧一点才成块，不然 1 和 0 之间漏风。 */
+.ftbl td.c-amt { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+/* 「—」不跟着放大：不可买是缺省状态，横杠 20px 会变成一道抢眼的黑线，
+   反而比真额度还显眼。留在 18px / 400，让「有数字」继续是唯一的大字。 */
+.ftbl td.c-amt.is-off { color: var(--stop); font-weight: 400; font-size: 18px; }
+/* 「待核验」是文字不是数字：跟着放大就变成三个 20px 的大字，比额度还吵。 */
+.ftbl td.c-amt.is-warn { color: var(--warn); font-size: 14px; font-weight: 400; }
+/* 年费与跟踪误差是注脚：比额度小两档、退到 --ink-2 的灰。
+   ★ 同样必须带 `.ftbl td`（见上），否则 13.5px/--ink-2 一个都落不下来。
+     这两列压下去之后，额度那 20px 才有「只有它是结论」的对比。 */
+.ftbl td.c-fee, .ftbl td.c-te { color: var(--ink-2); font-size: 13.5px; }
+/* 跟踪误差：rowspan 跨满整个家族（见 FundTable 注释），垂直居中在组的中间。
+   ★ 光靠「跨行」还不够——横跨 3 行的数字在第 6 列中间，离名字隔了 200px，
+     看图它更像「热力条那列的一个注释」。左边加一道竖线把它括成「这一家的一块」。
+   ★ 但**不能直接用 border-left**：跨行格的高度是「整组各行之高」，border 会一路
+     铺到组与组之间的那条界线上，27 个组首尾相接就成了**一条贯穿全表的列分隔线**——那是
+     「把跟踪误差划成独立一列」的意思，恰好反了。所以用伪元素画，上下各缩进 10px，
+     线只存在于组内、两头不碰行线，读作「括注」而不是「分隔」。
+   ★ 线只用中性结构色，不用印色：它说的是「这几行是一个家族」，是结构不是身份。 */
+.ftbl td.c-te[rowspan] { position: relative; padding-left: 14px; }
+.ftbl td.c-te[rowspan]::after {
+  content: ''; position: absolute; left: 0; width: 1px; top: 10px; bottom: 10px;
+  background: var(--rule);
+}
+
+/* ★ 2026-10-27 三轮补记：跨行格**不要**额外加 padding-top。
+   我一度把它提到 28（以为是"8 + 组头 20 留白"），结果 06 万家 / 07 华安 这些
+   两份额组的名字明显偏下——用户一眼看出来了。
+   ★ 四轮：那条 20px 组头留白已经整个删掉（它让 A 份额行比其他行高 20px），
+     所有行等高 41，跨行格 padding 8 时内容中心就是组高的一半 —— 天然居中，
+     不需要任何补偿。这条断言因此更硬了：`[rowspan]` 里出现 padding-top 一定是错的。 */
+
+/* 热力条压进单元格：gap 收到 2px、去掉卡片里的上边距。
+   ★ max-width 必须跟着改：全局那条是按 gap 3px 写的 (100% - 60px)/21，
+     这里 gap 是 2px，不覆盖就会被限到 9.9px——白占了余量、格子却不变大。 */
+.c-heat { padding-left: 12px; padding-right: 0; }
+/* ★ 这两条只给「色块」版用，必须 :not(.bars) 排掉柱状版：
+   它们和 .heat.bars 同权重（都是两个类），写在后面就赢——柱状版的 gap:0 被改回 2px，
+   连续暂停那条封条又被切成 21 段短横（2026-10-27 踩过：屏幕上看着像虚线，
+   量出来才发现每列 5.66px + 2px 间隙，而 CSS 里明明写着 gap:0）。 */
+.c-heat .heat:not(.bars) { margin-top: 0; gap: 2px; }
+.c-heat .heat:not(.bars) .hc { max-width: calc((100% - 40px) / 21); }
+
+/* 表格脚注：两行小字交代全表口径（年费包含什么、跟踪误差怎么读）。
+   一条占一行，不再用「·」连成一段——两句话本来互不相干，连起来读者还得自己断句；
+   分行的另一个好处是每行都能单独删改，不用再管「分隔符会不会落在行尾」。
+   详细口径留在 /f/<code> 详情页。 */
+.tbl-note {
+  margin: 14px 0 0;
+  font-family: var(--sans); font-size: 12.5px; line-height: 1.85;
+  color: var(--ink-3);
+}
+.tbl-note b { font-weight: 600; color: var(--ink-2); }
+.tbl-note .tn-item { display: block; }
+
+/* 窄屏：表格拆成「一块份额」的网格。
+   390 下 7 列放不下——份额代码、额度、热力条会互相挤，横向溢出或文字被裁。
+   改成每份额一块：序号在左，基金名/代码/额度在右，费率与误差同一行，热力条通栏。 */
+@media (max-width: 700px) {
+  .ftbl thead { display: none; }
+  .ftbl colgroup { display: none; }
+  .ftbl, .ftbl tbody { display: block; width: 100%; }
+  .ftbl tbody tr {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "no fund te"
+      "no code amt"
+      "no fee  fee"
+      "no heat heat";
+    gap: 1px 8px;
+    padding: 9px 0;
+    border-top: 1px solid var(--rule);
+  }
+  .ftbl tbody tr.fr-head { border-top: 1px solid var(--rule-2); }
+  /* ★ 桌面的组界线落在 `> td` 上（0,2,3），比这里 `.ftbl tbody td { border: none }`（0,1,2）
+     重。不显式归零，窄屏每组首块会多一条横线、还夹在 tr 自己那条线的下面。 */
+  .ftbl tbody tr.fr-head > td { border-top: 0; }
+  .ftbl tbody td { padding: 0; border: none; }
+  /* 窄屏的分组靠 tr 自己的 16px padding 与两条 border-top。
+     ★ 桌面那条「组头 td 加 20px 上留白」已在四轮删除（它让 A 份额行比其他行高一截），
+       所以这里不再需要把它归零。 */
+  .ftbl tbody tr.fr-head:not(:first-child) { padding-top: 16px; }
+  /* 窄屏没有「组」这个概念（每块是独立单元），括注线会变成块里一条莫名其妙的竖线 */
+  .ftbl td.c-te[rowspan] { padding-left: 0; }
+  .ftbl td.c-te[rowspan]::after { display: none; }
+  /* ★ 2026-10-27 六轮：续块（C/D 类）**不再复读家族名**。
+     原来这里有一个 `tr:not(.fr-head)::before { content: attr(data-name) }`，
+     14px 灰色、摆在代码上方 —— 于是 C 块长得跟 A 块一样高、一样从一个名字开始，
+     两块读起来是**同级**的：一块「大成」，下一块也是「大成」，只是份额不同。
+     用户要的是让续块明显是**下层信息**：「把 C/D 上面显示的家族名称移除了，
+     这样 C/D 是下层的信息更明显一点」。
+     删掉之后 C 块直接从 `[C] 008971` 开始，比首块矮一行、紧贴在上面那一块底下，
+     读作「这一家的第二个份额」而不是「另一家基金」。顺带省下 33 × 22px 的高度。
+     ★ 桌面不受影响：桌面续块的名字由跨行格（rowspan）承担，压根没有这一行。
+     ★ 伪元素只能写在媒体查询里：桌面 tr 是 table-row，::before 会被包成一个匿名单元格，
+       凭空多出一列、整张表右移。 */
+  /* 续块与上面那块贴紧一点（9 → 5px）：组内紧、组间松（组头仍是 16px），
+     间距本身就是「谁属于谁」的线索，不靠再写一遍名字。 */
+  .ftbl tbody tr:not(.fr-head) { padding-top: 5px; }
+  .c-no { grid-area: no; }
+  .c-fund { grid-area: fund; }
+  .c-code { grid-area: code; }
+  /* 额度跨两行、贴着第一行顶边：它是这一块里唯一要一眼看到的数字。
+     ★ 必须写成 `.ftbl td.c-amt`：桌面那条（0,2,1）会压过裸类名，
+       不写全窄屏就退回 20px，与右边「元」的 13px 挤在一起。 */
+  .ftbl td.c-amt { grid-area: amt; align-self: start; font-size: 22px; }
+  /* 表头藏了，「元」也跟着藏了 —— 只剩一个 10，读者不知道是 10 元还是 10 万。
+     只给「有数字」和「有具体金额」的那种加单位：
+     「—」是不可买、「待核验」是金额没公布，加了「元」都变成假话。 */
+  .ftbl td.c-amt:not(.is-off):not(.is-warn)::after {
+    content: ' 元'; font-size: 13px; font-weight: 400; color: var(--ink-3);
+  }
+  .ftbl td.c-fee { grid-area: fee; text-align: left; }
+  /* 跟踪误差是**组级**指标（同一基金的各类份额跟踪同一个组合）。
+     窄屏原来把它摆在「年费」那一行的尾巴上：于是它读起来像 A 那一块的第四个数据
+     （000834 / 10 元 / 年费 1.00% / 1.03%），而 C、D 块压根没有这个值。
+     现在移到**组标签那一行**（序号 + 基金名）的右端 —— 它是这一家的注脚，不是某一份的。
+     顺带把年费行还原成每块都一样的一行「年费 x.xx%」，四块的右边缘也就齐了。 */
+  /* ★ 字号与行高都要比组名小一档：它现在和 15px 粗体的基金名同一行，
+     13.5px / 行高 23.22 会把这一行顶高 3px —— 组首块比续块高 5px，
+     又变成「同一张表里行高不等」（桌面刚为这件事改过一轮）。12px / 1.4 就压得住了。 */
+  .ftbl td.c-te { grid-area: te; text-align: right; margin-left: 0; align-self: center; font-size: 12px; line-height: 1.4; }
+  .c-heat { grid-area: heat; padding-left: 0; margin-top: 4px; }
+  /* 表头藏了，列名得靠行内标签补。
+     ★ 必须 :not(:empty)——空单元格上的 ::before 照样渲染，续行会剩下一个光秃秃的
+       「跟踪误差」，读起来像数据缺失（2026-10-27 预览里踩过）。 */
+  .c-fee::before { content: '年费 '; color: var(--ink-3); font-size: 11.5px; }
+  .c-te:not(:empty)::before { content: '跟踪误差 '; color: var(--ink-3); font-size: 11.5px; }
+  /* 窄屏热力条通栏：列宽实测 15.2px（320px / 21）。柱宽 10px 时柱:空 ≈ 10:5，
+     还能看出「一根一根」；试过 12px（空隙只剩 3px），21 根连成一条带缝隙的色带，
+     高度差就看不见了——通栏不是越宽越好，柱宽得给空隙留够列宽的 1/3。 */
+  .heat.bars .hc { width: 10px; max-width: 10px; }
+  /* 空槽跟着柱宽一起放大，否则窄屏上柱子 10px、暂停只有 7px，两种宽度混在一列里。
+     高度仍 30%，不跟着宽走：它靠「矮 + 空心」与实心柱区分，拉高就回到方框了。 */
+  .heat.bars .hc.off { width: 10px; max-width: 10px; }
 }
 
 /* 图例方点：四档连起来读成一把尺，其余是纹理。
@@ -826,7 +1180,47 @@ a { color: inherit; text-decoration: none; }
 }
 .ramp-legend { display: inline-flex; align-items: center; }
 .ramp-legend .lg { margin-right: 0; }
-.ramp-legend em { font-style: normal; margin-left: 7px; }
+/* 色阶用一条硬分段的窄带代替四个方块（2026-10-27）：
+   四个色块并排时，最深那一档会单独占一块面积，在小尺寸下成了页面上最重的一点；
+   连成一条 46×10 的窄带，读法是「一把尺」而不是「四张色卡」，占地也只有原来的一半。
+   ★ 硬分段（0 25% / 25% 50% …）而不是平滑渐变：额度本来就是四档离散值，
+     做成渐变会暗示中间还有档位。改 --heat-* 时这条会跟着变，不用同步改色值。 */
+.ramp {
+  display: inline-block; width: 46px; height: 10px; vertical-align: middle;
+  background: linear-gradient(
+    90deg,
+    var(--heat-1, var(--rule)) 0 25%,
+    var(--heat-2, var(--rule)) 25% 50%,
+    var(--heat-3, var(--rule)) 50% 75%,
+    var(--heat-4, var(--rule)) 75% 100%
+  );
+}
+/* 色阶两端各钉一个字：一条色带只能说明「有深有浅」，说不出深浅对应什么
+   （额度大还是额度小）。「少」「多」把方向钉死，图例自己讲完自己。 */
+.lg-cap {
+  font-style: normal; font-size: 11.5px; line-height: 1;
+  color: var(--ink-3); letter-spacing: 0;
+}
+.ramp-legend .lg-cap:first-child { margin-right: 6px; }
+.ramp-legend .lg-cap:last-child { margin-left: 6px; }
+
+/* 柱状版的图例：四根递升的小柱，颜色与格子同取 --accent。
+   ★ 图例必须与格子同形：格子是柱，图例也得是柱——画成色带会让人去表格里找「哪个格子是深色」，
+     而表格里现在只有高矮。 */
+/* 15px / 7px 柱宽：跟表格同比例（表格容器 20px、柱 7px），只是整体缩了一档，
+   才不会图例里是四根牙签、格子里是四根筷子。 */
+.ramp-bars { display: inline-flex; align-items: flex-end; gap: 2px; height: 15px; vertical-align: middle; }
+.ramp-bars > i { display: block; width: 7px; background: var(--accent, var(--ink)); }
+/* ★ 档位与表格逐档一致（45/65/85/100），不是好看的 25/50/75/100：
+   图例是让人拿它对格子的尺，比例对不上就只能靠猜（表格改了档位、图例没跟着改过一版）。 */
+.ramp-bars > i:nth-child(1) { height: 45%; }
+.ramp-bars > i:nth-child(2) { height: 65%; }
+.ramp-bars > i:nth-child(3) { height: 85%; }
+.ramp-bars > i:nth-child(4) { height: 100%; }
+/* 柱状图例里的「暂停」与表格同形：一个小空槽（7px 宽、25% 高的空心柱），不是 13px 的方框。
+   13px 是给色块版对齐格子用的；柱状版的格子是 7px 宽的柱，画成方框就不是一把尺了。
+   描边跟着表格用 --ink-3：--rule-2 在小框上淡到看不出是「框」还是「噪点」。 */
+.grid-legend.is-bars .lg.off { width: 7px; height: 4px; border-color: var(--ink-3); }
 
 /* ── 章节标题（旧结构） ── */
 .section-title {
@@ -870,13 +1264,17 @@ a { color: inherit; text-decoration: none; }
 /* 行间发丝线用 inset 阴影而不是 border-top：border 会挤进 height（border-box），
    于是行有 1px 的 46、其余 45，格子不再真正等高。阴影不占布局，七行都是 46。 */
 .wk-row + .wk-row { box-shadow: inset 0 1px 0 var(--rule); }
-/* 本周：极淡中性底 + 左侧一道墨书签，纯视觉、不靠文字也能定位。
+/* 本周：只有左侧一道墨书签，**不再给整行铺淡底**。
+   ★ 2026-10-27：整行 2.2% 的灰底与休市格的 4.2% 灰底是同一个色相、同一个手法
+     （铺一层中性底），读者看不出哪层说的是「这一周」、哪层说的是「这天关门」
+     ——用户原话「本周和休市的颜色有点相似」。
+     现在把「面」还给状态：**底色只表示不开放**；「哪一周」改用「线」
+     （3px 墨书签，贯穿整行高）。线与面形状不同，两者叠在同一行里也不会串。
    ★ 这道书签与下面的「今天环」都说的是**时间**（哪一周 / 哪一天），不是状态，
      所以给墨阶而不是彩色：灰＝结构。原来它是绿的——先是 --accent-open（159°），
      后来并到 --ok（还是 159°）——日历因此成为页面上第二片绿，与热力的 117° 橄榄
      在同一个视野里对峙。2026-10-26 收回墨阶。 */
-.wk-row.is-this-week { background: rgba(0, 0, 0, 0.022); }
-.wk-row.is-this-week .wk-lbl { box-shadow: inset 2px 0 0 var(--ink-2); }
+.wk-row.is-this-week .wk-lbl { box-shadow: inset 3px 0 0 var(--ink); }
 /* 左列：只有周范围一行（最多折两行，跨月时）。★ 2026-10-26 第五轮把「本周」二字
    从这里删掉 —— 它是行高的第三个来源（10.5px 一行 = 10px 高），而它说的是
    「哪一周」，同一件事上面那两行 CSS（书签 + 淡底）已经说了。现在这一列用
@@ -890,7 +1288,7 @@ a { color: inherit; text-decoration: none; }
   padding: 7px 0 0; overflow: hidden;
 }
 .wk-lbl b { font-family: var(--mono); font-size: 12.5px; font-weight: 500; color: var(--ink-2); letter-spacing: -0.01em; }
-.wk-row.is-this-week .wk-lbl b { color: var(--ink); font-weight: 600; }
+.wk-row.is-this-week .wk-lbl b { color: var(--ink); font-weight: 700; }
 /* 周范围的后半段（「–16」「–10.2」）。窄屏 46px 放不下 8 个等宽字符，
    折行会断在连字符后变成「10.12–」/「16」——两行看着像页码。窄屏干脆只留
    周一那天（10.12）：这一行右边就是 12 13 14 15 16，终点本来就写在格子里；
@@ -918,7 +1316,7 @@ a { color: inherit; text-decoration: none; }
      一行的版本在 130px 宽时确实放得下，可它和休市格（日期 + 原因必然两行）
      在同一个行里比高度，于是交易日所在的整行被休市格顶高 10px——用户看到的就是
      「不能交易的日期把行撑高了」。现在两槽对齐，谁都没有第二行可以多占。 */
-.wk-amt { margin-top: 2px; font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--ink-2); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; line-height: 1.15; white-space: nowrap; }
+.wk-amt { margin-top: 2px; font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: var(--ink-2); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; line-height: 1.15; white-space: nowrap; }
 .wk-amt u { font-style: normal; font-size: 10px; font-weight: 400; color: var(--ink-3); text-decoration: none; margin-left: 1px; }
 /* 柱：2026-10-26 第四轮已移除 ——
    用户：「交易不用热力图的展现形式，只是区分交易日和非交易日呢？」
@@ -935,9 +1333,17 @@ a { color: inherit; text-decoration: none; }
 /* 还没到的交易日：只有浅灰日期，不写原因（它不是「不能买」，只是还没到） */
 .wk-d.is-future .wk-dt { color: var(--ink-3); font-weight: 400; }
 /* 买不到：浅灰日期 + 浅灰原因，整格退后，靠墨色淡出来和「可买」分层。
-   ★ 2026-10-26 第四轮：原来这里 `justify-content: center`，休市日的内容整块垂直居中，
+   ★ 2026-10-27：再加一层极淡中性底（4%），把「关着的一天」变成纸上一块压暗的格。
+     用户原话：「交易日历区分度不够」。查下来根因是**四种状态全落在同一个白底上**，
+     只能靠「日期浓淡 + 下行那 10px 小字」区分：额度是数字、原因是文字，
+     在 100% 缩放下一个样。给休市格换底，图底关系立刻成立——
+     可买＝白纸（默认状态，不画），不可买＝压暗（异常状态，画出来）。
+     ★ 用中性底而不是色块：绿/橄榄/红在站内各有主人（可买/额度/标普身份），
+       日历再借一个色相就成了第四套语义。灰＝结构，这一层只表示「不开放」。
+   ★ 2026-10-26 第四轮：这里原来是 `justify-content: center`，休市日的内容整块垂直居中，
      于是同一行里交易日日期贴顶、休市日日期落在半格处，五列的日期不在一条水平线上。
      现在一律从顶部排 —— 日期是日历的锚点，每个格子都得在同一条线上。 */
+.wk-d.is-off { background: rgba(0, 0, 0, 0.042); }
 .wk-d.is-off .wk-dt { color: var(--ink-3); font-weight: 400; }
 /* 今天：细墨环，不改底色（今天是周末也不变色，只描一圈）。
    ★ 用墨阶而不是绿：这一圈说的是「就是今天」，属于时间轴上的定位，

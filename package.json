@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "astro dev",
     "scrape": "node scripts/scrape.mjs",
+    "fees": "node scripts/fetch-fees.mjs",
+    "tracking": "node scripts/fetch-tracking.mjs",
     "import:history": "node scripts/import-history.mjs",
     "import:limits": "node scripts/import-limits-from-announcements.mjs",
     "check:data": "node scripts/check-freshness.mjs",
