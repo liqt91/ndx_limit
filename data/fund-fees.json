@@ -68,8 +68,16 @@
     },
     "019736": {
       "code": "019736",
-      "ok": false,
-      "error": "fetch failed"
+      "mgmt": 0.5,
+      "custody": 0.15,
+      "sales": 0,
+      "purchase": 0.12,
+      "purchaseOrig": 1.2,
+      "purchaseTier": "小于100万元",
+      "purchaseDiscount": 0.1,
+      "purchaseTierCount": 5,
+      "annualTotal": 0.65,
+      "ok": true
     },
     "019737": {
       "code": "019737",
