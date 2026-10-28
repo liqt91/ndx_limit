@@ -1,12 +1,30 @@
 {
   "date": "2026-10-28",
-  "fetchedAt": "2026-10-28T09:40:09+08:00",
-  "slot": "morning",
+  "fetchedAt": "2026-10-28T14:30:09+08:00",
+  "slot": "close",
   "runs": [
     {
       "slot": "morning",
       "at": "2026-10-28T09:40:09+08:00",
       "time": "09:40",
+      "opened": 7,
+      "total": 135,
+      "families": 17,
+      "changed": null,
+      "byIndex": {
+        "标普500": {
+          "opened": 2,
+          "total": 120,
+          "families": 7,
+          "degraded": false,
+          "changed": null
+        }
+      }
+    },
+    {
+      "slot": "close",
+      "at": "2026-10-28T14:30:09+08:00",
+      "time": "14:30",
       "opened": 7,
       "total": 135,
       "families": 17,
