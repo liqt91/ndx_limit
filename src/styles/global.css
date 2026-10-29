@@ -1247,8 +1247,7 @@ a { color: inherit; text-decoration: none; }
 
 .wk { margin-top: 4px; }
 /* 周几表头：结构轴（一二三四五），下方一道发丝线，像账册栏首 —— 不用卡片、不用框 */
-.wk-head { display: flex; gap: 12px; padding-bottom: 5px; border-bottom: 1px solid var(--rule); }
-.wk-head-spacer { flex: 0 0 58px; width: 58px; }
+.wk-head { display: flex; padding-bottom: 5px; border-bottom: 1px solid var(--rule); }
 .wk-head-days { flex: 1; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
 .wk-head-days span {
   text-align: center; font-family: var(--mono); font-size: 11px;
@@ -1260,7 +1259,7 @@ a { color: inherit; text-decoration: none; }
      休市格多一行原因、左列周范围折成两行、「本周」二字占一行。
      门禁盯着这条（「行高由常量决定」），因为内容一旦能撑高行，
      等高就只是当前数据碰巧的样子——换一个月、换个指数就散架。 */
-.wk-row { --wk-h: 46px; display: flex; align-items: stretch; gap: 12px; height: var(--wk-h); }
+.wk-row { --wk-h: 56px; display: flex; align-items: stretch; height: var(--wk-h); }
 /* 行间发丝线用 inset 阴影而不是 border-top：border 会挤进 height（border-box），
    于是行有 1px 的 46、其余 45，格子不再真正等高。阴影不占布局，七行都是 46。 */
 .wk-row + .wk-row { box-shadow: inset 0 1px 0 var(--rule); }
@@ -1274,26 +1273,11 @@ a { color: inherit; text-decoration: none; }
      所以给墨阶而不是彩色：灰＝结构。原来它是绿的——先是 --accent-open（159°），
      后来并到 --ok（还是 159°）——日历因此成为页面上第二片绿，与热力的 117° 橄榄
      在同一个视野里对峙。2026-10-26 收回墨阶。 */
-.wk-row.is-this-week .wk-lbl { box-shadow: inset 3px 0 0 var(--ink); }
-/* 左列：只有周范围一行（最多折两行，跨月时）。★ 2026-10-26 第五轮把「本周」二字
-   从这里删掉 —— 它是行高的第三个来源（10.5px 一行 = 10px 高），而它说的是
-   「哪一周」，同一件事上面那两行 CSS（书签 + 淡底）已经说了。现在这一列用
-   **墨的深浅**再说一遍：本周 ink/600，其余 ink-2；一句话都不多占一行。
-   padding 收到 4px：两行 12.5px 正文 + 8px 只有 38px，仍在 --wk-h 46 之内，
-   折行也顶不破（真顶破还有 overflow: hidden 兜底——宁可切一个字的边缘，
-   也不要让一行的字数去改整张表的高度）。 */
-.wk-lbl {
-  flex: 0 0 58px; width: 58px;
-  display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; line-height: 1.15;
-  padding: 7px 0 0; overflow: hidden;
-}
-.wk-lbl b { font-family: var(--mono); font-size: 12.5px; font-weight: 500; color: var(--ink-2); letter-spacing: -0.01em; }
-.wk-row.is-this-week .wk-lbl b { color: var(--ink); font-weight: 700; }
-/* 周范围的后半段（「–16」「–10.2」）。窄屏 46px 放不下 8 个等宽字符，
-   折行会断在连字符后变成「10.12–」/「16」——两行看着像页码。窄屏干脆只留
-   周一那天（10.12）：这一行右边就是 12 13 14 15 16，终点本来就写在格子里；
-   左列只需要把「哪个月、从哪天起」钉住。 */
-.wk-rng { display: inline; }
+/* 本周：只有左侧一道墨书签（3px 实线），不再给整行铺淡底、也不再靠左侧「周范围」列。
+   ★ 2026-10-28：左侧日期范围列已移除，日期改写在每格内（MM.DD）。「本周」的时间定位
+     只由这条墨线承担——底色独属「不开放」（.wk-d.is-off），时间用线不用面。
+     用 border-left 而非 box-shadow：box-shadow 会被首格背景盖住，border 画在内容之外、永远可见。 */
+.wk-row.is-this-week { border-left: 3px solid var(--ink); }
 .wk-days { flex: 1; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
 /* 格子：高度交给行（align-items: stretch），自己不再设定 min-height。
    ★ 固定两个槽位 —— **上行日期、下行结论**。下行是互斥的四选一：
@@ -1316,8 +1300,11 @@ a { color: inherit; text-decoration: none; }
      一行的版本在 130px 宽时确实放得下，可它和休市格（日期 + 原因必然两行）
      在同一个行里比高度，于是交易日所在的整行被休市格顶高 10px——用户看到的就是
      「不能交易的日期把行撑高了」。现在两槽对齐，谁都没有第二行可以多占。 */
-.wk-amt { margin-top: 2px; font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: var(--ink-2); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; line-height: 1.15; white-space: nowrap; }
-.wk-amt u { font-style: normal; font-size: 10px; font-weight: 400; color: var(--ink-3); text-decoration: none; margin-left: 1px; }
+/* ★ 2026-10-28：金额数字放大到与「今天能买多少」表格的 额度数字 同号（22px / 700 / 1.1），
+   所以它和表格里的结论数字读起来是同一档分量。上行日期因此退为锚点、额度成为格子主角，
+   与表格「额度是结论、其余是注脚」的层次一致。行高随之从 46 → 56（见 .wk-row）以容纳两槽。 */
+.wk-amt { margin-top: 2px; font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--ink-2); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; line-height: 1.1; white-space: nowrap; }
+.wk-amt u { font-style: normal; font-size: 11px; font-weight: 400; color: var(--ink-3); text-decoration: none; margin-left: 1px; }
 /* 柱：2026-10-26 第四轮已移除 ——
    用户：「交易不用热力图的展现形式，只是区分交易日和非交易日呢？」
    原先这根柱的高度 ∝ 当日额度（--h = total / 窗口内最大值），是「用图形量额度」；
@@ -1372,17 +1359,15 @@ a { color: inherit; text-decoration: none; }
    ★ 整段必须写在这组基础规则之后：同权重下后写的赢，写在前面等于没写
      ——2026-10-26 发现旧版这一整段（当时在 740 行附近）从来没生效过。 */
 @media (max-width: 600px) {
-  .wk-head-spacer { flex-basis: 46px; width: 46px; }
   .wk-head-days span { font-size: 10px; }
-  /* 行高比桌面矮 4px：窄屏的字号小一档，两槽（12.1 + 12.5）＋ 12px padding = 38.6 ≤ 42 */
-  .wk-row { --wk-h: 42px; }
-  .wk-lbl { flex-basis: 46px; width: 46px; padding-top: 6px; }
-  .wk-lbl b { font-size: 11.5px; white-space: nowrap; }
-  .wk-rng { display: none; }
+  /* 行高比桌面矮 8px：窄屏字号小一档，两槽（日期 11×1.1=12.1 + 额度 16×1.1=17.6）＋ 2px 间距
+     ＋ 12px padding = 43.7 ≤ 48。★ 额度在窄屏只能到 16px：格子仅约 50px 宽，4 位「元」金额
+     （如 1084元）在 22px 下会横向溢出到隔壁格；16px 是物理上限内的最大档（与桌面 22px 同源、同 700）。 */
+  .wk-row { --wk-h: 48px; }
   .wk-d { padding: 6px 5px; }
   .wk-dt { font-size: 11px; }
-  .wk-amt { font-size: 10px; }
-  .wk-amt u { font-size: 9px; }
+  .wk-amt { font-size: 16px; }
+  .wk-amt u { font-size: 10px; }
   /* 2026-10-26 第四轮：柱撤掉后，这里原本那条窄屏柱高覆盖（--wk-track: 22px）一并删除。 */
   /* 2026-10-26 第五轮：休市原因不再分两行，也不再靠 break-all 硬断 —— 单行 + 省略号
      由基础规则统一负责，这里只缩一档字号（一格 52px，10px 下「国庆节假期」仍会被
@@ -1850,13 +1835,12 @@ a { color: inherit; text-decoration: none; }
   letter-spacing: 0.03em;
   color: var(--ink-3);
 }
-/* 备案号位：占位态用 ghost（比 ink-3 更浅，明确弱于正文，不会被当成已填内容）。
-   拿到真号码换成 beian.miit.gov.cn 链接后，颜色改 ink-3。 */
+/* 备案号：真号已填，链接指向 beian.miit.gov.cn，颜色用 ink-3（不再是占位态的 ghost）。 */
 .foot-icp {
   font-family: var(--mono);
   font-size: 12px;
   letter-spacing: 0.03em;
-  color: var(--ghost);
+  color: var(--ink-3);
   text-align: right;
 }
 .foot-meta { color: var(--ink-3); font-size: 12.5px; line-height: 1.85; margin: 0; }

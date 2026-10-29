@@ -87,6 +87,6 @@
 
   <view class="foot">
     <view class="foot-line">© {{siteName}}</view>
-    <view class="foot-line">备案号待补充</view>
+    <view class="foot-line">沪ICP备2026030184号</view>
   </view>
 </view>
