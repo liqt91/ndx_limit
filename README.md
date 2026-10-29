@@ -3,19 +3,22 @@
 一个**纯静态**的「QDII 基金每日申购额度追踪」站，涵盖**纳斯达克100**与**标普500**两个指数分站。
 技术栈 **Astro（SSG）**，全程**不需要服务器、数据库或运行时**。产物是纯 HTML/CSS/JS，托管在
 **EdgeOne Pages**（腾讯云免费的静态网站服务，自带全球 CDN + HTTPS + DDoS 防护）；
-**每日更新**由 **GitHub Actions cron**（永久免费）每天抓取数据并回写仓库、自动触发 EdgeOne 重建实现
+**每日更新**由 **EdgeOne 定时任务**（`edgeone.json` 的 schedules）在北京 07:50 / 09:40 / 14:30 打到
+本站边缘函数 `/api/jobs/dispatch`，由它触发 **GitHub Actions** 抓取数据、回写仓库并自动触发 EdgeOne 重建
 ——构建在哪天跑，页面数据就体现哪天。
 
 ## 功能
 
-- **今日**：代销总可投、开门/暂停统计、每只基金份额卡片 + 近 30 天开门柱状图
+- **今日**：首屏两行总览（开门家数 + 较上一交易日变化 + 更新时间）、按基金家族分组的额度表、
+  每份额 **21 天额度热力**（≤30 / 30–300 / 300–600 / >600 四档橄榄色，暂停空心、未公布斜纹）
   - `/ndx100/` 纳斯达克100（域名 `qdii.liqt91.top`）
   - `/sp500/` 标普500（同一份构建产物里的第二个分站，2026-10-23 上线）
   - `/` 只是跳转垫片：`meta refresh` 到 `/ndx100/`，带 `noindex` 与 canonical，不承载内容
 - **详情** `/f/[code]`：单只基金份额的状态变化记录、历史快照、相关公告（两个指数共用一套路由）
-- **历史** `/ndx100/daily` 与 `/sp500/daily`：交易日历（两个指数通用）+ 最近 15 天每日快照，**按指数各一份**
-  - 两条真路由 + 顶部切换器，不是单页筛选：历史是内容页，`/sp500/daily` 要能直接贴给别人
-  - 旧路径 `/daily` 留了跳转壳
+- **历史**：不是独立路由，是看板页底部的一节（`#history` 锚点）——**周历**：每周一行、七格大格子，
+  过去的交易日直接写额度；休市写原因、缺数据写「未收录」、未来一周由表下一行文字回答
+  - 旧路由 `/ndx100/daily`、`/sp500/daily`、`/daily` 都是 `meta refresh` 跳转壳（跳到对应看板的
+    `#history`）。2026-10-25「每日快照」账本被周历取代，历史不再有独立内容页
 - **我的基金** `/my`：在浏览器 localStorage 里存基金代码，纯前端过滤展示（不上传，跨两个指数）
   - 按指数分段 + 「全部 / 纳指 / 标普500」**真筛选**（只改本地状态与 URL hash，不换页面）
   - 顶部持仓小结分指数给数、**绝不相加**（两个指数的额度是两件独立的事）
@@ -35,7 +38,8 @@ npm run preview    # 预览构建产物
 
 ## 部署（EdgeOne Pages + GitHub Actions）
 
-整合方案：**发布托管在 EdgeOne Pages（免费、push 触发、自带 CDN），每日调度在 GitHub Actions cron（永久免费）**。
+整合方案：**发布托管在 EdgeOne Pages（免费、push 触发、自带 CDN），每日调度在 EdgeOne schedules
+（`edgeone.json`）→ 边缘函数触发 GitHub Actions 执行**。
 两条免费链路叠加，整站零成本、零腾讯密钥。
 
 ### 1. EdgeOne Pages（一次性）
@@ -62,14 +66,19 @@ npm run preview    # 预览构建产物
    > 2026-10-23 实测：`liqt91.top` 有解析，`ndx` / `sp500` / `qdii` 三个子域当时都没解析——
    > 绑域名是部署的必做步骤，不是可选项。
 
-### 2. GitHub Actions（两个独立 workflow，已内置）
+### 2. 定时触发与 GitHub Actions（两个独立 workflow，已内置）
 
-抓数据与发邮件**故意拆成两个 workflow**，各自调度、各自失败，互不牵连：
+抓数据与发邮件**故意拆成两个 workflow**，各自调度、各自失败，互不牵连。
+
+**定时不在 GitHub**——自带 schedule 实测延迟可达 2h44m（2026-10-20），已弃用。现在由
+`edgeone.json` 的 schedules 在北京时间 **07:50 / 09:40 / 14:30** 触发抓取、**14:45** 触发发信：
+POST 到本站边缘函数 `/api/jobs/dispatch`（payload 带 nonce 防伪造），由它用 GitHub token 调
+`workflow_dispatch` 跑对应 workflow。也可以在 Actions 页手动触发。
 
 | workflow | 时间（北京） | 职责 |
 |---|---|---|
-| `refresh.yml` | 08:00 | `scrape.mjs` 抓今日数据 → 回写 `history.json` / `fund-meta.json` 并 push |
-| `broadcast.yml` | 08:20 | 校验数据是今天的 → 拉订阅名单 → SMTP 群发日报 |
+| `refresh.yml` | 07:50 / 09:40 / 14:30 | 日历自检 → `scrape.mjs` 抓今日数据 → 年费/跟踪误差（非阻断）→ 两项门禁 → 回写 `data/` 并 push |
+| `broadcast.yml` | 14:45 | 校验数据是今天的 → 拉订阅名单 → SMTP 群发收盘前日报（手动触发默认 dry-run） |
 
 为什么拆开：
 - `scrape.mjs` 只用 Node 内置模块，**不需要 `npm ci`**，抓取那一步从 50 秒降到 15 秒级，也少掉「装依赖失败」一整类故障；
@@ -79,8 +88,8 @@ npm run preview    # 预览构建产物
 - **健康门禁联动**：覆盖率 < 90% 时 `scrape.mjs` 以非零码退出，job 中止、不回写、EdgeOne 保留上次好构建。
 - **发信前二次门禁**：`broadcast.yml` 先跑 `scripts/check-freshness.mjs`，要求 `history.json` 最新日期**就是今天**
   且覆盖率达标，否则退出码 2、一封信都不发——宁可当天不发，也不把旧数据当今天推出去。
-- **手动触发**：`broadcast.yml` 的 `Run workflow` 默认 `mode=dry-run`（只打印不发信），确认无误再选 `send`。
-- 回写那次 commit 同时保住了 GitHub 对公开仓库「60 天无活动停用定时任务」的规则，日程不会被静默停。
+- **手动触发**：两个 workflow 都是 `workflow_dispatch`；`broadcast.yml` 的 `Run workflow` 默认
+  `mode=dry-run`（只打印不发信），确认无误再选 `send`。
 
 > 历史部署用的 `scripts/deploy-cos.sh`（coscli + COS）已弃用；如需改回 COS 见 git 历史。
 
@@ -90,7 +99,7 @@ npm run preview    # 预览构建产物
 解析「交易状态 / 单日累计购买上限 / 官方简称」，写入两个文件：
 
 - `data/history.json`：每只基金按天的 `{date, status, limit}`，**追加式累积**（保留 60 天，
-  loader 读取时截 30 天），这就是 30 天柱状图的数据源。
+  loader 读取时截 30 天），这是 21 天额度热力的数据源。
 - `data/fund-meta.json`：每只基金的官方简称。
 
 `src/data/loader.ts` 读取 `funds.json`(目录) + 上面两个文件（+ 可选的 `direct-overrides.json`），
@@ -107,7 +116,7 @@ npm run ci:build                  # 本地：抓取 + 构建一步到位（= scr
 
 ### 历史回填（一次性，`scripts/import-history.mjs`）
 
-`scrape.mjs` 只能从今天起逐日累积，新站上线时 30 天柱状图只有一两根柱子。回填脚本从同套代码的
+`scrape.mjs` 只能从今天起逐日累积，新站上线时热力图只有一两格。回填脚本从同套代码的
 另一个部署（`nasdaq.jaelchen.cn` / `sp500.jaelchen.cn`）的「历史快照」表取近 30 天数据，
 合并进 `data/history.json`。**源站按指数分**，`--index` 决定抓哪个站、写哪些份额，
 两个指数的数据不会互串：
@@ -318,13 +327,22 @@ Map 对未收录的 code 返回 `undefined`，于是 `fund-meta` 里任何别的
 
 ```
 src/
-  data/        数据层：types（schema）、mock（mock 生成器）、loader（数据获取抽象）、dates
+  data/        数据层：types（schema）、loader（数据装配抽象）、trading-days / calendar-facts（交易日历）、mock（兜底）
   layouts/     BaseLayout
-  components/  SiteHeader、Bars（30天柱状图）、FundCard（基金卡片）
-  pages/       index（今日）、f/[code]（详情）、daily（历史）、my（我的基金）、subscribe（订阅）
-public/       logo / favicon / hero 等静态资源
-scripts/      scrape.mjs 抓取、check-freshness.mjs 发信前数据门禁、digest.mjs 日报构建、
-              send.mjs 群发（SMTP）、notify.mjs 管理员自通知（deploy-cos.sh 已弃用）
-edge-functions/api/  subscribe.js 收邮箱入 KV、subscribers.js 供 Actions 拉名单（Bearer 鉴权）
-.github/      workflows/refresh.yml 每日抓取+回写、workflows/broadcast.yml 每日群发（触发 EdgeOne 重建）
+  components/  FamilyCard（家族额度表）、LimitHeat（21 天额度热力）、WeekCal（周历）、
+               JumpPage（跳转垫片）、IndexSwitch、SiteHeader 等
+  pages/       ndx100/、sp500/（各一页看板 + 一页历史跳转壳）、f/[code]（详情）、
+               my（我的基金）、subscribe（订阅）
+public/        logo / favicon / og.png / sw.js（Service Worker）/ webmanifest
+scripts/       scrape.mjs 抓取、fetch-fees / fetch-tracking（年费/跟踪误差）、
+               build-us-calendar（美股日历生成与自检）、import-history / import-limits（历史回填）、
+               digest / send / notify（日报构建/SMTP 群发/站长自通知）、unsub（退订签名）、
+               check-index-isolation / check-broadcast / check-freshness（门禁）、
+               ops-panel（运维面板）、mp-sync / mp-upload 等（小程序发布链）
+edge-functions/api/  subscribe 收邮箱入 KV、confirm 双重确认、subscribers 拉名单（Bearer 鉴权）、
+               unsubscribe 退订、jobs/dispatch + jobs/status（EdgeOne 定时 → GitHub 触发）
+miniprogram/   微信小程序端（只装纳指份额）
+data/          funds.json 目录、history.json / fund-meta.json / fund-fees.json / fund-tracking.json、
+               calendars/（美股/A 股日历产物，refresh.yml 逐日自检）
+.github/       workflows/refresh.yml 抓取+回写、workflows/broadcast.yml 群发（均 workflow_dispatch）
 ```
