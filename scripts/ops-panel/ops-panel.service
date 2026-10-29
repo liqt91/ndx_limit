@@ -1,5 +1,5 @@
 [Unit]
-Description=ndx_limit ops panel (loopback only; access via SSH tunnel)
+Description=qdii_limit ops panel (loopback only; access via SSH tunnel)
 After=network-online.target
 Wants=network-online.target
 

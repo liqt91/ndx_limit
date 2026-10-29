@@ -36,7 +36,7 @@
 set -euo pipefail
 TOKEN_FILE="${GH_DISPATCH_TOKEN_FILE:-/root/.gh_dispatch_token}"
 TOKEN="${GH_DISPATCH_TOKEN:-$(cat "$TOKEN_FILE" 2>/dev/null || true)}"
-REPO="${REPO:-liqt91/ndx_limit}"
+REPO="${REPO:-liqt91/qdii_limit}"
 API="https://api.github.com/repos/$REPO/actions/workflows"
 A_H="Accept: application/vnd.github+json"
 C_H="Content-Type: application/json"

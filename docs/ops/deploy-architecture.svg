@@ -2,7 +2,7 @@
 <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
 <rect x="0" y="0" width="1520" height="920" fill="#ffffff"/>
 <rect x="40.0" y="26.0" width="900.0" height="34.0" fill="#ffffff" stroke="#666666" stroke-width="1.0"/>
-<text x="50.0" y="46.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="22.0" font-weight="400" fill="#1a1a1a">ndx_limit · 部署与运行链路</text>
+<text x="50.0" y="46.2" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="22.0" font-weight="400" fill="#1a1a1a">qdii_limit · 部署与运行链路</text>
 <rect x="40.0" y="62.0" width="900.0" height="22.0" fill="#ffffff" stroke="#666666" stroke-width="1.0"/>
 <text x="50.0" y="74.7" text-anchor="start" font-family="Microsoft YaHei, PingFang SC, Hiragino Sans GB, system-ui, sans-serif" font-size="12.0" font-weight="400" fill="#666666">纳斯达克100 QDII 场外申购额度看板　·　2026-10-21　·　全部 cron 时区 Asia/Shanghai　·　主链路已不依赖自有服务器</text>
 <rect x="40.0" y="140.0" width="210.0" height="248.0" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.0"/>

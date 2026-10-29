@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// ndx_limit 运维面板 —— 聚合「定时触发 → workflow → 数据/站点/订阅」全链路状态，可手动触发。
+// qdii_limit 运维面板 —— 聚合「定时触发 → workflow → 数据/站点/订阅」全链路状态，可手动触发。
 //
 // 安全模型（改代码前先读）：
 //   * 默认只听 127.0.0.1:8780，访问靠 SSH 隧道，不进公网。启动时校验监听地址，
@@ -35,11 +35,11 @@ function readSecret(file, envVar) {
 const CFG = {
   host: process.env.PANEL_HOST || '127.0.0.1',
   port: Number(process.env.PANEL_PORT || 8780),
-  repo: process.env.REPO || 'liqt91/ndx_limit',
+  repo: process.env.REPO || 'liqt91/qdii_limit',
   ghApiBase: (process.env.GH_API_BASE || 'https://api.github.com').replace(/\/+$/, ''),
   rawBase: (
     process.env.RAW_BASE ||
-    `https://raw.githubusercontent.com/${process.env.REPO || 'liqt91/ndx_limit'}/main`
+    `https://raw.githubusercontent.com/${process.env.REPO || 'liqt91/qdii_limit'}/main`
   ).replace(/\/+$/, ''),
   siteOrigin: (process.env.SITE_ORIGIN || 'https://qdii.liqt91.top').replace(/\/+$/, ''),
   // EdgeOne 调度层（2026-10-21 起主触发路径）：status 只读端点 + 手动触发走的
@@ -620,7 +620,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(CFG.port, CFG.host, () => {
-  console.log(`ndx_limit 运维面板：http://${CFG.host}:${CFG.port}（仅限本机/隧道访问，勿暴露公网）`);
+  console.log(`qdii_limit 运维面板：http://${CFG.host}:${CFG.port}（仅限本机/隧道访问，勿暴露公网）`);
   if (!CFG.ghToken) console.warn('提醒：未配置 GH_DISPATCH_TOKEN，workflow 运行状态将不可见');
   if (!CFG.subsToken) console.warn('提醒：未配置 SUBSCRIBERS_TOKEN，订阅数将不可见');
   if (!CFG.eoCronSecret) console.warn('提醒：未配置 EO_CRON_SECRET，手动触发将回退本地 gh-dispatch.sh（依赖服务器 PAT）');
@@ -633,7 +633,7 @@ const PAGE = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ndx_limit 运维面板</title>
+<title>qdii_limit 运维面板</title>
 <style>
 :root{--paper:#faf9f6;--surface:#fffefb;--ink:#14130f;--ink2:#56544b;--ink3:#767366;--rule:#e3e0d6;--rule2:#cfccc0;--ok:#2c6e4f;--warn:#8a6320;--bad:#a33a2f;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -671,7 +671,7 @@ a{color:var(--ink)}
 </head>
 <body>
 <header>
-  <h1>ndx_limit 运维面板</h1>
+  <h1>qdii_limit 运维面板</h1>
   <span class="pill" id="overall">…</span>
   <span class="clock" id="clock"></span>
 </header>

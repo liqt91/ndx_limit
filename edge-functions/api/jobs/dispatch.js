@@ -36,7 +36,7 @@
 // 部署前提（EdgeOne 控制台，一次性，详见 docs/ops/edgeone-迁移.md）：
 //   项目 → 环境变量：
 //     GH_DISPATCH_TOKEN   细粒度 PAT（Actions: write），与服务器 /root/.gh_dispatch_token 同值
-//     GH_REPO              默认 liqt91/ndx_limit
+//     GH_REPO              默认 liqt91/qdii_limit
 //     DISPATCH_NONCE       随机长字符串，必须与仓库 edgeone.json 里 payload.nonce 一致
 //     CRON_SECRET          建议配置；面板/curl 鉴权用，配了才能当天重跑
 //     ALERT_EMAIL          告警收件人（站长邮箱）
@@ -258,7 +258,7 @@ async function callGitHub(env, job, mode, slot) {
   // 否则这里透传会被 GitHub 以 422 拒掉（两处必须一起上线，见迁移文档第五节第 3 项）。
   const inputs = job === 'broadcast' ? { mode, edition: slot } : {};
   const body = Object.keys(inputs).length > 0 ? { ref: 'main', inputs } : { ref: 'main' };
-  const url = `https://api.github.com/repos/${env.GH_REPO || 'liqt91/ndx_limit'}/actions/workflows/${spec.workflow}/dispatches`;
+  const url = `https://api.github.com/repos/${env.GH_REPO || 'liqt91/qdii_limit'}/actions/workflows/${spec.workflow}/dispatches`;
   const res = await fetch(url, {
     method: 'POST',
     headers: {

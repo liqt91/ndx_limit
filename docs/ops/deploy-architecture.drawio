@@ -5,7 +5,7 @@
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
 
-        <mxCell id="t1" value="ndx_limit · 部署与运行链路" style="text;html=1;align=left;verticalAlign=middle;fontSize=22;fontStyle=1;fontColor=#1a1a1a;" vertex="1" parent="1">
+        <mxCell id="t1" value="qdii_limit · 部署与运行链路" style="text;html=1;align=left;verticalAlign=middle;fontSize=22;fontStyle=1;fontColor=#1a1a1a;" vertex="1" parent="1">
           <mxGeometry x="40" y="26" width="900" height="34" as="geometry" />
         </mxCell>
         <mxCell id="t2" value="纳斯达克100 QDII 场外申购额度看板　·　2026-10-21　·　全部 cron 时区 Asia/Shanghai　·　主链路已不依赖自有服务器" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#666666;" vertex="1" parent="1">

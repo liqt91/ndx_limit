@@ -5,7 +5,7 @@
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
 
-        <mxCell id="t1" value="ndx_limit · tick 方案部署图" style="text;html=1;align=left;verticalAlign=middle;fontSize=22;fontStyle=1;fontColor=#1a1a1a;" vertex="1" parent="1">
+        <mxCell id="t1" value="qdii_limit · tick 方案部署图" style="text;html=1;align=left;verticalAlign=middle;fontSize=22;fontStyle=1;fontColor=#1a1a1a;" vertex="1" parent="1">
           <mxGeometry x="40" y="26" width="900" height="34" as="geometry" />
         </mxCell>
         <mxCell id="t2" value="对照 deploy-architecture.drawio：调度表从 4 条写死的 schedule 变成「1 条滴答 + 一张 KV 表」；执行层完全没动" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#666666;" vertex="1" parent="1">

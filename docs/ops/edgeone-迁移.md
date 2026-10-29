@@ -168,7 +168,7 @@ KV 事件流水 `job_events`（≤50 条，最新在前，事件带 `slot`），
 
 1. EdgeOne 控制台 → 项目 → 环境变量，新增：
    - `GH_DISPATCH_TOKEN`：细粒度 PAT（Actions: write），**与服务器 `/root/.gh_dispatch_token` 同值**
-   - `GH_REPO`：`liqt91/ndx_limit`（默认值即此，可省）
+   - `GH_REPO`：`liqt91/qdii_limit`（默认值即此，可省）
    - `DISPATCH_NONCE`：与仓库 `edgeone.json` 里 `payload.nonce` 一致（已生成，见文件）
    - `CRON_SECRET`：自定随机长字符串（面板/curl 用；**不进仓库**）
    - `ALERT_EMAIL`：站长邮箱（告警收件人）

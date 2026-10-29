@@ -89,7 +89,7 @@ function makeReq(body, headers = {}) {
 function makeEnv(over = {}) {
   return {
     GH_DISPATCH_TOKEN: 'ghp_test_token',
-    GH_REPO: 'liqt91/ndx_limit',
+    GH_REPO: 'liqt91/qdii_limit',
     DISPATCH_NONCE: EO_NONCE,
     CRON_SECRET: 'cron-secret-123',
     BREVO_API_KEY: 'brevo-key',

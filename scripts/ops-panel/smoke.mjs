@@ -225,7 +225,7 @@ function runs() {
     conclusion: 'success',
     run_started_at: '2026-10-20T23:55:00Z',
     updated_at: '2026-10-21T00:10:00Z',
-    html_url: `https://github.com/liqt91/ndx_limit/actions/runs/${id}`,
+    html_url: `https://github.com/liqt91/qdii_limit/actions/runs/${id}`,
     name: 'Daily Data Refresh',
   });
   return [mk(3), mk(2), mk(1)];
@@ -233,7 +233,7 @@ function runs() {
 function commit() {
   return {
     commit: { committer: { date: '2026-10-20T23:56:00Z' }, message: `data: daily scrape ${cstToday()}` },
-    html_url: 'https://github.com/liqt91/ndx_limit/commit/deadbeef',
+    html_url: 'https://github.com/liqt91/qdii_limit/commit/deadbeef',
   };
 }
 
@@ -295,7 +295,7 @@ async function main() {
     const page = await fetch(ok.baseUrl + '/');
     const html = await page.text();
     check('GET / 返回 200', page.status === 200, page.status);
-    check('页面含标题', html.includes('ndx_limit 运维面板'));
+    check('页面含标题', html.includes('qdii_limit 运维面板'));
     check('页面含 refresh 按钮', html.includes('立即 refresh'));
     check('页面含真发信按钮', html.includes('broadcast 真发信'));
     check('页面引用 /api/status', html.includes('/api/status'));
