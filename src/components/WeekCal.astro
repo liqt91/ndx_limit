@@ -58,7 +58,6 @@ function fmtAmt(total: number): { n: string; u: string } {
 ---
 
 <div class="wk-head">
-  <span class="wk-head-spacer" aria-hidden="true"></span>
   <div class="wk-head-days">
     <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span>
   </div>
@@ -66,9 +65,6 @@ function fmtAmt(total: number): { n: string; u: string } {
 
 {weeks.map((w) => (
   <div class:list={['wk-row', { 'is-this-week': w.monday === curMonday }]}>
-    <div class="wk-lbl">
-      <b>{w.label.split('–')[0]}<span class="wk-rng">–{w.label.split('–')[1]}</span></b>
-    </div>
     <div class="wk-days">
       {w.days.filter((d) => !d.weekend).map((d) => {
         const isFuture = d.date > today;
@@ -96,7 +92,7 @@ function fmtAmt(total: number): { n: string; u: string } {
             : d.title;
         return (
           <span class={cls.join(' ')} tabindex="0" aria-label={aria}>
-            <span class="wk-dt">{d.day}</span>
+            <span class="wk-dt">{d.date.slice(5, 7)}.{d.date.slice(8, 10)}</span>
             {hasAmt && <span class="wk-amt">{amt!.n}<u>{amt!.u}</u></span>}
             {isGap && <span class="wk-gap">{gapWord}</span>}
             {reason && <span class="wk-reason">{reason}</span>}

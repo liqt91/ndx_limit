@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NDX100 · 一行一条（白底·等宽终端预览）</title>
+<style>
+:root{
+  --paper:#ffffff; --ink:#14130f; --ink-2:#4f4d44; --ink-3:#6b6859;
+  --rule:#e7e8ee; --rule-2:#d4d6df;
+  --ok:#2c6e4f; --stop:#6a6a68; --accent:#1d4f7a;
+  --heat-1:#c7d19c; --heat-2:#aab772; --heat-3:#879848; --heat-4:#505f24;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono","Roboto Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);
+  font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;
+  padding:32px 0 80px;display:flex;justify-content:center}
+.wrap{width:min(880px,92vw)}
+.bar{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--ink-3);
+  display:flex;align-items:center;gap:8px;padding-bottom:14px;border-bottom:1px solid var(--rule)}
+.bar .live{color:var(--ok);display:inline-flex;align-items:center;gap:5px}
+.bar .live i{width:6px;height:6px;border-radius:50%;background:var(--ok);display:inline-block;
+  box-shadow:0 0 0 0 rgba(44,110,79,.5);animation:p 2s infinite}
+@keyframes p{0%{box-shadow:0 0 0 0 rgba(44,110,79,.5)}70%{box-shadow:0 0 0 5px rgba(44,110,79,0)}100%{box-shadow:0 0 0 0 rgba(44,110,79,0)}}
+.bar .sep{color:var(--rule-2)}
+.kick{font-family:var(--mono);font-size:11px;letter-spacing:.18em;color:var(--accent);
+  margin:26px 0 6px;display:flex;align-items:center;gap:7px}
+.kick .tk{font-size:14px;line-height:1}
+h1{font-family:var(--mono);font-weight:600;font-size:22px;letter-spacing:-.01em;color:var(--ink)}
+h1 b{color:var(--accent)}
+.sub{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);margin-top:6px}
+.tbl{width:100%;border-collapse:collapse;margin-top:22px;font-family:var(--mono)}
+.tbl thead th{font-size:10px;letter-spacing:.12em;font-weight:600;color:var(--ink-3);
+  text-align:left;padding:0 10px 9px;border-bottom:1px solid var(--rule-2);white-space:nowrap}
+.tbl tbody tr{border-bottom:1px solid var(--rule);transition:background .12s}
+.tbl tbody tr:hover{background:rgba(20,19,15,.05)}
+.tbl td{padding:11px 10px;vertical-align:middle;font-size:12.5px}
+.c-idx{color:var(--ink-3);width:30px;font-size:11px}
+.c-fund{font-family:var(--sans);color:var(--ink);font-weight:600}
+.c-fund .base{display:block;font-family:var(--mono);font-weight:400;font-size:10.5px;
+  color:var(--ink-3);letter-spacing:.02em;margin-top:1px}
+.c-code{color:var(--ink-3);font-size:11px;white-space:nowrap}
+.c-st{white-space:nowrap}
+.st{display:inline-flex;align-items:center;gap:6px;font-size:11px;letter-spacing:.06em}
+.st .dot{width:7px;height:7px;border-radius:50%;background:var(--ok)}
+.st .ring{width:7px;height:7px;border-radius:50%;border:1.5px solid var(--stop);background:transparent}
+.st-open{color:var(--ok)} .st-stop{color:var(--stop)}
+.c-amt{text-align:right;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;width:96px}
+.c-heat{width:1%;white-space:nowrap}
+.hc{display:inline-block;width:9px;height:9px;margin-right:1px;vertical-align:middle}
+.hc.stop{outline:1px solid var(--stop);outline-offset:-1px;background:transparent}
+.hc.gap{background:repeating-linear-gradient(45deg,var(--rule) 0 2px,transparent 2px 4px)}
+.hc.unk{outline:1px dashed var(--ink-3);outline-offset:-1px;background:transparent}
+.legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:22px;font-family:var(--mono);
+  font-size:10.5px;color:var(--ink-3);align-items:center}
+.legend .it{display:inline-flex;align-items:center;gap:6px}
+.legend .sw{width:11px;height:11px;display:inline-block}
+.note{margin-top:30px;font-family:var(--mono);font-size:10px;color:var(--ink-3);
+  border-top:1px solid var(--rule);padding-top:12px;letter-spacing:.02em}
+</style></head>
+<body><div class="wrap">
+  <div class="bar">
+    <span class="live"><i></i>实时</span>
+    <span class="sep">·</span><span>2026-10-26 09:40 北京</span>
+    <span class="sep">·</span><span>盘前抓取 07:50 / 09:40 / 14:30</span>
+  </div>
+  <div class="kick"><span class="tk">⌐</span> NDX100 · 今日</div>
+  <h1>今天 <b>7</b> 家开门，<b>¥135</b> 可投</h1>
+  <div class="sub">较上个交易日 ▲ 2 家 · 数据更新于今日 09:40</div>
+  <table class="tbl">
+    <thead><tr>
+      <th></th><th>基金</th><th>份额</th><th>状态</th><th style="text-align:right">额度</th><th>21日 热力</th>
+    </tr></thead>
+    <tbody>
+<tr>
+    <td class="c-idx">01</td>
+    <td class="c-fund">宝盈<span class="base">纳斯达克100</span></td>
+    <td class="c-code">019736·A  019737·C</td>
+    <td class="c-st"><span class="st st-open"><b class="dot"></b>可投</span></td>
+    <td class="c-amt" style="color:#c7d19c">¥20</td>
+    <td class="c-heat"><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i></td>
+  </tr>
+<tr>
+    <td class="c-idx">02</td>
+    <td class="c-fund">大成<span class="base">纳斯达克100</span></td>
+    <td class="c-code">000834·A  008971·C</td>
+    <td class="c-st"><span class="st st-open"><b class="dot"></b>可投</span></td>
+    <td class="c-amt" style="color:#c7d19c">¥20</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i></td>
+  </tr>
+<tr>
+    <td class="c-idx">03</td>
+    <td class="c-fund">建信<span class="base">纳斯达克100</span></td>
+    <td class="c-code">539001·A  012752·C  023422·D</td>
+    <td class="c-st"><span class="st st-open"><b class="dot"></b>可投</span></td>
+    <td class="c-amt" style="color:#c7d19c">¥30</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i></td>
+  </tr>
+<tr>
+    <td class="c-idx">04</td>
+    <td class="c-fund">摩根<span class="base">纳斯达克100</span></td>
+    <td class="c-code">019172·A  019173·C</td>
+    <td class="c-st"><span class="st st-open"><b class="dot"></b>可投</span></td>
+    <td class="c-amt" style="color:#c7d19c">¥20</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i></td>
+  </tr>
+<tr>
+    <td class="c-idx">05</td>
+    <td class="c-fund">南方<span class="base">纳斯达克100</span></td>
+    <td class="c-code">016452·A  016453·C  021000·I</td>
+    <td class="c-st"><span class="st st-open"><b class="dot"></b>可投</span></td>
+    <td class="c-amt" style="color:#c7d19c">¥20</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i></td>
+  </tr>
+<tr>
+    <td class="c-idx">06</td>
+    <td class="c-fund">万家<span class="base">纳斯达克100</span></td>
+    <td class="c-code">019441·A  019442·C</td>
+    <td class="c-st"><span class="st st-open"><b class="dot"></b>可投</span></td>
+    <td class="c-amt" style="color:#c7d19c">¥10</td>
+    <td class="c-heat"><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i></td>
+  </tr>
+<tr>
+    <td class="c-idx">07</td>
+    <td class="c-fund">华安<span class="base">纳斯达克100</span></td>
+    <td class="c-code">040046·A  014978·C</td>
+    <td class="c-st"><span class="st st-stop"><b class="ring"></b>暂停</span></td>
+    <td class="c-amt" style="color:var(--stop)">—</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr>
+    <td class="c-idx">08</td>
+    <td class="c-fund">华泰柏瑞<span class="base">纳斯达克100</span></td>
+    <td class="c-code">019524·A  019525·C  022664·I</td>
+    <td class="c-st"><span class="st st-open"><b class="dot"></b>可投</span></td>
+    <td class="c-amt" style="color:#c7d19c">¥15</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc stop"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i></td>
+  </tr>
+<tr>
+    <td class="c-idx">09</td>
+    <td class="c-fund">天弘<span class="base">纳斯达克100</span></td>
+    <td class="c-code">022525·D</td>
+    <td class="c-st"><span class="st st-stop"><b class="ring"></b>暂停</span></td>
+    <td class="c-amt" style="color:var(--stop)">—</td>
+    <td class="c-heat"><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr>
+    <td class="c-idx">10</td>
+    <td class="c-fund">博时<span class="base">纳斯达克100</span></td>
+    <td class="c-code">016055·A  016057·C  024237·I</td>
+    <td class="c-st"><span class="st st-stop"><b class="ring"></b>暂停</span></td>
+    <td class="c-amt" style="color:var(--stop)">—</td>
+    <td class="c-heat"><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr>
+    <td class="c-idx">11</td>
+    <td class="c-fund">广发<span class="base">纳斯达克100</span></td>
+    <td class="c-code">270042·A  006479·C  021778·F</td>
+    <td class="c-st"><span class="st st-stop"><b class="ring"></b>暂停</span></td>
+    <td class="c-amt" style="color:var(--stop)">—</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr>
+    <td class="c-idx">12</td>
+    <td class="c-fund">国泰<span class="base">纳斯达克100</span></td>
+    <td class="c-code">160213·A</td>
+    <td class="c-st"><span class="st st-stop"><b class="ring"></b>暂停</span></td>
+    <td class="c-amt" style="color:var(--stop)">—</td>
+    <td class="c-heat"><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr>
+    <td class="c-idx">13</td>
+    <td class="c-fund">华夏<span class="base">纳斯达克100</span></td>
+    <td class="c-code">015299·A  015300·C</td>
+    <td class="c-st"><span class="st st-stop"><b class="ring"></b>暂停</span></td>
+    <td class="c-amt" style="color:var(--stop)">—</td>
+    <td class="c-heat"><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr>
+    <td class="c-idx">14</td>
+    <td class="c-fund">汇添富<span class="base">纳斯达克100</span></td>
+    <td class="c-code">018966·A  018967·C  021773·E</td>
+    <td class="c-st"><span class="st st-stop"><b class="ring"></b>暂停</span></td>
+    <td class="c-amt" style="color:var(--stop)">—</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr>
+    <td class="c-idx">15</td>
+    <td class="c-fund">嘉实<span class="base">纳斯达克100</span></td>
+    <td class="c-code">016532·A  016533·C  021838·I</td>
+    <td class="c-st"><span class="st st-stop"><b class="ring"></b>暂停</span></td>
+    <td class="c-amt" style="color:var(--stop)">—</td>
+    <td class="c-heat"><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr>
+    <td class="c-idx">16</td>
+    <td class="c-fund">天弘<span class="base">纳斯达克100</span></td>
+    <td class="c-code">018043·A  018044·C</td>
+    <td class="c-st"><span class="st st-stop"><b class="ring"></b>暂停</span></td>
+    <td class="c-amt" style="color:var(--stop)">—</td>
+    <td class="c-heat"><i class="hc" style="background:#aab772"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr>
+    <td class="c-idx">17</td>
+    <td class="c-fund">易方达<span class="base">纳斯达克100</span></td>
+    <td class="c-code">161130·A  012870·C</td>
+    <td class="c-st"><span class="st st-stop"><b class="ring"></b>暂停</span></td>
+    <td class="c-amt" style="color:var(--stop)">—</td>
+    <td class="c-heat"><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr>
+    <td class="c-idx">18</td>
+    <td class="c-fund">招商<span class="base">纳斯达克100</span></td>
+    <td class="c-code">019547·A  019548·C</td>
+    <td class="c-st"><span class="st st-stop"><b class="ring"></b>暂停</span></td>
+    <td class="c-amt" style="color:var(--stop)">—</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+    </tbody>
+  </table>
+  <div class="legend">
+    <span class="it"><b class="dot" style="width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block"></b>可投</span>
+    <span class="it"><b style="width:7px;height:7px;border-radius:50%;border:1.5px solid var(--stop);display:inline-block"></b>暂停</span>
+    <span class="it"><span class="sw" style="background:var(--heat-1)"></span>≤30</span>
+    <span class="it"><span class="sw" style="background:var(--heat-2)"></span>30–300</span>
+    <span class="it"><span class="sw" style="background:var(--heat-3)"></span>300–600</span>
+    <span class="it"><span class="sw" style="background:var(--heat-4)"></span>&gt;600</span>
+    <span class="it"><span class="sw hc stop" style="outline:1px solid var(--stop);outline-offset:-1px"></span>暂停</span>
+  </div>
+  <div class="note">预览 · 白底等宽终端风 · 一行一条（列表式）· 热力色与线上站点锁定值一致 · 非生产代码</div>
+</div></body></html>

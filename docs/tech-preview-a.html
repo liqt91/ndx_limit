@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="zh-CN" data-board="ndx100">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>方向A · 等宽终端风（白底预览）</title>
+<style>
+  :root{
+    --paper:#fcfbf6; --surface:#fff; --ink:#14130f; --ink-2:#4f4d44; --ink-3:#6b6859;
+    --rule:#e7e8ee; --rule-2:#cbcdd6;            /* ★ 方向A：把暖灰发丝线换成冷灰，是唯一的“色”改动 */
+    --ghost:#a9abb6;
+    --ok:#2c6e4f; --warn:#505f24; --stop:#6a6a68;
+    --heat-1:#c7d19c; --heat-2:#aab772; --heat-3:#879848; --heat-4:#505f24;  /* 四档原样抄，不漂移 */
+    --accent:#1d4f7a;                            /* 纳指身份色原样 */
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;
+  }
+  html{color-scheme:light;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+    font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased;}
+
+  /* ── 页眉：代号式，冷灰发丝线收口 ── */
+  .site-head{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--paper) 88%,transparent);
+    backdrop-filter:saturate(120%) blur(8px);border-bottom:1px solid var(--rule);}
+  .site-head-inner{max-width:760px;margin:0 auto;padding:13px 0;display:flex;align-items:center;justify-content:space-between;gap:16px;}
+  .site-brand{display:inline-flex;align-items:center;gap:9px;font-size:15px;font-weight:600;letter-spacing:.02em;color:var(--ink);}
+  .mk{width:18px;height:18px;display:flex;align-items:center;justify-content:center;background:var(--accent);color:var(--paper);border-radius:3px;font-family:var(--mono);font-size:11px;font-weight:700;}
+  .brand-code{font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--ink-3);text-transform:uppercase;}
+  .site-nav{display:flex;align-items:center;gap:18px;}
+  .site-nav a{font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--ink-2);text-decoration:none;}
+  .site-nav a.cur{color:var(--ink);border-bottom:2px solid var(--accent);padding-bottom:2px;}
+  .btn-sub{font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--paper);background:var(--ink);padding:6px 12px;border-radius:2px;}
+
+  /* ── 顶部状态条：方向A唯一的“信号件”，纯几何+等宽 ── */
+  .statusbar{max-width:760px;margin:0 auto;padding:8px 0 0;display:flex;align-items:center;gap:14px;
+    font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;color:var(--ink-3);}
+  .live{display:inline-flex;align-items:center;gap:6px;color:var(--ok);}
+  .live::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--ok);}
+  .statusbar .sep{opacity:.4;}
+  .statusbar .right{margin-left:auto;}
+
+  /* ── 框架：保留两侧虚线竖栏签名 ── */
+  .frame{max-width:880px;margin:0 auto;padding:0 34px;position:relative;}
+  .frame::before,.frame::after{content:"";position:absolute;top:0;bottom:0;width:1px;
+    background-image:repeating-linear-gradient(to bottom,var(--rule) 0 3px,transparent 3px 7px);pointer-events:none;}
+  .frame::before{left:0;} .frame::after{right:0;}
+  .wrap{max-width:760px;margin:0 auto;padding:0 0 64px;}
+
+  /* ── 首屏 ── */
+  .masthead{padding:30px 0 22px;}
+  .kick{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:14px;}
+  .kick .tk{opacity:.55;margin-right:8px;}    /* ⌐ 几何标记 */
+  .mast-lead{font-size:30px;font-weight:700;line-height:1.4;letter-spacing:-.02em;margin:0;}
+  .mast-lead .num{font-family:var(--mono);font-weight:600;font-size:1.06em;letter-spacing:-.03em;white-space:nowrap;}
+  .mast-summary{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 16px;margin:8px 0 0;font-size:14px;color:var(--ink-2);}
+  .mast-summary .num{font-family:var(--mono);font-weight:600;color:var(--ink);}
+  .mast-updated{font-family:var(--mono);margin-left:5px;}
+
+  /* ── 小节头 ── */
+  .sec{display:flex;align-items:center;gap:10px;margin:44px 0 14px;}
+  .sec-i{font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;color:var(--ink-3);border:1px solid var(--rule-2);padding:1px 5px;line-height:1.5;flex:none;}
+  .sec-t{font-size:15.5px;font-weight:700;margin:0;white-space:nowrap;}
+  .sec-line{flex:1;height:1px;background:var(--rule);min-width:12px;}
+  .sec-a{font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--ink-3);white-space:nowrap;}
+
+  /* ── 两列网格 + 家族卡 ── */
+  .grid{list-style:none;margin:0 0 8px;padding:0;border-top:1px solid var(--rule);
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));}
+  .fam{border-bottom:1px solid var(--rule);border-right:1px solid var(--rule);padding:18px 20px 16px;background:transparent;position:relative;}
+  .fam:nth-child(2n){border-right:none;}
+  .fam:hover{background:var(--surface);}
+  /* 卡片右上角几何刻度：方向A的“科技签名”，纯发丝线，不动配色 */
+  .fam::after{content:"";position:absolute;top:10px;right:10px;width:7px;height:7px;
+    border-top:1px solid var(--rule-2);border-right:1px solid var(--rule-2);}
+  .fam-code{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--ink-3);text-transform:uppercase;margin-bottom:3px;}
+  .fam-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;min-height:25px;}
+  .fam-name{flex:1 1 0%;font-size:15px;font-weight:700;color:var(--ink);min-width:0;line-height:1.4;}
+  .fam-right{flex:none;display:flex;flex-direction:row;align-items:baseline;gap:12px;}
+  .fam-big{font-family:var(--mono);font-size:24px;font-weight:600;line-height:1.05;letter-spacing:-.03em;color:var(--ink);}
+  .fam-big .u{font-family:var(--sans);font-size:12px;font-weight:400;color:var(--ink-3);margin-left:3px;}
+  .tag{display:inline-flex;align-items:baseline;gap:6px;font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--ink-2);}
+  .tag::before{content:"";width:5px;height:5px;flex:none;align-self:center;background:currentColor;opacity:.9;}
+  .tag-limit{color:var(--warn);} .tag-ok{color:var(--ok);} .tag-stop{color:var(--stop);}
+  .fam-shares{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:flex-end;
+    column-gap:16px;row-gap:2px;margin:6px 0 0;font-family:var(--mono);font-size:12px;line-height:1.55;color:var(--ink);}
+
+  /* ── 21 天热力：原样四档，正方形 outline ── */
+  .heat{display:flex;gap:3px;margin-top:12px;}
+  .hc{flex:1 1 0;min-width:0;max-width:calc((100% - 60px)/21);aspect-ratio:1/1;position:relative;background:var(--rule);}
+  .hc.l1{background:var(--heat-1);} .hc.l2{background:var(--heat-2);} .hc.l3{background:var(--heat-3);} .hc.l4{background:var(--heat-4);}
+  .hc.off{background:transparent;outline:1px solid var(--rule-2);outline-offset:-1px;}
+  .heat-axis{display:flex;justify-content:space-between;margin-top:9px;font-family:var(--mono);font-size:11.5px;color:var(--ink-3);}
+
+  .sec-extra{display:inline-flex;align-items:center;gap:14px;font-family:var(--mono);font-size:12px;color:var(--ink-3);}
+  .lg{display:inline-block;width:13px;height:13px;vertical-align:middle;margin-right:5px;}
+  .lg.l1{background:var(--heat-1);} .lg.l2{background:var(--heat-2);} .lg.l3{background:var(--heat-3);} .lg.l4{background:var(--heat-4);}
+  .lg.off{background:transparent;border:1px solid var(--rule-2);}
+
+  .foot{max-width:760px;margin:0 auto;padding:22px 0 44px;}
+  .foot-cal{color:var(--ink-3);font-size:12.5px;line-height:1.85;margin:0 0 12px;}
+  .foot-grid{display:grid;grid-template-columns:1fr auto;gap:18px;padding-top:16px;border-top:1px solid var(--rule);}
+  .foot-brand,.foot-icp{font-family:var(--mono);font-size:12px;letter-spacing:.03em;color:var(--ink-3);}
+  .foot-icp{color:var(--ghost);text-align:right;}
+
+  @media (max-width:620px){
+    .frame{padding:0 20px;} .frame::before,.frame::after{display:none;}
+    .grid{grid-template-columns:1fr;} .fam{border-right:none;padding:16px 0 14px;}
+    .mast-lead{font-size:23px;}
+  }
+</style>
+</head>
+<body>
+  <header class="site-head">
+    <div class="site-head-inner">
+      <a class="site-brand" href="/ndx100/">
+        <span class="mk">N</span>
+        <span>QDII 开门日报</span>
+        <span class="brand-code">/ NDX100</span>
+      </a>
+      <nav class="site-nav">
+        <a href="/ndx100/" class="cur">纳指</a>
+        <a href="/sp500/">标普500</a>
+        <a href="/my">我的基金</a>
+        <a href="/subscribe" class="btn-sub">订阅</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="statusbar">
+    <span class="live">LIVE</span>
+    <span class="sep">·</span>
+    <span>2026-10-26 09:40 CST</span>
+    <span class="sep">·</span>
+    <span>盘前抓取 07:50 / 09:40 / 14:30</span>
+    <span class="right">QDII-OTC · 场外申购额度</span>
+  </div>
+
+  <div class="frame">
+    <main class="wrap">
+      <section class="masthead">
+        <div class="kick"><span class="tk">⌐</span>NDX100 · TODAY</div>
+        <h1 class="mast-lead">今天 <span class="num">7</span> 家开门，<span class="num">1,084</span> 元可投</h1>
+        <div class="mast-summary">
+          <span>较上个交易日 <span class="num">+2</span> 家</span>
+          <span>合计可投 <span class="num">+312</span> 元</span>
+          <span class="mast-updated">数据更新于 09:40</span>
+        </div>
+      </section>
+
+      <div class="sec">
+        <span class="sec-i">[01]</span>
+        <h2 class="sec-t">今天能买多少</h2>
+        <span class="sec-line"></span>
+        <span class="sec-a">人民币 / 美元</span>
+      </div>
+
+      <ul class="grid">
+        <li class="fam">
+          <div class="fam-code">NDX100 · 华夏基金</div>
+          <div class="fam-head">
+            <div class="fam-name">华夏纳斯达克100ETF联接(QDII)A</div>
+            <div class="fam-right">
+              <span class="tag tag-limit">限额申购</span>
+              <div class="fam-big">1,084<span class="u">元</span></div>
+            </div>
+          </div>
+          <div class="fam-shares">A类 000834 10元 · C类 006479 10元 · D类 021159 待核验</div>
+          <div class="heat">
+            <span class="hc l1"></span><span class="hc l1"></span><span class="hc l2"></span><span class="hc l3"></span><span class="hc l3"></span><span class="hc l4"></span><span class="hc l4"></span><span class="hc l2"></span><span class="hc l3"></span><span class="hc l4"></span><span class="hc l1"></span><span class="hc l1"></span><span class="hc l2"></span><span class="hc l3"></span><span class="hc l1"></span><span class="hc l1"></span><span class="hc l2"></span><span class="hc l3"></span><span class="hc l1"></span><span class="hc off"></span><span class="hc l2"></span>
+          </div>
+        </li>
+
+        <li class="fam">
+          <div class="fam-code">NDX100 · 易方达</div>
+          <div class="fam-head">
+            <div class="fam-name">易方达纳斯达克100ETF联接(QDII)A</div>
+            <div class="fam-right">
+              <span class="tag tag-ok">开放申购</span>
+              <div class="fam-big">500<span class="u">元</span></div>
+            </div>
+          </div>
+          <div class="fam-shares">A类 012872 500元 · C类 018527 500元</div>
+          <div class="heat">
+            <span class="hc l2"></span><span class="hc l2"></span><span class="hc l1"></span><span class="hc l3"></span><span class="hc l4"></span><span class="hc l4"></span><span class="hc l3"></span><span class="hc l2"></span><span class="hc l1"></span><span class="hc l1"></span><span class="hc l2"></span><span class="hc l3"></span><span class="hc l4"></span><span class="hc l4"></span><span class="hc l3"></span><span class="hc l2"></span><span class="hc l1"></span><span class="hc l1"></span><span class="hc l2"></span><span class="hc off"></span><span class="hc l3"></span>
+          </div>
+        </li>
+
+        <li class="fam">
+          <div class="fam-code">NDX100 · 华安</div>
+          <div class="fam-head">
+            <div class="fam-name">华安纳斯达克100ETF联接(QDII)A</div>
+            <div class="fam-right">
+              <span class="tag tag-stop">暂停申购</span>
+            </div>
+          </div>
+          <div class="fam-shares">A类 040046 0元 · C类 014978 0元</div>
+          <div class="heat">
+            <span class="hc l1"></span><span class="hc l2"></span><span class="hc l3"></span><span class="hc off"></span><span class="hc off"></span><span class="hc off"></span><span class="hc off"></span><span class="hc l1"></span><span class="hc l2"></span><span class="hc l3"></span><span class="hc off"></span><span class="hc off"></span><span class="hc l1"></span><span class="hc l2"></span><span class="hc l3"></span><span class="hc off"></span><span class="hc off"></span><span class="hc l1"></span><span class="hc l2"></span><span class="hc off"></span><span class="hc l3"></span>
+          </div>
+        </li>
+
+        <li class="fam">
+          <div class="fam-code">NDX100 · 广发</div>
+          <div class="fam-head">
+            <div class="fam-name">广发纳斯达克100ETF联接(QDII)A</div>
+            <div class="fam-right">
+              <span class="tag tag-limit">限额申购</span>
+              <div class="fam-big">300<span class="u">元</span></div>
+            </div>
+          </div>
+          <div class="fam-shares">A类 270042 300元 · C类 006480 300元</div>
+          <div class="heat">
+            <span class="hc l3"></span><span class="hc l3"></span><span class="hc l2"></span><span class="hc l1"></span><span class="hc l4"></span><span class="hc l4"></span><span class="hc l4"></span><span class="hc l3"></span><span class="hc l2"></span><span class="hc l1"></span><span class="hc l1"></span><span class="hc l2"></span><span class="hc l3"></span><span class="hc l4"></span><span class="hc l4"></span><span class="hc l3"></span><span class="hc l2"></span><span class="hc l1"></span><span class="hc l2"></span><span class="hc l3"></span><span class="hc l4"></span>
+          </div>
+        </li>
+      </ul>
+
+      <div class="sec-extra" style="margin-top:14px;">
+        <span class="ramp-legend"><span class="lg l1"></span>≤30</span>
+        <span class="ramp-legend"><span class="lg l2"></span>30–300</span>
+        <span class="ramp-legend"><span class="lg l3"></span>300–600</span>
+        <span class="ramp-legend"><span class="lg l4"></span>&gt;600 元/日</span>
+        <span class="ramp-legend"><span class="lg off"></span>暂停/未公布</span>
+      </div>
+    </main>
+
+    <footer class="foot">
+      <p class="foot-cal">只展示交易日。美股交易日信息来源于节假日规则，规则外休市可能当作交易日展示</p>
+      <p class="foot-cal">只统计场外申购份额（不含场内 ETF）。每天盘前 7:50、早盘 9:40、收盘前 14:30 各抓一次</p>
+      <div class="foot-grid">
+        <div class="foot-brand">© 2026 QDII 开门日报</div>
+        <div class="foot-icp">备案号待补充</div>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

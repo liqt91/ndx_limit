@@ -427,7 +427,7 @@ if (CHECK_DIST) {
           cls: m[1],
           date: dm ? toDate(+dm[1], +dm[2]) : '',
           weekday: dm ? dm[3] : '',
-          day: (body.match(/<span class="wk-dt">(\d+)<\/span>/) || [])[1] || '',
+          day: (body.match(/<span class="wk-dt">([\d.]+)<\/span>/) || [])[1] || '',
           amtN: amt ? amt[1] : null,
           amtU: amt ? amt[2] : null,
           reason: (body.match(/<span class="wk-reason">([^<]*)<\/span>/) || [])[1] || '',
@@ -455,8 +455,8 @@ if (CHECK_DIST) {
       );
       ok(
         `${k} 格子上的日号与 aria-label 一致`,
-        cells.every((c) => +c.day === +c.date.slice(8)),
-        cells.filter((c) => +c.day !== +c.date.slice(8)).slice(0, 3).map((c) => `${c.date} 日号${c.day}`).join(','),
+        cells.every((c) => +c.day.split('.')[1] === +c.date.slice(8)),
+        cells.filter((c) => +c.day.split('.')[1] !== +c.date.slice(8)).slice(0, 3).map((c) => `${c.date} 日期${c.day}`).join(','),
       );
 
       // 日期序列：周内 +1 天、跨行 +3 天（周五→下周一）。列错位、漏排一周都会在这里露出来。
@@ -1169,11 +1169,7 @@ for (const [where, sel, prop] of [
 //   断言共用 --ink-2，改成逐条给期望令牌。
 for (const [where, sel, prop, token] of [
   ['今天那格的描边', '.wk-d.is-today', 'outline', '--ink-2'],
-  ['本周书签', '.wk-row.is-this-week .wk-lbl', 'box-shadow', '--ink'],
-  // 原来这一条是「『本周』二字用 var(--ink-2)」。那两个字已被删除（它是行高的
-  // 第三个来源，见 B4），同一句话改由**周范围的墨深**来说：本周 ink/700、其余 ink-2。
-  // 断言迁到新的落点上——判据没放宽，只是被染色的对象换了。
-  ['本周那一行的周范围', '.wk-lbl b', 'color', '--ink-2'],
+  ['本周书签', '.wk-row.is-this-week', 'border-left', '--ink'],
 ]) {
   ok(
     `${where}用 var(${token})（说的是时间，不是状态；灰＝结构）`,
@@ -1245,12 +1241,8 @@ for (const [where, sel, prop, token] of [
     !/wk-now/.test(wkTpl) && !/\.wk-now/.test(css),
     (wkTpl.match(/wk-now[^\n]*/) || [])[0] || (css.match(/\.wk-now\s*\{[^}]*\}/) || [])[0] || ''
   );
-  // 窄屏只留周一那天：46px 放不下 8 个等宽字符，折行会断成「10.12–」/「16」。
-  ok(
-    '窄屏周标签只留周一日期（后半段 .wk-rng 隐藏）',
-    /<span class="wk-rng">/.test(wkTpl) && /\.wk-rng\s*\{\s*display:\s*none/.test(css),
-    (css.match(/\.wk-rng\s*\{[^}]*\}/g) || []).join(' ')
-  );
+  // 2026-10-28：左侧「周范围」列已移除（日期改写在每格内，MM.DD），.wk-rng 随之消失，
+  // 这条「窄屏只留周一」的断言对象已不存在，移除。本周仍由 border-left 墨书签标记（见 B2）。
 }
 
 // B5. 休市格的底色必须是**中性**的（2026-10-27）。

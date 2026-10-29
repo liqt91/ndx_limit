@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NDX100 · 一份额一行（白底预览）</title>
+<style>
+:root{
+  --paper:#ffffff; --ink:#14130f; --ink-2:#4f4d44; --ink-3:#6b6859;
+  --rule:#e7e8ee; --rule-2:#d4d6df;
+  --ok:#2c6e4f; --stop:#6a6a68; --accent:#1d4f7a;
+  --heat-1:#c7d19c; --heat-2:#aab772; --heat-3:#879848; --heat-4:#505f24;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono","Roboto Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);
+  font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;
+  padding:28px 0 72px;display:flex;justify-content:center}
+.wrap{width:min(760px,94vw)}
+.bar{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--ink-3);
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-bottom:13px;border-bottom:1px solid var(--rule)}
+.bar .live{color:var(--ok);display:inline-flex;align-items:center;gap:5px}
+.bar .live i{width:6px;height:6px;border-radius:50%;background:var(--ok);display:inline-block;
+  box-shadow:0 0 0 0 rgba(44,110,79,.5);animation:p 2s infinite}
+@keyframes p{0%{box-shadow:0 0 0 0 rgba(44,110,79,.5)}70%{box-shadow:0 0 0 5px rgba(44,110,79,0)}100%{box-shadow:0 0 0 0 rgba(44,110,79,0)}}
+.bar .sep{color:var(--rule-2)}
+.kick{font-family:var(--mono);font-size:11px;letter-spacing:.18em;color:var(--accent);
+  margin:24px 0 6px;display:flex;align-items:center;gap:7px}
+.kick .tk{font-size:14px;line-height:1}
+h1{font-family:var(--mono);font-weight:600;font-size:22px;letter-spacing:-.01em;color:var(--ink)}
+h1 b{color:var(--accent)}
+.sub{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);margin-top:6px}
+
+.tbl{width:100%;border-collapse:collapse;margin-top:20px;font-family:var(--mono);table-layout:fixed}
+.tbl thead th{font-size:10px;letter-spacing:.12em;font-weight:600;color:var(--ink-3);
+  text-align:left;padding:0 8px 8px;border-bottom:1px solid var(--rule-2);white-space:nowrap}
+.tbl thead th.num{text-align:right}
+.tbl tbody td{padding:7px 8px;vertical-align:middle;font-size:12.5px;line-height:1.3}
+
+/* 分组：家族首行用深一点的发丝线断开 + 多一点上留白，组内用浅线 */
+tr.grp-start td{border-top:1px solid var(--rule-2);padding-top:11px}
+tr.grp-cont td{border-top:1px solid var(--rule)}
+tr.grp-start:first-child td{border-top:0}
+tr.grp-start:hover td,tr.grp-cont:hover td{background:rgba(20,19,15,.045)}
+
+.c-idx{color:var(--ink-3);font-size:10.5px}
+/* 基金列吸收剩余宽度（不写 width:1%），否则余量会被序号列吃掉，
+   在「01」和基金名之间撑出一大片空白 */
+.c-fund{font-family:var(--sans);color:var(--ink);font-weight:600;white-space:nowrap}
+.c-fund.cont{color:var(--ink-3);font-weight:400}
+.c-code{white-space:nowrap;color:var(--ink-3);font-size:11px}
+.c-code .cls{display:inline-block;min-width:13px;margin-right:6px;text-align:center;
+  font-size:10px;font-weight:600;color:var(--ink-2);letter-spacing:0;
+  border:1px solid var(--rule-2);border-radius:2px;line-height:13px;padding:0 2px}
+.c-amt{text-align:right;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--ink)}
+.c-amt.is-stop{color:var(--ink-3);font-weight:400}
+.c-fy,.c-fb{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--ink-2);font-size:11.5px}
+.c-heat{white-space:nowrap;padding-left:10px}
+.hc{display:inline-block;width:8px;height:8px;margin-right:1px;vertical-align:middle}
+.hc.stop{outline:1px solid var(--stop);outline-offset:-1px;background:transparent}
+.hc.gap{background:repeating-linear-gradient(45deg,var(--rule) 0 2px,transparent 2px 4px)}
+.hc.unk{outline:1px dashed var(--ink-3);outline-offset:-1px;background:transparent}
+
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:20px;font-family:var(--mono);
+  font-size:10.5px;color:var(--ink-3);align-items:center}
+.legend .it{display:inline-flex;align-items:center;gap:5px}
+.legend .sw{width:10px;height:10px;display:inline-block}
+.note{margin-top:26px;font-family:var(--mono);font-size:10px;color:var(--ink-3);
+  border-top:1px solid var(--rule);padding-top:11px;letter-spacing:.02em;line-height:1.9}
+.note b{color:var(--ink-2);font-weight:600}
+
+@media (max-width:900px){
+  .hc{width:7px;height:7px;margin-right:.5px}
+  .c-code{font-size:10px}
+  .c-heat{padding-left:8px}
+  .tbl tbody td{padding:7px 6px}
+}
+
+@media (max-width:700px){
+  .tbl thead{display:none}
+  .tbl,.tbl tbody{display:block}
+  .tbl tbody tr{display:grid;
+    grid-template-columns:20px 1fr auto;
+    grid-template-areas:
+      "idx fund amt"
+      "idx code amt"
+      "idx fee  fee"
+      "idx heat heat";
+    column-gap:8px;row-gap:2px;padding:9px 0}
+  tr.grp-start{border-top:1px solid var(--rule-2)}
+  tr.grp-cont{border-top:1px solid var(--rule)}
+  tr.grp-start:first-child{border-top:0}
+  .tbl tbody td{padding:0;border:0;width:auto}
+  .tbl tbody tr:hover td{background:none}
+  .c-idx{grid-area:idx;align-self:start;padding-top:3px}
+  .c-fund{grid-area:fund}
+
+  .c-code{grid-area:code}
+  .c-amt{grid-area:amt;text-align:right;align-self:center}
+  .c-fy{grid-area:fee;text-align:left}
+  .c-fb{grid-area:fee;text-align:left;margin-left:74px}
+  .c-fy::before{content:'年费 ';color:var(--ink-3);font-size:10px}
+  .c-fb::before{content:'申购 ';color:var(--ink-3);font-size:10px}
+  .c-heat{grid-area:heat;margin-top:4px}
+  .hc{width:9px;height:9px}
+}
+</style></head>
+<body><div class="wrap">
+  <div class="bar">
+    <span class="live"><i></i>实时</span>
+    <span class="sep">·</span><span>2026-10-27 09:40 北京</span>
+    <span class="sep">·</span><span>盘前抓取 07:50 / 09:40 / 14:30</span>
+    <span class="sep">·</span><span>费率抓取 2026-10-27</span>
+  </div>
+  <div class="kick"><span class="tk">⌐</span> NDX100 · 今日</div>
+  <h1>今天 <b>7</b> 家开门，<b>¥135</b> 可投</h1>
+  <div class="sub">18 家 · 41 个份额 · 数据更新于今日 09:40</div>
+
+  <table class="tbl">
+    <colgroup>
+      <col style="width:40px"><col style="width:110px"><col style="width:130px">
+      <col style="width:80px"><col style="width:76px"><col style="width:80px"><col>
+    </colgroup>
+    <thead><tr>
+      <th></th><th>基金</th><th>份额</th>
+      <th class="num">额度</th><th class="num">年费</th><th class="num">申购费</th><th>21日 热力</th>
+    </tr></thead>
+    <tbody>
+<tr class="grp-start" title="A 019736：管理 0.50% + 托管 0.15% + 销售服务 0.00% = 年 0.65%（各渠道相同）；申购 0.12%（原 1.20%，天天基金 1 折）（100 万以下档）">
+    <td class="c-idx">01</td>
+    <td class="c-fund">宝盈</td>
+    <td class="c-code"><b class="cls">A</b>019736</td>
+    <td class="c-amt">¥10</td>
+    <td class="c-fy">0.65%</td>
+    <td class="c-fb">0.12%</td>
+    <td class="c-heat"><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i></td>
+  </tr>
+<tr class="grp-cont" title="C 019737：管理 0.50% + 托管 0.15% + 销售服务 0.25% = 年 0.90%（各渠道相同）；申购 0.00%（100 万以下档）">
+    <td class="c-idx"></td>
+    <td class="c-fund cont">宝盈</td>
+    <td class="c-code"><b class="cls">C</b>019737</td>
+    <td class="c-amt">¥10</td>
+    <td class="c-fy">0.90%</td>
+    <td class="c-fb">0.00%</td>
+    <td class="c-heat"><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i></td>
+  </tr>
+<tr class="grp-start" title="A 000834：管理 0.80% + 托管 0.20% + 销售服务 0.00% = 年 1.00%（各渠道相同）；申购 0.12%（原 1.20%，天天基金 1 折）（100 万以下档）">
+    <td class="c-idx">02</td>
+    <td class="c-fund">大成</td>
+    <td class="c-code"><b class="cls">A</b>000834</td>
+    <td class="c-amt">¥10</td>
+    <td class="c-fy">1.00%</td>
+    <td class="c-fb">0.12%</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i></td>
+  </tr>
+<tr class="grp-cont" title="C 008971：管理 0.80% + 托管 0.20% + 销售服务 0.30% = 年 1.30%（各渠道相同）；申购 0.00%（100 万以下档）">
+    <td class="c-idx"></td>
+    <td class="c-fund cont">大成</td>
+    <td class="c-code"><b class="cls">C</b>008971</td>
+    <td class="c-amt">¥10</td>
+    <td class="c-fy">1.30%</td>
+    <td class="c-fb">0.00%</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i></td>
+  </tr>
+<tr class="grp-start" title="A 539001：管理 0.80% + 托管 0.20% + 销售服务 0.00% = 年 1.00%（各渠道相同）；申购 0.12%（原 1.20%，天天基金 1 折）（100 万以下档）">
+    <td class="c-idx">03</td>
+    <td class="c-fund">建信</td>
+    <td class="c-code"><b class="cls">A</b>539001</td>
+    <td class="c-amt">¥10</td>
+    <td class="c-fy">1.00%</td>
+    <td class="c-fb">0.12%</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i></td>
+  </tr>
+<tr class="grp-cont" title="C 012752：管理 0.80% + 托管 0.20% + 销售服务 0.30% = 年 1.30%（各渠道相同）；申购 0.00%（100 万以下档）">
+    <td class="c-idx"></td>
+    <td class="c-fund cont">建信</td>
+    <td class="c-code"><b class="cls">C</b>012752</td>
+    <td class="c-amt">¥10</td>
+    <td class="c-fy">1.30%</td>
+    <td class="c-fb">0.00%</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i></td>
+  </tr>
+<tr class="grp-cont" title="D 023422：管理 0.80% + 托管 0.20% + 销售服务 0.30% = 年 1.30%（各渠道相同）；申购 0.00%（100 万以下档）">
+    <td class="c-idx"></td>
+    <td class="c-fund cont">建信</td>
+    <td class="c-code"><b class="cls">D</b>023422</td>
+    <td class="c-amt">¥10</td>
+    <td class="c-fy">1.30%</td>
+    <td class="c-fb">0.00%</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i></td>
+  </tr>
+<tr class="grp-start" title="A 019172：管理 0.50% + 托管 0.10% + 销售服务 0.00% = 年 0.60%（各渠道相同）；申购 0.12%（原 1.20%，天天基金 1 折）（100 万以下档）">
+    <td class="c-idx">04</td>
+    <td class="c-fund">摩根</td>
+    <td class="c-code"><b class="cls">A</b>019172</td>
+    <td class="c-amt">¥10</td>
+    <td class="c-fy">0.60%</td>
+    <td class="c-fb">0.12%</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i></td>
+  </tr>
+<tr class="grp-cont" title="C 019173：管理 0.50% + 托管 0.10% + 销售服务 0.30% = 年 0.90%（各渠道相同）；申购 0.00%（100 万以下档）">
+    <td class="c-idx"></td>
+    <td class="c-fund cont">摩根</td>
+    <td class="c-code"><b class="cls">C</b>019173</td>
+    <td class="c-amt">¥10</td>
+    <td class="c-fy">0.90%</td>
+    <td class="c-fb">0.00%</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i></td>
+  </tr>
+<tr class="grp-start" title="A 016452：管理 0.50% + 托管 0.15% + 销售服务 0.00% = 年 0.65%（各渠道相同）；申购 0.12%（原 1.20%，天天基金 1 折）（100 万以下档）">
+    <td class="c-idx">05</td>
+    <td class="c-fund">南方</td>
+    <td class="c-code"><b class="cls">A</b>016452</td>
+    <td class="c-amt">¥10</td>
+    <td class="c-fy">0.65%</td>
+    <td class="c-fb">0.12%</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i></td>
+  </tr>
+<tr class="grp-cont" title="C 016453：管理 0.50% + 托管 0.15% + 销售服务 0.10% = 年 0.75%（各渠道相同）；申购 0.00%（100 万以下档）">
+    <td class="c-idx"></td>
+    <td class="c-fund cont">南方</td>
+    <td class="c-code"><b class="cls">C</b>016453</td>
+    <td class="c-amt">¥10</td>
+    <td class="c-fy">0.75%</td>
+    <td class="c-fb">0.00%</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i></td>
+  </tr>
+<tr class="grp-cont" title="I 021000：管理 0.50% + 托管 0.15% + 销售服务 0.01% = 年 0.66%（各渠道相同）；申购 0.00%（100 万以下档）">
+    <td class="c-idx"></td>
+    <td class="c-fund cont">南方</td>
+    <td class="c-code"><b class="cls">I</b>021000</td>
+    <td class="c-amt is-stop">—</td>
+    <td class="c-fy">0.66%</td>
+    <td class="c-fb">0.00%</td>
+    <td class="c-heat"><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr class="grp-start" title="A 019441：管理 0.50% + 托管 0.15% + 销售服务 0.00% = 年 0.65%（各渠道相同）；申购 0.10%（原 1.00%，天天基金 1 折）（100 万以下档）">
+    <td class="c-idx">06</td>
+    <td class="c-fund">万家</td>
+    <td class="c-code"><b class="cls">A</b>019441</td>
+    <td class="c-amt">¥5</td>
+    <td class="c-fy">0.65%</td>
+    <td class="c-fb">0.10%</td>
+    <td class="c-heat"><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i></td>
+  </tr>
+<tr class="grp-cont" title="C 019442：管理 0.50% + 托管 0.15% + 销售服务 0.20% = 年 0.85%（各渠道相同）；申购 0.00%（100 万以下档）">
+    <td class="c-idx"></td>
+    <td class="c-fund cont">万家</td>
+    <td class="c-code"><b class="cls">C</b>019442</td>
+    <td class="c-amt">¥5</td>
+    <td class="c-fy">0.85%</td>
+    <td class="c-fb">0.00%</td>
+    <td class="c-heat"><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i></td>
+  </tr>
+<tr class="grp-start" title="A 040046：管理 0.60% + 托管 0.20% + 销售服务 0.00% = 年 0.80%（各渠道相同）；申购 0.12%（原 1.20%，天天基金 1 折）（100 万以下档）">
+    <td class="c-idx">07</td>
+    <td class="c-fund">华安</td>
+    <td class="c-code"><b class="cls">A</b>040046</td>
+    <td class="c-amt is-stop">—</td>
+    <td class="c-fy">0.80%</td>
+    <td class="c-fb">0.12%</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr class="grp-cont" title="C 014978：管理 0.60% + 托管 0.20% + 销售服务 0.20% = 年 1.00%（各渠道相同）；申购 0.00%（100 万以下档）">
+    <td class="c-idx"></td>
+    <td class="c-fund cont">华安</td>
+    <td class="c-code"><b class="cls">C</b>014978</td>
+    <td class="c-amt is-stop">—</td>
+    <td class="c-fy">1.00%</td>
+    <td class="c-fb">0.00%</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr class="grp-start" title="A 019524：管理 0.50% + 托管 0.15% + 销售服务 0.00% = 年 0.65%（各渠道相同）；申购 0.12%（原 1.20%，天天基金 1 折）（100 万以下档）">
+    <td class="c-idx">08</td>
+    <td class="c-fund">华泰柏瑞</td>
+    <td class="c-code"><b class="cls">A</b>019524</td>
+    <td class="c-amt">¥5</td>
+    <td class="c-fy">0.65%</td>
+    <td class="c-fb">0.12%</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc stop"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i></td>
+  </tr>
+<tr class="grp-cont" title="C 019525：管理 0.50% + 托管 0.15% + 销售服务 0.25% = 年 0.90%（各渠道相同）；申购 0.00%（100 万以下档）">
+    <td class="c-idx"></td>
+    <td class="c-fund cont">华泰柏瑞</td>
+    <td class="c-code"><b class="cls">C</b>019525</td>
+    <td class="c-amt">¥5</td>
+    <td class="c-fy">0.90%</td>
+    <td class="c-fb">0.00%</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc stop"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i></td>
+  </tr>
+<tr class="grp-cont" title="I 022664：管理 0.50% + 托管 0.15% + 销售服务 0.10% = 年 0.75%（各渠道相同）；申购 0.00%（100 万以下档）">
+    <td class="c-idx"></td>
+    <td class="c-fund cont">华泰柏瑞</td>
+    <td class="c-code"><b class="cls">I</b>022664</td>
+    <td class="c-amt">¥5</td>
+    <td class="c-fy">0.75%</td>
+    <td class="c-fb">0.00%</td>
+    <td class="c-heat"><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i></td>
+  </tr>
+<tr class="grp-start" title="D 022525：管理 0.50% + 托管 0.10% + 销售服务 0.20% = 年 0.80%（各渠道相同）；申购 0.00%（100 万以下档）">
+    <td class="c-idx">09</td>
+    <td class="c-fund">天弘</td>
+    <td class="c-code"><b class="cls">D</b>022525</td>
+    <td class="c-amt is-stop">—</td>
+    <td class="c-fy">0.80%</td>
+    <td class="c-fb">0.00%</td>
+    <td class="c-heat"><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr class="grp-start" title="A 016055：管理 0.50% + 托管 0.15% + 销售服务 0.00% = 年 0.65%（各渠道相同）；申购 0.10%（原 1.00%，天天基金 1 折）（100 万以下档）">
+    <td class="c-idx">10</td>
+    <td class="c-fund">博时</td>
+    <td class="c-code"><b class="cls">A</b>016055</td>
+    <td class="c-amt is-stop">—</td>
+    <td class="c-fy">0.65%</td>
+    <td class="c-fb">0.10%</td>
+    <td class="c-heat"><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr class="grp-cont" title="C 016057：管理 0.50% + 托管 0.15% + 销售服务 0.30% = 年 0.95%（各渠道相同）；申购 0.00%（100 万以下档）">
+    <td class="c-idx"></td>
+    <td class="c-fund cont">博时</td>
+    <td class="c-code"><b class="cls">C</b>016057</td>
+    <td class="c-amt is-stop">—</td>
+    <td class="c-fy">0.95%</td>
+    <td class="c-fb">0.00%</td>
+    <td class="c-heat"><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr class="grp-cont" title="I 024237：管理 0.50% + 托管 0.15% + 销售服务 0.15% = 年 0.80%（各渠道相同）；申购 0.00%（100 万以下档）">
+    <td class="c-idx"></td>
+    <td class="c-fund cont">博时</td>
+    <td class="c-code"><b class="cls">I</b>024237</td>
+    <td class="c-amt is-stop">—</td>
+    <td class="c-fy">0.80%</td>
+    <td class="c-fb">0.00%</td>
+    <td class="c-heat"><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr class="grp-start" title="A 270042：管理 0.80% + 托管 0.20% + 销售服务 0.00% = 年 1.00%（各渠道相同）；申购 0.13%（原 1.30%，天天基金 1 折）（100 万以下档）">
+    <td class="c-idx">11</td>
+    <td class="c-fund">广发</td>
+    <td class="c-code"><b class="cls">A</b>270042</td>
+    <td class="c-amt is-stop">—</td>
+    <td class="c-fy">1.00%</td>
+    <td class="c-fb">0.13%</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr class="grp-cont" title="C 006479：管理 0.80% + 托管 0.20% + 销售服务 0.20% = 年 1.20%（各渠道相同）；申购 0.00%（100 万以下档）">
+    <td class="c-idx"></td>
+    <td class="c-fund cont">广发</td>
+    <td class="c-code"><b class="cls">C</b>006479</td>
+    <td class="c-amt is-stop">—</td>
+    <td class="c-fy">1.20%</td>
+    <td class="c-fb">0.00%</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr class="grp-cont" title="F 021778：管理 0.80% + 托管 0.20% + 销售服务 0.18% = 年 1.18%（各渠道相同）；申购 0.00%（100 万以下档）">
+    <td class="c-idx"></td>
+    <td class="c-fund cont">广发</td>
+    <td class="c-code"><b class="cls">F</b>021778</td>
+    <td class="c-amt is-stop">—</td>
+    <td class="c-fy">1.18%</td>
+    <td class="c-fb">0.00%</td>
+    <td class="c-heat"><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr class="grp-start" title="A 160213：管理 0.80% + 托管 0.20% + 销售服务 — = 年 1.00%（各渠道相同）；申购 0.15%（原 1.50%，天天基金 1 折）（100 万以下档）">
+    <td class="c-idx">12</td>
+    <td class="c-fund">国泰</td>
+    <td class="c-code"><b class="cls">A</b>160213</td>
+    <td class="c-amt is-stop">—</td>
+    <td class="c-fy">1.00%</td>
+    <td class="c-fb">0.15%</td>
+    <td class="c-heat"><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc" style="background:#aab772"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr class="grp-start" title="A 015299：管理 0.60% + 托管 0.20% + 销售服务 0.00% = 年 0.80%（各渠道相同）；申购 0.12%（原 1.20%，天天基金 1 折）（100 万以下档）">
+    <td class="c-idx">13</td>
+    <td class="c-fund">华夏</td>
+    <td class="c-code"><b class="cls">A</b>015299</td>
+    <td class="c-amt is-stop">—</td>
+    <td class="c-fy">0.80%</td>
+    <td class="c-fb">0.12%</td>
+    <td class="c-heat"><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr class="grp-cont" title="C 015300：管理 0.60% + 托管 0.20% + 销售服务 0.30% = 年 1.10%（各渠道相同）；申购 0.00%（100 万以下档）">
+    <td class="c-idx"></td>
+    <td class="c-fund cont">华夏</td>
+    <td class="c-code"><b class="cls">C</b>015300</td>
+    <td class="c-amt is-stop">—</td>
+    <td class="c-fy">1.10%</td>
+    <td class="c-fb">0.00%</td>
+    <td class="c-heat"><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr class="grp-start" title="A 018966：管理 0.50% + 托管 0.15% + 销售服务 0.00% = 年 0.65%（各渠道相同）；申购 0.12%（原 1.20%，天天基金 1 折）（100 万以下档）">
+    <td class="c-idx">14</td>
+    <td class="c-fund">汇添富</td>
+    <td class="c-code"><b class="cls">A</b>018966</td>
+    <td class="c-amt is-stop">—</td>
+    <td class="c-fy">0.65%</td>
+    <td class="c-fb">0.12%</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr class="grp-cont" title="C 018967：管理 0.50% + 托管 0.15% + 销售服务 0.40% = 年 1.05%（各渠道相同）；申购 0.00%（100 万以下档）">
+    <td class="c-idx"></td>
+    <td class="c-fund cont">汇添富</td>
+    <td class="c-code"><b class="cls">C</b>018967</td>
+    <td class="c-amt is-stop">—</td>
+    <td class="c-fy">1.05%</td>
+    <td class="c-fb">0.00%</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr class="grp-cont" title="E 021773：管理 0.50% + 托管 0.15% + 销售服务 0.10% = 年 0.75%（各渠道相同）；申购 0.00%（100 万以下档）">
+    <td class="c-idx"></td>
+    <td class="c-fund cont">汇添富</td>
+    <td class="c-code"><b class="cls">E</b>021773</td>
+    <td class="c-amt is-stop">—</td>
+    <td class="c-fy">0.75%</td>
+    <td class="c-fb">0.00%</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr class="grp-start" title="A 016532：管理 0.50% + 托管 0.10% + 销售服务 0.00% = 年 0.60%（各渠道相同）；申购 0.10%（原 1.00%，天天基金 1 折）（100 万以下档）">
+    <td class="c-idx">15</td>
+    <td class="c-fund">嘉实</td>
+    <td class="c-code"><b class="cls">A</b>016532</td>
+    <td class="c-amt is-stop">—</td>
+    <td class="c-fy">0.60%</td>
+    <td class="c-fb">0.10%</td>
+    <td class="c-heat"><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr class="grp-cont" title="C 016533：管理 0.50% + 托管 0.10% + 销售服务 0.25% = 年 0.85%（各渠道相同）；申购 0.00%（100 万以下档）">
+    <td class="c-idx"></td>
+    <td class="c-fund cont">嘉实</td>
+    <td class="c-code"><b class="cls">C</b>016533</td>
+    <td class="c-amt is-stop">—</td>
+    <td class="c-fy">0.85%</td>
+    <td class="c-fb">0.00%</td>
+    <td class="c-heat"><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr class="grp-cont" title="I 021838：管理 0.50% + 托管 0.10% + 销售服务 0.10% = 年 0.70%（各渠道相同）；申购 0.00%（100 万以下档）">
+    <td class="c-idx"></td>
+    <td class="c-fund cont">嘉实</td>
+    <td class="c-code"><b class="cls">I</b>021838</td>
+    <td class="c-amt is-stop">—</td>
+    <td class="c-fy">0.70%</td>
+    <td class="c-fb">0.00%</td>
+    <td class="c-heat"><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc gap"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr class="grp-start" title="A 018043：管理 0.50% + 托管 0.10% + 销售服务 0.00% = 年 0.60%（各渠道相同）；申购 0.10%（原 1.00%，天天基金 1 折）（100 万以下档）">
+    <td class="c-idx">16</td>
+    <td class="c-fund">天弘</td>
+    <td class="c-code"><b class="cls">A</b>018043</td>
+    <td class="c-amt is-stop">—</td>
+    <td class="c-fy">0.60%</td>
+    <td class="c-fb">0.10%</td>
+    <td class="c-heat"><i class="hc" style="background:#aab772"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr class="grp-cont" title="C 018044：管理 0.50% + 托管 0.10% + 销售服务 0.20% = 年 0.80%（各渠道相同）；申购 0.00%（100 万以下档）">
+    <td class="c-idx"></td>
+    <td class="c-fund cont">天弘</td>
+    <td class="c-code"><b class="cls">C</b>018044</td>
+    <td class="c-amt is-stop">—</td>
+    <td class="c-fy">0.80%</td>
+    <td class="c-fb">0.00%</td>
+    <td class="c-heat"><i class="hc" style="background:#aab772"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr class="grp-start" title="A 161130：管理 0.50% + 托管 0.10% + 销售服务 0.00% = 年 0.60%（各渠道相同）；申购 0.12%（原 1.20%，天天基金 1 折）（100 万以下档）">
+    <td class="c-idx">17</td>
+    <td class="c-fund">易方达</td>
+    <td class="c-code"><b class="cls">A</b>161130</td>
+    <td class="c-amt is-stop">—</td>
+    <td class="c-fy">0.60%</td>
+    <td class="c-fb">0.12%</td>
+    <td class="c-heat"><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr class="grp-cont" title="C 012870：管理 0.50% + 托管 0.10% + 销售服务 0.30% = 年 0.90%（各渠道相同）；申购 0.00%（100 万以下档）">
+    <td class="c-idx"></td>
+    <td class="c-fund cont">易方达</td>
+    <td class="c-code"><b class="cls">C</b>012870</td>
+    <td class="c-amt is-stop">—</td>
+    <td class="c-fy">0.90%</td>
+    <td class="c-fb">0.00%</td>
+    <td class="c-heat"><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr class="grp-start" title="A 019547：管理 0.50% + 托管 0.15% + 销售服务 0.00% = 年 0.65%（各渠道相同）；申购 0.12%（原 1.20%，天天基金 1 折）（100 万以下档）">
+    <td class="c-idx">18</td>
+    <td class="c-fund">招商</td>
+    <td class="c-code"><b class="cls">A</b>019547</td>
+    <td class="c-amt is-stop">—</td>
+    <td class="c-fy">0.65%</td>
+    <td class="c-fb">0.12%</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+<tr class="grp-cont" title="C 019548：管理 0.50% + 托管 0.15% + 销售服务 0.40% = 年 1.05%（各渠道相同）；申购 0.00%（100 万以下档）">
+    <td class="c-idx"></td>
+    <td class="c-fund cont">招商</td>
+    <td class="c-code"><b class="cls">C</b>019548</td>
+    <td class="c-amt is-stop">—</td>
+    <td class="c-fy">1.05%</td>
+    <td class="c-fb">0.00%</td>
+    <td class="c-heat"><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc" style="background:#c7d19c"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i><i class="hc stop"></i></td>
+  </tr>
+    </tbody>
+  </table>
+
+  <div class="legend">
+    <span class="it"><span class="sw" style="background:var(--heat-1)"></span>≤30</span>
+    <span class="it"><span class="sw" style="background:var(--heat-2)"></span>30–300</span>
+    <span class="it"><span class="sw" style="background:var(--heat-3)"></span>300–600</span>
+    <span class="it"><span class="sw" style="background:var(--heat-4)"></span>&gt;600</span>
+    <span class="it"><span class="sw hc stop" style="outline:1px solid var(--stop);outline-offset:-1px"></span>暂停</span>
+    <span class="it"><span class="sw hc gap" style="background:repeating-linear-gradient(45deg,var(--rule) 0 2px,transparent 2px 4px)"></span>不可投</span>
+  </div>
+
+  <div class="note">
+    <b>年费</b> = 管理费 + 托管费 + 销售服务费（每年从基金资产计提）。这是基金合同约定的
+    <b>产品属性</b>，任何渠道都一样。<br>
+    <b>申购费</b> = <b>天天基金</b>实际执行的优惠费率（一次性）。原费率 1.20%，天天基金 1 折 → 0.12%；
+    银行多为 8 折或不打折，属<b>渠道报价</b>而非产品费率。数值只代表「单笔 100 万元以下」这一档，
+    金额更大时费率递减（100–200 万 0.90%、200–500 万 0.60%、≥500 万 每笔 1000 元）。<br>
+    悬停行可看完整拆分。同一家族的 A/C/D 类今日额度相同（基金公司按家族设限），差异只在费率；<br>
+    额度为「—」即今日暂停申购（状态已并入额度列）。新发份额（I/F/E 类）成立前没有记录，
+    热力条前段斜纹标「不可投」——当前数据里斜纹只出现在份额成立之前，中间没有漏抓断点。<br>
+    预览 · 一份额一行 · 费率来自天天基金 F10（2026-10-27 抓取，41/41 成功）· 非生产代码
+  </div>
+</div></body></html>
